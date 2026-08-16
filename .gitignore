@@ -1,0 +1,32 @@
+# JavaScript and app build output
+node_modules/
+.turbo/
+dist/
+dist-ssr/
+.nitro/
+.tanstack/
+.wrangler/
+.output/
+.vinxi/
+*.local
+
+# Python environments, bytecode, and tool caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Local environment files
+.env*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Private source media and generated web releases
+kiana-icloud/
+kiana-web/
