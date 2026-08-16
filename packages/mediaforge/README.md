@@ -9,7 +9,7 @@ browser-ready media release. It leaves the source files unchanged and produces:
 - a `manifest.json` describing every processed asset
 
 Mediaforge can use any compatible source directory. On macOS, it can also export
-an Apple Photos album directly through the optional osxphotos integration.
+an Apple Photos album directly through osxphotos.
 
 ## Requirements
 
@@ -28,12 +28,6 @@ From the repository root, install Mediaforge:
 
 ```bash
 uv sync --package mediaforge
-```
-
-To enable Apple Photos export, include the optional extra:
-
-```bash
-uv sync --package mediaforge --extra apple-photos
 ```
 
 ## Quick start with Apple Photos
@@ -93,7 +87,7 @@ RELEASE=2026-08-16
 SOURCE="kiana-icloud/$RELEASE"
 OUTPUT="kiana-web/releases/$RELEASE"
 
-uv sync --package mediaforge --extra apple-photos
+uv sync --package mediaforge
 caffeinate -i uv run mediaforge apple-photos export "$SOURCE" --album "Kiana"
 
 uv run mediaforge doctor "$SOURCE"
@@ -161,7 +155,7 @@ Options:
   default.
 - `--metadata FILE`: override the metadata output path.
 
-This command is macOS-only and requires the `apple-photos` extra.
+This command is macOS-only.
 
 ### `doctor`
 

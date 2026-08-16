@@ -1,4 +1,4 @@
-"""Optional Apple Photos import adapter powered by osxphotos."""
+"""Apple Photos import adapter powered by osxphotos."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ def require_osxphotos() -> str:
         raise PipelineError("Apple Photos export is only available on macOS")
     executable = shutil.which("osxphotos")
     if not executable:
-        raise PipelineError("osxphotos is not installed; run `uv sync --extra apple-photos`")
+        raise PipelineError("osxphotos is not installed; run `uv sync --package mediaforge`")
     return executable
 
 
