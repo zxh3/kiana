@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
@@ -9,6 +9,7 @@ import { PhotoLayer } from "./photo-layer";
 import { useFramePreference } from "./use-frame-preference";
 import { useGalleryShortcuts } from "./use-gallery-shortcuts";
 import { useSlideshow } from "./use-slideshow";
+import { VideoLayer } from "./video-layer";
 
 export function Gallery({ photos }: { photos: ReadonlyArray<GalleryAsset> }) {
   const [frame, setFrame] = useFramePreference();
@@ -31,6 +32,15 @@ export function Gallery({ photos }: { photos: ReadonlyArray<GalleryAsset> }) {
     );
   const mat = frame === "mat";
   const regularVideo = currentPhoto.type === "video";
+  const previousVideo = previousPhoto.type === "video";
+  const retainedVideo = useRef<GalleryAsset | undefined>(undefined);
+  if (regularVideo) retainedVideo.current = currentPhoto;
+  else if (previousVideo) retainedVideo.current = previousPhoto;
+  const videoDirection = regularVideo
+    ? "enter"
+    : previousVideo
+      ? "exit"
+      : "hidden";
   const updateVideoProgress = useCallback((progress: number) => {
     setVideoProgress(progress);
   }, []);
@@ -47,26 +57,36 @@ export function Gallery({ photos }: { photos: ReadonlyArray<GalleryAsset> }) {
           mat ? "bg-[#e9e2d6]" : "bg-[#17120f]",
         )}
       >
-        <PhotoLayer
-          asset={previousPhoto}
-          direction="exit"
+        {!previousVideo || regularVideo ? (
+          <PhotoLayer
+            asset={previousPhoto}
+            direction="exit"
+            frame={frame}
+            key={previousPhoto.id}
+            muted={muted}
+            transition={transition}
+          />
+        ) : null}
+        <VideoLayer
+          asset={retainedVideo.current}
+          direction={videoDirection}
           frame={frame}
-          key={previousPhoto.id}
+          key="persistent-video"
           muted={muted}
-          onVideoEnded={advance}
-          onVideoProgress={updateVideoProgress}
+          onEnded={advance}
+          onProgress={updateVideoProgress}
           transition={transition}
         />
-        <PhotoLayer
-          asset={currentPhoto}
-          direction="enter"
-          frame={frame}
-          key={currentPhoto.id}
-          muted={muted}
-          onVideoEnded={advance}
-          onVideoProgress={updateVideoProgress}
-          transition={transition}
-        />
+        {!regularVideo ? (
+          <PhotoLayer
+            asset={currentPhoto}
+            direction="enter"
+            frame={frame}
+            key={currentPhoto.id}
+            muted={muted}
+            transition={transition}
+          />
+        ) : null}
 
         <AudioControl mat={mat} muted={muted} onToggle={toggleMuted} />
 
