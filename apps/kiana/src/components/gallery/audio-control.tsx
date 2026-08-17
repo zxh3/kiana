@@ -11,6 +11,7 @@ export function AudioControl({
 }) {
   return (
     <button
+      aria-keyshortcuts="M"
       aria-label={muted ? "Turn sound on" : "Turn sound off"}
       aria-pressed={!muted}
       className={cx(
@@ -20,7 +21,7 @@ export function AudioControl({
           : "border-[rgba(246,240,230,.1)] bg-[rgba(23,18,15,.46)] text-[rgba(246,240,230,.62)] hover:text-[#f6f0e6] focus-visible:ring-[#f6f0e6]",
       )}
       onClick={onToggle}
-      title={muted ? "Sound off" : "Sound on"}
+      title={`${muted ? "Sound off" : "Sound on"} (M)`}
       type="button"
     >
       {muted ? (

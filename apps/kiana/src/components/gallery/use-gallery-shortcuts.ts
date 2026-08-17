@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 import type { Frame } from "./model";
 
-const shortcuts: Record<string, Frame> = {
+const frameShortcuts: Record<string, Frame> = {
   "1": "fill",
   "2": "backdrop",
   "3": "mat",
@@ -16,11 +16,18 @@ function isEditable(target: EventTarget | null) {
   );
 }
 
-export function useFrameShortcuts(onPick: (frame: Frame) => void) {
+export function useGalleryShortcuts({
+  onPickFrame,
+  onToggleMute,
+}: {
+  onPickFrame: (frame: Frame) => void;
+  onToggleMute: () => void;
+}) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
         event.defaultPrevented ||
+        event.repeat ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
@@ -29,14 +36,20 @@ export function useFrameShortcuts(onPick: (frame: Frame) => void) {
         return;
       }
 
-      const frame = shortcuts[event.key];
-      if (!frame) return;
+      const frame = frameShortcuts[event.key];
+      if (frame) {
+        event.preventDefault();
+        onPickFrame(frame);
+        return;
+      }
 
-      event.preventDefault();
-      onPick(frame);
+      if (event.key.toLowerCase() === "m") {
+        event.preventDefault();
+        onToggleMute();
+      }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onPick]);
+  }, [onPickFrame, onToggleMute]);
 }

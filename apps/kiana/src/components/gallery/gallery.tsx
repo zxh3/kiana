@@ -7,14 +7,15 @@ import { FramePicker } from "./frame-picker";
 import { formatPhotoDate, transitionFor } from "./model";
 import { PhotoLayer } from "./photo-layer";
 import { useFramePreference } from "./use-frame-preference";
-import { useFrameShortcuts } from "./use-frame-shortcuts";
+import { useGalleryShortcuts } from "./use-gallery-shortcuts";
 import { useSlideshow } from "./use-slideshow";
 
 export function Gallery({ photos }: { photos: ReadonlyArray<GalleryAsset> }) {
   const [frame, setFrame] = useFramePreference();
   const [muted, setMuted] = useState(true);
   const [videoProgress, setVideoProgress] = useState(0);
-  useFrameShortcuts(setFrame);
+  const toggleMuted = useCallback(() => setMuted((value) => !value), []);
+  useGalleryShortcuts({ onPickFrame: setFrame, onToggleMute: toggleMuted });
   const { advance, index, previousIndex, upcomingIndexes } =
     useSlideshow(photos);
 
@@ -67,11 +68,7 @@ export function Gallery({ photos }: { photos: ReadonlyArray<GalleryAsset> }) {
           transition={transition}
         />
 
-        <AudioControl
-          mat={mat}
-          muted={muted}
-          onToggle={() => setMuted((value) => !value)}
-        />
+        <AudioControl mat={mat} muted={muted} onToggle={toggleMuted} />
 
         <p
           aria-live="polite"
