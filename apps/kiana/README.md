@@ -57,6 +57,9 @@ Restart the development server after changing the environment. The route fetches
 its image paths against the same release URL. A missing or invalid manifest
 fails visibly instead of silently serving stale media.
 
+Gallery-specific curation lives in `src/data/excluded-assets.ts`. Add an asset
+UUID there to keep it out of the gallery across regenerated manifest uploads.
+
 Cloudflare's `r2.dev` URL is suitable for temporary testing but is rate-limited;
 use a custom domain for production traffic and caching.
 

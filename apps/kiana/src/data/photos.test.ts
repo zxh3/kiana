@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { excludedAssetIds } from "./excluded-assets";
 import { parseMediaforgeManifest } from "./photos";
 
 const image = {
@@ -64,5 +65,21 @@ describe("parseMediaforgeManifest", () => {
         "https://media.kiana.me/releases/current",
       ),
     ).toThrow("assets[0].video must be an object");
+  });
+
+  it("filters curated exclusions from regenerated manifests", () => {
+    const [excludedId] = excludedAssetIds;
+    const assets = parseMediaforgeManifest(
+      {
+        schemaVersion: 1,
+        assets: [
+          { id: excludedId, type: "photo", date: null, image },
+          { id: "included", type: "photo", date: null, image },
+        ],
+      },
+      "https://media.kiana.me/releases/current",
+    );
+
+    expect(assets.map(({ id }) => id)).toEqual(["included"]);
   });
 });

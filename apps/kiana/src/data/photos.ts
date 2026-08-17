@@ -1,3 +1,5 @@
+import { excludedAssetIds } from "./excluded-assets";
+
 export type GalleryVideo = {
   src: string;
   width: number;
@@ -137,13 +139,16 @@ export function parseMediaforgeManifest(
     };
   });
 
-  if (photos.length === 0) {
-    throw new Error("Mediaforge manifest does not contain any assets");
-  }
   if (new Set(photos.map((photo) => photo.id)).size !== photos.length) {
     throw new Error("Mediaforge manifest contains duplicate asset IDs");
   }
-  return photos;
+  const includedPhotos = photos.filter(
+    (photo) => !excludedAssetIds.has(photo.id),
+  );
+  if (includedPhotos.length === 0) {
+    throw new Error("Mediaforge manifest does not contain any included assets");
+  }
+  return includedPhotos;
 }
 
 export async function loadGalleryAssets(): Promise<GalleryAsset[]> {
