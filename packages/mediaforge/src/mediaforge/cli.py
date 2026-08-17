@@ -100,6 +100,11 @@ def doctor(source: Path, metadata: Path | None) -> None:
 @click.option("--metadata", type=METADATA, help="Metadata JSON; defaults inside SOURCE.")
 @click.option("--limit", type=click.IntRange(min=1), default=20, show_default=True)
 @click.option(
+    "--force-images",
+    is_flag=True,
+    help="Rebuild images and video posters even when outputs already exist.",
+)
+@click.option(
     "-j",
     "--jobs",
     type=click.IntRange(min=1),
@@ -113,17 +118,30 @@ def sample(
     output: Path,
     metadata: Path | None,
     limit: int,
+    force_images: bool,
     jobs: int,
 ) -> None:
     """Build a representative sample."""
 
-    process_assets(source, output, metadata, limit=limit, jobs=jobs)
+    process_assets(
+        source,
+        output,
+        metadata,
+        limit=limit,
+        jobs=jobs,
+        force_images=force_images,
+    )
 
 
 @main.command()
 @click.argument("source", type=SOURCE)
 @click.argument("output", type=OUTPUT)
 @click.option("--metadata", type=METADATA, help="Metadata JSON; defaults inside SOURCE.")
+@click.option(
+    "--force-images",
+    is_flag=True,
+    help="Rebuild images and video posters even when outputs already exist.",
+)
 @click.option(
     "-j",
     "--jobs",
@@ -133,10 +151,16 @@ def sample(
     help="Number of assets to process concurrently.",
 )
 @handle_pipeline_errors
-def process(source: Path, output: Path, metadata: Path | None, jobs: int) -> None:
+def process(
+    source: Path,
+    output: Path,
+    metadata: Path | None,
+    force_images: bool,
+    jobs: int,
+) -> None:
     """Build or resume a full web release."""
 
-    process_assets(source, output, metadata, jobs=jobs)
+    process_assets(source, output, metadata, jobs=jobs, force_images=force_images)
 
 
 def process_assets(
@@ -146,6 +170,7 @@ def process_assets(
     *,
     limit: int | None = None,
     jobs: int = DEFAULT_JOBS,
+    force_images: bool = False,
 ) -> None:
     output = resolved(output)
     count, failures = build_release(
@@ -154,6 +179,7 @@ def process_assets(
         resolved_metadata(source, metadata),
         limit=limit,
         jobs=jobs,
+        force_images=force_images,
     )
     click.echo(f"Processed {count} assets into {output}")
     if failures:

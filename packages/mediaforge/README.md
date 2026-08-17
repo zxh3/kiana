@@ -13,7 +13,7 @@ an Apple Photos album directly through osxphotos.
 
 ## Requirements
 
-- macOS (image conversion currently uses `sips`)
+- macOS with Xcode Command Line Tools (image conversion uses ImageIO)
 - Python 3.11 or newer
 - [`uv`](https://docs.astral.sh/uv/)
 - `cwebp`, `ffmpeg`, and `ffprobe`
@@ -66,6 +66,9 @@ caffeinate -i uv run mediaforge process \
 Run the same export and process commands when the album changes. Both operations
 are incremental. Processing uses four concurrent jobs by default and performs a
 deep verification before publishing `manifest.json`.
+
+To rebuild responsive images after changing image-processing behavior without
+re-encoding existing videos, add `--force-images` to `sample` or `process`.
 
 ## Kiana release workflow
 
@@ -176,7 +179,7 @@ Run this before starting a long processing job.
 Process a representative mix of photos, videos, and Live Photos:
 
 ```bash
-uv run mediaforge sample SOURCE OUTPUT [--limit INTEGER] [--jobs INTEGER] [--metadata FILE]
+uv run mediaforge sample SOURCE OUTPUT [--limit INTEGER] [--jobs INTEGER] [--force-images] [--metadata FILE]
 ```
 
 The default limit is 20. The default job count is 4, capped by the machine's CPU
@@ -184,17 +187,23 @@ count; use `--jobs 1` for sequential processing. Use the sample to inspect image
 orientation, color, video playback, and output quality before processing the
 full collection.
 
+Use `--force-images` to replace existing WebP images and video posters while
+leaving existing MP4 files unchanged.
+
 ### `process`
 
 Build or resume a complete browser-ready release:
 
 ```bash
-uv run mediaforge process SOURCE OUTPUT [--jobs INTEGER] [--metadata FILE]
+uv run mediaforge process SOURCE OUTPUT [--jobs INTEGER] [--force-images] [--metadata FILE]
 ```
 
 Long runs can be kept awake on macOS with `caffeinate -i`. Up to four assets are
 processed concurrently by default; tune this with `--jobs`. Existing non-empty
 outputs are skipped, so rerunning the command resumes interrupted work.
+
+Use `--force-images` to rebuild all WebP files. This is useful after an image
+codec or orientation fix and does not re-encode existing MP4 files.
 
 If one or more assets fail, Mediaforge continues processing the remaining
 assets, exits unsuccessfully, and writes:

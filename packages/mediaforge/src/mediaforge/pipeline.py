@@ -2,24 +2,29 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
 import tempfile
+import threading
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Any
 
 UUID_RE = re.compile(r"^([0-9A-Fa-f-]{36})(_edited)?\.(heic|jpe?g|png|mov|mp4)$", re.I)
 IMAGE_EXTENSIONS = {".heic", ".jpg", ".jpeg", ".png"}
 VIDEO_EXTENSIONS = {".mov", ".mp4"}
-REQUIRED_TOOLS = ("cwebp", "ffmpeg", "ffprobe", "sips")
+REQUIRED_TOOLS = ("cwebp", "ffmpeg", "ffprobe", "swiftc")
 DEFAULT_JOBS = min(4, os.cpu_count() or 1)
+_NORMALIZER_LOCK = threading.Lock()
+_NORMALIZER_BINARY: Path | None = None
 
 
 class PipelineError(RuntimeError):
@@ -59,6 +64,10 @@ def require_tools() -> None:
     missing = [tool for tool in REQUIRED_TOOLS if not shutil.which(tool)]
     if missing:
         raise PipelineError(f"Missing required tools: {', '.join(missing)}")
+    try:
+        image_normalizer()
+    except subprocess.CalledProcessError as error:
+        raise PipelineError(f"Could not build the ImageIO helper: {error.stderr}") from error
 
 
 def run(command: list[str]) -> None:
@@ -68,6 +77,35 @@ def run(command: list[str]) -> None:
         raise subprocess.CalledProcessError(result.returncode, command, stderr=detail)
 
 
+def image_normalizer() -> Path:
+    """Build and cache the small native helper that applies ImageIO transforms."""
+
+    global _NORMALIZER_BINARY
+    with _NORMALIZER_LOCK:
+        if _NORMALIZER_BINARY and existing(_NORMALIZER_BINARY):
+            return _NORMALIZER_BINARY
+        resource = files("mediaforge").joinpath("image_normalizer.swift")
+        source_bytes = resource.read_bytes()
+        digest = hashlib.sha256(source_bytes).hexdigest()[:12]
+        destination = Path(tempfile.gettempdir()) / f"mediaforge-image-normalizer-{digest}"
+        if not existing(destination):
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=".mediaforge-image-normalizer-",
+                dir=destination.parent,
+            )
+            os.close(descriptor)
+            temporary = Path(temporary_name)
+            temporary.unlink()
+            try:
+                with as_file(resource) as source:
+                    run(["swiftc", "-O", str(source), "-o", str(temporary)])
+                os.replace(temporary, destination)
+            finally:
+                temporary.unlink(missing_ok=True)
+        _NORMALIZER_BINARY = destination
+        return destination
+
+
 def probe(path: Path) -> dict[str, Any]:
     result = subprocess.run(
         [
@@ -75,7 +113,7 @@ def probe(path: Path) -> dict[str, Any]:
             "-v",
             "error",
             "-show_entries",
-            "stream=index,codec_name,codec_type,width,height,pix_fmt:format=duration",
+            "stream=index,codec_name,codec_type,width,height,pix_fmt:stream_tags=rotate:stream_side_data=rotation:format=duration",
             "-of",
             "json",
             str(path),
@@ -109,8 +147,8 @@ def existing(destination: Path) -> bool:
     return destination.is_file() and destination.stat().st_size > 0
 
 
-def make_webp(source: Path, destination: Path, max_edge: int) -> None:
-    if existing(destination):
+def make_webp(source: Path, destination: Path, max_edge: int, *, force: bool = False) -> None:
+    if existing(destination) and not force:
         return
     temporary, commit = atomic_destination(destination)
     try:
@@ -119,15 +157,10 @@ def make_webp(source: Path, destination: Path, max_edge: int) -> None:
             try:
                 run(
                     [
-                        "sips",
-                        "-s",
-                        "format",
-                        "png",
-                        "-Z",
-                        str(max_edge),
+                        str(image_normalizer()),
                         str(source),
-                        "--out",
                         str(intermediate),
+                        str(max_edge),
                     ]
                 )
             except subprocess.CalledProcessError:
@@ -168,8 +201,8 @@ def make_webp(source: Path, destination: Path, max_edge: int) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def make_poster(source: Path, destination: Path, max_edge: int) -> None:
-    if existing(destination):
+def make_poster(source: Path, destination: Path, max_edge: int, *, force: bool = False) -> None:
+    if existing(destination) and not force:
         return
     duration = float(probe(source).get("format", {}).get("duration", 0))
     seek = 0.5 if duration >= 1 else 0
@@ -224,8 +257,10 @@ def make_mp4(source: Path, destination: Path) -> None:
     maps = ["-map", f"0:{video['index']}"] + (["-map", f"0:{audio['index']}"] if audio else [])
     temporary, commit = atomic_destination(destination)
     try:
-        if video.get("codec_name") == "h264" and (
-            audio is None or audio.get("codec_name") == "aac"
+        if (
+            video.get("codec_name") == "h264"
+            and not stream_rotation(video)
+            and (audio is None or audio.get("codec_name") == "aac")
         ):
             run(
                 [
@@ -279,6 +314,17 @@ def make_mp4(source: Path, destination: Path) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def stream_rotation(stream: dict[str, Any]) -> int:
+    """Return a stream's normalized clockwise display rotation."""
+
+    values = [stream.get("tags", {}).get("rotate")]
+    values.extend(item.get("rotation") for item in stream.get("side_data_list", []))
+    for value in values:
+        if value is not None:
+            return round(float(value)) % 360
+    return 0
+
+
 def load_assets(source: Path, metadata_path: Path) -> list[Asset]:
     if not source.is_dir():
         raise PipelineError(f"Source directory not found: {source}")
@@ -316,15 +362,20 @@ def select_sample(assets: list[Asset], limit: int) -> list[Asset]:
     return selected[:limit]
 
 
-def process_asset(asset: Asset, output: Path) -> dict[str, Any]:
+def process_asset(
+    asset: Asset,
+    output: Path,
+    *,
+    force_images: bool = False,
+) -> dict[str, Any]:
     small = output / "images" / f"{asset.uuid}-1280.webp"
     large = output / "images" / f"{asset.uuid}-2400.webp"
     if asset.image:
-        make_webp(asset.image, small, 1280)
-        make_webp(asset.image, large, 2400)
+        make_webp(asset.image, small, 1280, force=force_images)
+        make_webp(asset.image, large, 2400, force=force_images)
     elif asset.video:
-        make_poster(asset.video, small, 1280)
-        make_poster(asset.video, large, 2400)
+        make_poster(asset.video, small, 1280, force=force_images)
+        make_poster(asset.video, large, 2400, force=force_images)
     else:
         raise PipelineError(f"No usable media for {asset.uuid}")
     image_stream = next(stream for stream in probe(large)["streams"] if stream.get("width"))
@@ -372,6 +423,7 @@ def build_release(
     *,
     limit: int | None = None,
     jobs: int = DEFAULT_JOBS,
+    force_images: bool = False,
 ) -> tuple[int, list[dict[str, str]]]:
     if jobs < 1:
         raise PipelineError("Jobs must be at least 1")
@@ -387,7 +439,12 @@ def build_release(
             thread_name_prefix="mediaforge",
         ) as executor:
             futures: dict[Future[dict[str, Any]], tuple[int, Asset]] = {
-                executor.submit(process_asset, asset, output): (index, asset)
+                executor.submit(
+                    process_asset,
+                    asset,
+                    output,
+                    force_images=force_images,
+                ): (index, asset)
                 for index, asset in enumerate(assets)
             }
             for completed, future in enumerate(as_completed(futures), 1):
@@ -461,6 +518,17 @@ def verify_manifest(
                 errors.append(f"Missing or empty: {path}")
         if max(record["image"]["width"], record["image"]["height"]) > 2400:
             errors.append(f"Image exceeds 2400px: {record['id']}")
+        if record.get("video") and record.get("type") == "live_photo":
+            image = record["image"]
+            video = record["video"]
+            image_orientation = (image["width"] > image["height"]) - (
+                image["width"] < image["height"]
+            )
+            video_orientation = (video["width"] > video["height"]) - (
+                video["width"] < video["height"]
+            )
+            if image_orientation and video_orientation and image_orientation != video_orientation:
+                errors.append(f"Live Photo orientation differs: {record['id']}")
         if deep and all(existing(path) for path in paths):
             try:
                 if record.get("video"):

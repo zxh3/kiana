@@ -1,12 +1,32 @@
 from __future__ import annotations
 
+import base64
 import json
+import subprocess
 import threading
 from pathlib import Path
 
 import pytest
 from mediaforge import pipeline
 from mediaforge.pipeline import Asset, load_assets, select_sample, write_json_atomic
+
+ORIENTED_JPEG = (
+    "/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAgESAAMAAAABAAYAAIdpAAQAAAAB"
+    "AAAAJgAAAAAAAqACAAQAAAABAAAAAqADAAQAAAABAAAAAwAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklN"
+    "BAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/8AAEQgAAwACAwEiAAIRAQMRAf/EAB8A"
+    "AAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFB"
+    "BhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldY"
+    "WVp jZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfI"
+    "ycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYH"
+    "CAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy"
+    "0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWG"
+    "h4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz"
+    "9PX29/j5+v/bAEMAAgICAgICAwICAwUDAwMFBgUFBQUGCAYGBgYGCAoICAgICAgKCgoKCgoKCgwMDAwM"
+    "DA4ODg4ODw8PDw8PDw8PD//bAEMBAgICBAQEBwQEBxALCQsQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+    "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEP/dAAQAAf/aAAwDAQACEQMRAD8A+qPAItbLwL4cs4bGz"
+    "aODTbONTJaQSuQsKgFndGdm9WYkk8kk11v2iH/oH2H/AIAWv/xquR8Gf8ifoX/Xha/+ilrpa/tD/iHuQ"
+    "f8AQvo/+Cof/Inz/wBaq/zv7z//2Q=="
+).replace(" ", "")
 
 
 def make_asset(number: int) -> Asset:
@@ -107,6 +127,87 @@ def test_short_video_poster_uses_first_frame(
     assert commands[0][commands[0].index("-ss") + 1] == "0"
 
 
+def test_image_normalizer_applies_embedded_orientation(tmp_path: Path) -> None:
+    source = tmp_path / "oriented.jpg"
+    destination = tmp_path / "normalized.png"
+    source.write_bytes(base64.b64decode(ORIENTED_JPEG))
+
+    subprocess.run(
+        [str(pipeline.image_normalizer()), str(source), str(destination), "100"],
+        check=True,
+    )
+
+    stream = next(item for item in pipeline.probe(destination)["streams"] if item.get("width"))
+    assert (stream["width"], stream["height"]) == (3, 2)
+
+
+def test_webp_falls_back_to_ffmpeg_when_imageio_rejects_jpeg(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "unusual.jpg"
+    destination = tmp_path / "output.webp"
+    source.write_bytes(b"jpeg")
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(pipeline, "image_normalizer", lambda: Path("image-normalizer"))
+
+    def fake_run(command: list[str]) -> None:
+        commands.append(command)
+        if command[0] == "image-normalizer":
+            raise subprocess.CalledProcessError(66, command)
+        Path(command[-1]).write_bytes(b"image")
+
+    monkeypatch.setattr(pipeline, "run", fake_run)
+
+    pipeline.make_webp(source, destination, 1280)
+
+    assert destination.read_bytes() == b"image"
+    assert [command[0] for command in commands] == ["image-normalizer", "ffmpeg", "cwebp"]
+
+
+def test_stream_rotation_reads_display_matrix() -> None:
+    assert pipeline.stream_rotation({"side_data_list": [{"rotation": -90}]}) == 270
+    assert pipeline.stream_rotation({"tags": {"rotate": "180"}}) == 180
+    assert pipeline.stream_rotation({}) == 0
+
+
+def test_verify_rejects_live_photo_orientation_mismatch(tmp_path: Path) -> None:
+    uuid = "00000000-0000-4000-8000-000000000001"
+    paths = [
+        tmp_path / "images" / f"{uuid}-1280.webp",
+        tmp_path / "images" / f"{uuid}-2400.webp",
+        tmp_path / "videos" / f"{uuid}.mp4",
+    ]
+    for path in paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"media")
+    manifest = {
+        "assets": [
+            {
+                "id": uuid,
+                "type": "live_photo",
+                "image": {
+                    "small": f"images/{uuid}-1280.webp",
+                    "large": f"images/{uuid}-2400.webp",
+                    "width": 2400,
+                    "height": 1800,
+                },
+                "video": {
+                    "src": f"videos/{uuid}.mp4",
+                    "width": 1308,
+                    "height": 1744,
+                    "durationMs": 3000,
+                },
+            }
+        ]
+    }
+
+    errors = pipeline.verify_manifest(tmp_path, manifest, expected={uuid})
+
+    assert errors == [f"Live Photo orientation differs: {uuid}"]
+
+
 @pytest.mark.parametrize("processor", ["webp", "poster", "mp4"])
 def test_processors_leave_existing_outputs_unchanged(
     processor: str,
@@ -140,7 +241,12 @@ def test_build_release_processes_assets_concurrently_and_preserves_order(
     second_started = threading.Event()
     verification: dict[str, object] = {}
 
-    def fake_process_asset(asset: Asset, output: Path) -> dict[str, object]:
+    def fake_process_asset(
+        asset: Asset,
+        output: Path,
+        *,
+        force_images: bool,
+    ) -> dict[str, object]:
         if asset == assets[0]:
             assert second_started.wait(timeout=2), "assets did not overlap"
         else:
@@ -187,7 +293,12 @@ def test_build_release_keeps_ordered_partial_results_after_failures(
     output.mkdir()
     (output / "manifest.json").write_text("old manifest")
 
-    def fake_process_asset(asset: Asset, output: Path) -> dict[str, object]:
+    def fake_process_asset(
+        asset: Asset,
+        output: Path,
+        *,
+        force_images: bool,
+    ) -> dict[str, object]:
         if asset.uuid in {assets[0].uuid, assets[2].uuid}:
             raise pipeline.PipelineError(f"failed {asset.uuid}")
         return make_record(asset)
@@ -221,7 +332,11 @@ def test_build_release_only_publishes_manifest_after_verification(
 
     monkeypatch.setattr(pipeline, "require_tools", lambda: None)
     monkeypatch.setattr(pipeline, "load_assets", lambda source, metadata: [asset])
-    monkeypatch.setattr(pipeline, "process_asset", lambda asset, output: make_record(asset))
+    monkeypatch.setattr(
+        pipeline,
+        "process_asset",
+        lambda asset, output, *, force_images: make_record(asset),
+    )
     monkeypatch.setattr(
         pipeline,
         "verify_manifest",

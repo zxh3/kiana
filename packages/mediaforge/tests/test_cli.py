@@ -62,8 +62,16 @@ def test_processing_commands_forward_job_count_and_report_verification(
         *,
         limit: int | None = None,
         jobs: int,
+        force_images: bool,
     ) -> tuple[int, list[dict[str, str]]]:
-        received.update(source=source, output=output, metadata=metadata, limit=limit, jobs=jobs)
+        received.update(
+            source=source,
+            output=output,
+            metadata=metadata,
+            limit=limit,
+            jobs=jobs,
+            force_images=force_images,
+        )
         return 2, []
 
     monkeypatch.setattr(cli, "build_release", fake_build_release)
@@ -79,4 +87,34 @@ def test_processing_commands_forward_job_count_and_report_verification(
     assert result.exit_code == 0
     assert received["jobs"] == 2
     assert received["limit"] == expected_limit
+    assert received["force_images"] is False
     assert f"Verified: {output}" in result.output
+
+
+def test_process_forwards_force_images(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    received: dict[str, object] = {}
+
+    def fake_build_release(
+        source: Path,
+        output: Path,
+        metadata: Path,
+        *,
+        limit: int | None = None,
+        jobs: int,
+        force_images: bool,
+    ) -> tuple[int, list[dict[str, str]]]:
+        received["force_images"] = force_images
+        return 1, []
+
+    monkeypatch.setattr(cli, "build_release", fake_build_release)
+    source = tmp_path / "source"
+    source.mkdir()
+
+    result = runner.invoke(
+        main, ["process", str(source), str(tmp_path / "output"), "--force-images"]
+    )
+
+    assert result.exit_code == 0
+    assert received["force_images"] is True
