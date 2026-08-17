@@ -13,7 +13,7 @@ npm run dev
 ```
 
 Without configuration, the app loads the current release from
-`https://media.kiana.me/releases/2026-08-16`.
+`https://media.kiana.me/releases/current`.
 
 ## Cloudflare R2 media
 
@@ -40,7 +40,7 @@ cp apps/kiana/.env.example apps/kiana/.env.local
 ```
 
 ```dotenv
-VITE_KIANA_MEDIA_BASE_URL=https://media.kiana.me/releases/2026-08-16
+VITE_KIANA_MEDIA_BASE_URL=https://media.kiana.me/releases/current
 ```
 
 Restart the development server after changing the environment. The route fetches

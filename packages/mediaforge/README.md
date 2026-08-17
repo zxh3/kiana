@@ -111,7 +111,7 @@ Keep `kiana-icloud` private. Expose only `kiana-web` through an R2 custom domain
 then point the web app at the uploaded release:
 
 ```dotenv
-VITE_KIANA_MEDIA_BASE_URL=https://media.kiana.me/releases/2026-08-16
+VITE_KIANA_MEDIA_BASE_URL=https://media.kiana.me/releases/current
 ```
 
 ## Source format

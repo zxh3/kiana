@@ -7,7 +7,7 @@ export type GalleryPhoto = {
   height: number;
 };
 
-const DEFAULT_MEDIA_RELEASE_URL = "https://media.kiana.me/releases/2026-08-16";
+const DEFAULT_MEDIA_RELEASE_URL = "https://media.kiana.me/releases/current";
 
 function requiredRecord(
   value: unknown,
