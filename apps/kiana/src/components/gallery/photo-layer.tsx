@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useRef } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
@@ -10,6 +10,8 @@ import {
 } from "./model";
 
 type Direction = "enter" | "exit";
+
+const LIVE_PHOTO_DELAY = TRANSITION_DURATION;
 
 const layerClass =
   "absolute inset-0 z-1 overflow-hidden backface-hidden transition-[opacity,transform,filter] ease-[cubic-bezier(.4,0,.2,1)] will-change-[transform,opacity] motion-reduce:transition-none";
@@ -91,17 +93,32 @@ function MovingPicture({
   onProgress: (progress: number) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [livePhotoPlaying, setLivePhotoPlaying] = useState(false);
   const video = asset.video;
+  const livePhoto = asset.type === "live_photo";
 
   useEffect(() => {
     const element = videoRef.current;
     if (!element) return;
     if (!current) {
       element.pause();
+      if (livePhoto) {
+        element.currentTime = 0;
+        setLivePhotoPlaying(false);
+      }
       return;
     }
-    void element.play().catch(() => undefined);
-  }, [current]);
+
+    if (!livePhoto) {
+      void element.play().catch(() => undefined);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void element.play().catch(() => undefined);
+    }, LIVE_PHOTO_DELAY);
+    return () => window.clearTimeout(timeout);
+  }, [current, livePhoto]);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -124,20 +141,38 @@ function MovingPicture({
     return <Picture asset={asset} className={className} current={current} />;
   }
 
-  return (
+  const movingPicture = (
     <video
-      aria-label={current ? "Kiana video" : undefined}
-      autoPlay={current}
-      className={className}
+      aria-hidden={livePhoto || undefined}
+      aria-label={current && !livePhoto ? "Kiana video" : undefined}
+      autoPlay={current && !livePhoto}
+      className={
+        livePhoto
+          ? cx(
+              "absolute inset-0 size-full object-contain transition-opacity duration-500 ease-out motion-reduce:transition-none",
+              livePhotoPlaying ? "opacity-100" : "opacity-0",
+            )
+          : className
+      }
       disablePictureInPicture
       height={video.height}
-      loop={asset.type === "live_photo"}
       muted={muted}
       onEnded={() => {
+        if (livePhoto) {
+          setLivePhotoPlaying(false);
+          return;
+        }
         if (current && asset.type === "video") onEnded();
       }}
       onError={() => {
+        if (livePhoto) {
+          setLivePhotoPlaying(false);
+          return;
+        }
         if (current && asset.type === "video") onEnded();
+      }}
+      onPlay={() => {
+        if (livePhoto) setLivePhotoPlaying(true);
       }}
       playsInline
       poster={asset.large}
@@ -146,6 +181,15 @@ function MovingPicture({
       src={video.src}
       width={video.width}
     />
+  );
+
+  if (!livePhoto) return movingPicture;
+
+  return (
+    <div className="relative grid place-items-center">
+      <Picture asset={asset} className={className} current={current} />
+      {movingPicture}
+    </div>
   );
 }
 
