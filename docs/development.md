@@ -3,6 +3,8 @@
 Kiana is a small monorepo containing:
 
 - `apps/kiana`: a TanStack Start app styled with Tailwind CSS.
+- `apps/kiana-desktop`: a native macOS menu-bar app that displays the web app
+  as a live desktop wallpaper.
 - `packages/mediaforge`: a Python CLI for preparing photos and videos for the web.
 
 ## Setup
@@ -36,6 +38,12 @@ uv run ruff check .
 uv run ty check packages
 uv run pytest
 ```
+
+The macOS app is an independent Xcode project because it uses AppKit and WebKit
+rather than the JavaScript workspace. Open
+`apps/kiana-desktop/KianaDesktop.xcodeproj` in Xcode to build and run it. See
+[`apps/kiana-desktop/README.md`](../apps/kiana-desktop/README.md) for behavior,
+requirements, and the command-line build command.
 
 Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for
 commit messages. See

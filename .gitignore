@@ -27,6 +27,11 @@ htmlcov/
 # macOS
 .DS_Store
 
+# Xcode
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
 # Private source media and generated web releases
 kiana-icloud/
 kiana-web/
