@@ -15,14 +15,14 @@ export function Gallery({ photos }: { photos: ReadonlyArray<GalleryAsset> }) {
   const [muted, setMuted] = useState(true);
   const [videoProgress, setVideoProgress] = useState(0);
   useFrameShortcuts(setFrame);
-  const { advance, index } = useSlideshow(photos);
+  const { advance, index, previousIndex, upcomingIndexes } =
+    useSlideshow(photos);
 
-  const previousIndex = (index - 1 + photos.length) % photos.length;
   const currentPhoto = photos[index];
   const previousPhoto = photos[previousIndex];
   const transition = transitionFor(frame);
-  const preloads = [1, 2]
-    .map((offset) => photos[(index + offset) % photos.length])
+  const preloads = upcomingIndexes
+    .map((upcomingIndex) => photos[upcomingIndex])
     .filter(
       (photo, index, upcoming) =>
         photo.id !== currentPhoto.id &&
@@ -83,10 +83,7 @@ export function Gallery({ photos }: { photos: ReadonlyArray<GalleryAsset> }) {
           {formatPhotoDate(currentPhoto.date)}
         </p>
 
-        <FramePicker
-          frame={frame}
-          onPick={setFrame}
-        />
+        <FramePicker frame={frame} onPick={setFrame} />
 
         <div
           aria-hidden="true"
