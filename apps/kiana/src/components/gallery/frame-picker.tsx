@@ -1,5 +1,9 @@
+import { type PointerEvent, useEffect, useRef, useState } from "react";
+
 import { cx } from "../../lib/class-names";
 import { type Frame, frames } from "./model";
+
+const TOUCH_VISIBILITY_DURATION = 4_000;
 
 export function FramePicker({
   frame,
@@ -8,11 +12,36 @@ export function FramePicker({
   frame: Frame;
   onPick: (frame: Frame) => void;
 }) {
+  const [touchVisible, setTouchVisible] = useState(false);
+  const hideTimer = useRef<number>(undefined);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(hideTimer.current);
+    },
+    [],
+  );
+
+  const revealForTouch = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse") return;
+
+    window.clearTimeout(hideTimer.current);
+    setTouchVisible(true);
+    hideTimer.current = window.setTimeout(
+      () => setTouchVisible(false),
+      TOUCH_VISIBILITY_DURATION,
+    );
+  };
+
   return (
-    <div className="group/picker absolute bottom-0 left-1/2 z-6 h-[170px] w-[min(100vw,560px)] -translate-x-1/2">
+    <div
+      className="group/picker absolute bottom-0 left-1/2 z-6 h-[170px] w-[min(100vw,560px)] -translate-x-1/2"
+      onPointerDown={revealForTouch}
+    >
       <fieldset
         aria-label="Photo frame"
-        className="pointer-events-none absolute bottom-[76px] left-1/2 m-0 flex -translate-x-1/2 gap-1 rounded-full border border-[rgba(246,240,230,.08)] bg-[rgba(23,18,15,.5)] p-1.5 opacity-0 shadow-[0_12px_36px_rgba(0,0,0,.16)] backdrop-blur-2xl transition-opacity delay-150 duration-850 ease-[cubic-bezier(.22,1,.36,1)] group-hover/picker:pointer-events-auto group-hover/picker:opacity-100 group-hover/picker:delay-0 group-hover/picker:duration-500 group-focus-within/picker:pointer-events-auto group-focus-within/picker:opacity-100 group-focus-within/picker:delay-0 [@media(pointer:coarse)]:pointer-events-auto [@media(pointer:coarse)]:opacity-100 [@media(pointer:coarse)]:delay-0 motion-reduce:transition-none max-sm:bottom-[calc(80px+env(safe-area-inset-bottom))] max-sm:gap-0.5 max-sm:p-[5px]"
+        className="pointer-events-none absolute bottom-[76px] left-1/2 m-0 flex -translate-x-1/2 gap-1 rounded-full border border-[rgba(246,240,230,.08)] bg-[rgba(23,18,15,.5)] p-1.5 opacity-0 shadow-[0_12px_36px_rgba(0,0,0,.16)] backdrop-blur-2xl transition-opacity delay-150 duration-850 ease-[cubic-bezier(.22,1,.36,1)] group-hover/picker:pointer-events-auto group-hover/picker:opacity-100 group-hover/picker:delay-0 group-hover/picker:duration-500 has-[:focus-visible]:pointer-events-auto has-[:focus-visible]:opacity-100 has-[:focus-visible]:delay-0 data-[touch-visible]:pointer-events-auto data-[touch-visible]:opacity-100 data-[touch-visible]:delay-0 motion-reduce:transition-none max-sm:bottom-[calc(80px+env(safe-area-inset-bottom))] max-sm:gap-0.5 max-sm:p-[5px]"
+        data-touch-visible={touchVisible ? "" : undefined}
       >
         {frames.map((option, index) => (
           <button
