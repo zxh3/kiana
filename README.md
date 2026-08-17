@@ -22,6 +22,11 @@ Start the web app at <http://localhost:3000>:
 npm run dev
 ```
 
+The app reads its default processed release from `media.kiana.me`. To test a
+different Cloudflare R2 release, copy `apps/kiana/.env.example` to
+`apps/kiana/.env.local` and override its URL. See
+[`apps/kiana/README.md`](apps/kiana/README.md).
+
 Before committing, run the repository checks:
 
 ```bash

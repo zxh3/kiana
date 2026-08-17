@@ -1,15 +1,30 @@
 @import "tailwindcss";
 
-* {
-  box-sizing: border-box;
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+    overflow: hidden;
+    background: #17120f;
+  }
+
+  body {
+    margin: 0;
+    font-family:
+      "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      monospace;
+  }
+
+  button {
+    font: inherit;
+  }
 }
 
-html,
-body,
-#app {
-  min-height: 100%;
-}
-
-body {
-  margin: 0;
+@keyframes gallery-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }

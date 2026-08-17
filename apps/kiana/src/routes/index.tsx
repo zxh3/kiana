@@ -1,14 +1,26 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/')({ component: Home })
+import { Gallery } from "../components/gallery";
+import { loadGalleryPhotos } from "../data/photos";
+
+export const Route = createFileRoute("/")({
+  loader: loadGalleryPhotos,
+  component: Home,
+});
 
 function Home() {
+  const photos = Route.useLoaderData();
+
   return (
-    <div className="p-8">
-      <h1 className="text-4xl font-bold">Welcome to TanStack Start</h1>
-      <p className="mt-4 text-lg">
-        Edit <code>src/routes/index.tsx</code> to get started.
-      </p>
-    </div>
-  )
+    <ClientOnly
+      fallback={
+        <main
+          aria-label="Kiana photo gallery"
+          className="h-dvh w-screen overflow-hidden bg-[#17120f]"
+        />
+      }
+    >
+      <Gallery photos={photos} />
+    </ClientOnly>
+  );
 }

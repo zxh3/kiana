@@ -105,6 +105,15 @@ rclone check "$SOURCE" "r2:kiana-icloud/$RELEASE" --exclude .osxphotos_export.db
 rclone check "$OUTPUT" "r2:kiana-web/releases/$RELEASE" --one-way --size-only
 ```
 
+Configure the `r2` remote against Cloudflare's S3-compatible endpoint as
+described in the [Cloudflare rclone guide](https://developers.cloudflare.com/r2/examples/rclone/).
+Keep `kiana-icloud` private. Expose only `kiana-web` through an R2 custom domain,
+then point the web app at the uploaded release:
+
+```dotenv
+VITE_KIANA_MEDIA_BASE_URL=https://media.kiana.me/releases/2026-08-16
+```
+
 ## Source format
 
 Mediaforge groups related files by Apple Photos UUID. Supported filenames are:

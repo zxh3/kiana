@@ -1,21 +1,21 @@
 {
-	"name": "kiana",
-	"private": true,
-	"scripts": {
-		"build": "turbo run build",
-		"check": "biome check .",
-		"check:fix": "biome check --write .",
-		"dev": "turbo run dev",
-		"format": "biome format --write .",
-		"lint": "biome lint ."
-	},
-	"workspaces": [
-		"apps/*",
-		"packages/*"
-	],
-	"devDependencies": {
-		"@biomejs/biome": "2.5.8",
-		"turbo": "^2.10.10"
-	},
-	"packageManager": "npm@11.5.1"
+  "name": "kiana",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "dev": "turbo run dev",
+    "format": "biome format --write .",
+    "lint": "biome lint ."
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@biomejs/biome": "2.5.8",
+    "turbo": "^2.10.10"
+  },
+  "packageManager": "npm@11.5.1"
 }
