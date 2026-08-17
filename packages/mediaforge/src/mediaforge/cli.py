@@ -10,7 +10,7 @@ from typing import ParamSpec, TypeVar
 import click
 
 from .apple_photos import DEFAULT_METADATA_NAME, export_album
-from .pipeline import PipelineError, build_release, require_tools, verify_release
+from .pipeline import DEFAULT_JOBS, PipelineError, build_release, require_tools, verify_release
 
 SOURCE = click.Path(path_type=Path, file_okay=False)
 OUTPUT = click.Path(path_type=Path, file_okay=False)
@@ -99,22 +99,44 @@ def doctor(source: Path, metadata: Path | None) -> None:
 @click.argument("output", type=OUTPUT)
 @click.option("--metadata", type=METADATA, help="Metadata JSON; defaults inside SOURCE.")
 @click.option("--limit", type=click.IntRange(min=1), default=20, show_default=True)
+@click.option(
+    "-j",
+    "--jobs",
+    type=click.IntRange(min=1),
+    default=DEFAULT_JOBS,
+    show_default=True,
+    help="Number of assets to process concurrently.",
+)
 @handle_pipeline_errors
-def sample(source: Path, output: Path, metadata: Path | None, limit: int) -> None:
+def sample(
+    source: Path,
+    output: Path,
+    metadata: Path | None,
+    limit: int,
+    jobs: int,
+) -> None:
     """Build a representative sample."""
 
-    process_assets(source, output, metadata, limit=limit)
+    process_assets(source, output, metadata, limit=limit, jobs=jobs)
 
 
 @main.command()
 @click.argument("source", type=SOURCE)
 @click.argument("output", type=OUTPUT)
 @click.option("--metadata", type=METADATA, help="Metadata JSON; defaults inside SOURCE.")
+@click.option(
+    "-j",
+    "--jobs",
+    type=click.IntRange(min=1),
+    default=DEFAULT_JOBS,
+    show_default=True,
+    help="Number of assets to process concurrently.",
+)
 @handle_pipeline_errors
-def process(source: Path, output: Path, metadata: Path | None) -> None:
+def process(source: Path, output: Path, metadata: Path | None, jobs: int) -> None:
     """Build or resume a full web release."""
 
-    process_assets(source, output, metadata)
+    process_assets(source, output, metadata, jobs=jobs)
 
 
 def process_assets(
@@ -123,6 +145,7 @@ def process_assets(
     metadata: Path | None,
     *,
     limit: int | None = None,
+    jobs: int = DEFAULT_JOBS,
 ) -> None:
     output = resolved(output)
     count, failures = build_release(
@@ -130,11 +153,13 @@ def process_assets(
         output,
         resolved_metadata(source, metadata),
         limit=limit,
+        jobs=jobs,
     )
     click.echo(f"Processed {count} assets into {output}")
     if failures:
-        click.echo(f"Failed assets: {len(failures)} (see errors.json)", err=True)
+        click.echo(f"Failures: {len(failures)} (see errors.json)", err=True)
         raise click.exceptions.Exit(1)
+    click.echo(f"Verified: {output}")
 
 
 @main.command()

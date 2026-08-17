@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ UUID_RE = re.compile(r"^([0-9A-Fa-f-]{36})(_edited)?\.(heic|jpe?g|png|mov|mp4)$"
 IMAGE_EXTENSIONS = {".heic", ".jpg", ".jpeg", ".png"}
 VIDEO_EXTENSIONS = {".mov", ".mp4"}
 REQUIRED_TOOLS = ("cwebp", "ffmpeg", "ffprobe", "sips")
+DEFAULT_JOBS = min(4, os.cpu_count() or 1)
 
 
 class PipelineError(RuntimeError):
@@ -364,49 +366,86 @@ def write_json_atomic(path: Path, value: Any) -> None:
 
 
 def build_release(
-    source: Path, output: Path, metadata: Path, *, limit: int | None = None
+    source: Path,
+    output: Path,
+    metadata: Path,
+    *,
+    limit: int | None = None,
+    jobs: int = DEFAULT_JOBS,
 ) -> tuple[int, list[dict[str, str]]]:
+    if jobs < 1:
+        raise PipelineError("Jobs must be at least 1")
     require_tools()
     assets = load_assets(source, metadata)
     if limit is not None:
         assets = select_sample(assets, limit)
-    records: list[dict[str, Any]] = []
-    failures: list[dict[str, str]] = []
-    for index, asset in enumerate(assets, 1):
-        print(f"[{index}/{len(assets)}] {asset.kind}: {asset.uuid}", flush=True)
-        try:
-            records.append(process_asset(asset, output))
-        except Exception as error:  # Continue so one unusual asset cannot waste a long run.
-            message = (
-                error.stderr
-                if isinstance(error, subprocess.CalledProcessError) and error.stderr
-                else str(error)
-            )
-            failures.append({"id": asset.uuid, "error": message})
-            print(f"ERROR {asset.uuid}: {message}", flush=True)
+    records_by_index: list[dict[str, Any] | None] = [None] * len(assets)
+    failures_by_index: list[dict[str, str] | None] = [None] * len(assets)
+    if assets:
+        with ThreadPoolExecutor(
+            max_workers=min(jobs, len(assets)),
+            thread_name_prefix="mediaforge",
+        ) as executor:
+            futures: dict[Future[dict[str, Any]], tuple[int, Asset]] = {
+                executor.submit(process_asset, asset, output): (index, asset)
+                for index, asset in enumerate(assets)
+            }
+            for completed, future in enumerate(as_completed(futures), 1):
+                index, asset = futures[future]
+                try:
+                    records_by_index[index] = future.result()
+                    print(
+                        f"[{completed}/{len(assets)}] {asset.kind}: {asset.uuid}",
+                        flush=True,
+                    )
+                except Exception as error:
+                    # Continue so one unusual asset cannot waste a long run.
+                    message = (
+                        error.stderr
+                        if isinstance(error, subprocess.CalledProcessError) and error.stderr
+                        else str(error)
+                    )
+                    failures_by_index[index] = {"id": asset.uuid, "error": message}
+                    print(
+                        f"[{completed}/{len(assets)}] ERROR {asset.uuid}: {message}",
+                        flush=True,
+                    )
+    records = [record for record in records_by_index if record is not None]
+    failures = [failure for failure in failures_by_index if failure is not None]
     manifest = {
         "schemaVersion": 1,
         "revision": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source": source.as_posix(),
         "assets": records,
     }
-    manifest_name = "manifest.partial.json" if failures else "manifest.json"
-    write_json_atomic(output / manifest_name, manifest)
+    partial_manifest = output / "manifest.partial.json"
+    final_manifest = output / "manifest.json"
+    write_json_atomic(partial_manifest, manifest)
+    if not failures:
+        verification_errors = verify_manifest(
+            output,
+            manifest,
+            expected={asset.uuid for asset in assets},
+            deep=True,
+        )
+        failures.extend({"id": "verification", "error": error} for error in verification_errors)
     if failures:
         write_json_atomic(output / "errors.json", failures)
+        final_manifest.unlink(missing_ok=True)
     else:
-        (output / "manifest.partial.json").unlink(missing_ok=True)
+        os.replace(partial_manifest, final_manifest)
         (output / "errors.json").unlink(missing_ok=True)
     return len(records), failures
 
 
-def verify_release(source: Path, output: Path, metadata: Path, *, deep: bool = False) -> list[str]:
+def verify_manifest(
+    output: Path,
+    manifest: dict[str, Any],
+    *,
+    expected: set[str],
+    deep: bool = False,
+) -> list[str]:
     errors: list[str] = []
-    manifest_path = output / "manifest.json"
-    if not manifest_path.is_file():
-        return [f"Missing manifest: {manifest_path}"]
-    manifest = json.loads(manifest_path.read_text())
-    expected = {asset.uuid for asset in load_assets(source, metadata)}
     records = manifest.get("assets", [])
     actual = {record.get("id") for record in records}
     if expected != actual:
@@ -435,3 +474,12 @@ def verify_release(source: Path, output: Path, metadata: Path, *, deep: bool = F
             except Exception as error:
                 errors.append(f"Cannot decode {record['id']}: {error}")
     return errors
+
+
+def verify_release(source: Path, output: Path, metadata: Path, *, deep: bool = False) -> list[str]:
+    manifest_path = output / "manifest.json"
+    if not manifest_path.is_file():
+        return [f"Missing manifest: {manifest_path}"]
+    manifest = json.loads(manifest_path.read_text())
+    expected = {asset.uuid for asset in load_assets(source, metadata)}
+    return verify_manifest(output, manifest, expected=expected, deep=deep)

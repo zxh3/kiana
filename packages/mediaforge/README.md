@@ -61,15 +61,11 @@ uv run mediaforge sample \
 caffeinate -i uv run mediaforge process \
   originals/2026-08-16 \
   web/releases/2026-08-16
-
-uv run mediaforge verify \
-  originals/2026-08-16 \
-  web/releases/2026-08-16 \
-  --deep
 ```
 
 Run the same export and process commands when the album changes. Both operations
-are incremental.
+are incremental. Processing uses four concurrent jobs by default and performs a
+deep verification before publishing `manifest.json`.
 
 ## Kiana release workflow
 
@@ -93,7 +89,6 @@ caffeinate -i uv run mediaforge apple-photos export "$SOURCE" --album "Kiana"
 uv run mediaforge doctor "$SOURCE"
 uv run mediaforge sample "$SOURCE" "kiana-web/sample"
 caffeinate -i uv run mediaforge process "$SOURCE" "$OUTPUT"
-uv run mediaforge verify "$SOURCE" "$OUTPUT" --deep
 ```
 
 Export and processing are incremental, so rerun the same commands after the
@@ -172,31 +167,36 @@ Run this before starting a long processing job.
 Process a representative mix of photos, videos, and Live Photos:
 
 ```bash
-uv run mediaforge sample SOURCE OUTPUT [--limit INTEGER] [--metadata FILE]
+uv run mediaforge sample SOURCE OUTPUT [--limit INTEGER] [--jobs INTEGER] [--metadata FILE]
 ```
 
-The default limit is 20. Use the sample to inspect image orientation, color,
-video playback, and output quality before processing the full collection.
+The default limit is 20. The default job count is 4, capped by the machine's CPU
+count; use `--jobs 1` for sequential processing. Use the sample to inspect image
+orientation, color, video playback, and output quality before processing the
+full collection.
 
 ### `process`
 
 Build or resume a complete browser-ready release:
 
 ```bash
-uv run mediaforge process SOURCE OUTPUT [--metadata FILE]
+uv run mediaforge process SOURCE OUTPUT [--jobs INTEGER] [--metadata FILE]
 ```
 
-Long runs can be kept awake on macOS with `caffeinate -i`. Existing non-empty
+Long runs can be kept awake on macOS with `caffeinate -i`. Up to four assets are
+processed concurrently by default; tune this with `--jobs`. Existing non-empty
 outputs are skipped, so rerunning the command resumes interrupted work.
 
 If one or more assets fail, Mediaforge continues processing the remaining
 assets, exits unsuccessfully, and writes:
 
 - `manifest.partial.json` for the assets that succeeded;
-- `errors.json` with one entry per failed asset.
+- `errors.json` with details for each processing or verification failure.
 
-After every asset succeeds, it writes `manifest.json` and removes stale partial
-and error files.
+After every asset succeeds, Mediaforge performs the same deep video verification
+as `verify --deep`. It atomically promotes `manifest.partial.json` to
+`manifest.json` only after verification succeeds, then removes stale error
+files.
 
 ### `verify`
 
