@@ -1,7 +1,8 @@
-import type { PointerEvent } from "react";
+import { useCallback, useState } from "react";
 
-import type { GalleryPhoto } from "../../data/photos";
+import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
+import { AudioControl } from "./audio-control";
 import { FramePicker } from "./frame-picker";
 import { formatPhotoDate, transitionFor } from "./model";
 import { PhotoLayer } from "./photo-layer";
@@ -9,31 +10,29 @@ import { useFramePreference } from "./use-frame-preference";
 import { useFrameShortcuts } from "./use-frame-shortcuts";
 import { useSlideshow } from "./use-slideshow";
 
-export function Gallery({ photos }: { photos: ReadonlyArray<GalleryPhoto> }) {
+export function Gallery({ photos }: { photos: ReadonlyArray<GalleryAsset> }) {
   const [frame, setFrame] = useFramePreference();
+  const [muted, setMuted] = useState(true);
+  const [videoProgress, setVideoProgress] = useState(0);
   useFrameShortcuts(setFrame);
-  const { isPaused, liveIndex, pause, position, resume, touchControlsVisible } =
-    useSlideshow(photos.length);
+  const { advance, index } = useSlideshow(photos);
 
-  const previousIndex = (position.index - 1 + photos.length) % photos.length;
-  const currentPhoto = photos[position.index];
+  const previousIndex = (index - 1 + photos.length) % photos.length;
+  const currentPhoto = photos[index];
   const previousPhoto = photos[previousIndex];
-  const transition = transitionFor(position.index);
+  const transition = transitionFor(frame);
   const preloads = [1, 2]
-    .map((offset) => photos[(liveIndex + offset) % photos.length])
+    .map((offset) => photos[(index + offset) % photos.length])
     .filter(
       (photo, index, upcoming) =>
-        photo.id !== photos[liveIndex].id &&
+        photo.id !== currentPhoto.id &&
         upcoming.findIndex((candidate) => candidate.id === photo.id) === index,
     );
   const mat = frame === "mat";
-
-  const toggleOnTap = (event: PointerEvent<HTMLElement>) => {
-    if (event.pointerType === "mouse") return;
-    if ((event.target as HTMLElement).closest("button")) return;
-    if (isPaused) resume();
-    else pause();
-  };
+  const regularVideo = currentPhoto.type === "video";
+  const updateVideoProgress = useCallback((progress: number) => {
+    setVideoProgress(progress);
+  }, []);
 
   return (
     <>
@@ -42,24 +41,36 @@ export function Gallery({ photos }: { photos: ReadonlyArray<GalleryPhoto> }) {
       ))}
       <main
         aria-label="Kiana photo gallery"
-        className="relative isolate h-dvh w-screen cursor-default overflow-hidden bg-[#17120f] text-[#f6f0e6] select-none"
-        onPointerDown={toggleOnTap}
+        className={cx(
+          "relative isolate h-dvh w-screen cursor-default overflow-hidden text-[#f6f0e6] select-none transition-colors duration-500",
+          mat ? "bg-[#e9e2d6]" : "bg-[#17120f]",
+        )}
       >
         <PhotoLayer
+          asset={previousPhoto}
           direction="exit"
           frame={frame}
-          key={`previous-${position.index}`}
-          phase={position.phase}
-          photo={previousPhoto}
+          key={previousPhoto.id}
+          muted={muted}
+          onVideoEnded={advance}
+          onVideoProgress={updateVideoProgress}
           transition={transition}
         />
         <PhotoLayer
+          asset={currentPhoto}
           direction="enter"
           frame={frame}
-          key={`current-${position.index}`}
-          phase={position.phase}
-          photo={currentPhoto}
+          key={currentPhoto.id}
+          muted={muted}
+          onVideoEnded={advance}
+          onVideoProgress={updateVideoProgress}
           transition={transition}
+        />
+
+        <AudioControl
+          mat={mat}
+          muted={muted}
+          onToggle={() => setMuted((value) => !value)}
         />
 
         <p
@@ -75,7 +86,6 @@ export function Gallery({ photos }: { photos: ReadonlyArray<GalleryPhoto> }) {
         <FramePicker
           frame={frame}
           onPick={setFrame}
-          touchVisible={touchControlsVisible}
         />
 
         <div
@@ -87,14 +97,16 @@ export function Gallery({ photos }: { photos: ReadonlyArray<GalleryPhoto> }) {
         >
           <div
             className={cx(
-              "h-full w-full origin-left animate-[gallery-progress_10s_linear_both] will-change-transform",
+              "h-full w-full origin-left will-change-transform",
+              !regularVideo && "animate-[gallery-progress_10s_linear_both]",
               mat ? "bg-[rgba(23,18,15,.36)]" : "bg-[#a89e92]",
             )}
-            key={`${position.index}-${isPaused ? "paused" : "live"}`}
-            style={{
-              animationDelay: `${-position.phase}ms`,
-              animationPlayState: isPaused ? "paused" : "running",
-            }}
+            key={index}
+            style={
+              regularVideo
+                ? { transform: `scaleX(${videoProgress})` }
+                : undefined
+            }
           />
         </div>
       </main>

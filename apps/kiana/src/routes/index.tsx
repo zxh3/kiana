@@ -1,10 +1,10 @@
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 
 import { Gallery } from "../components/gallery";
-import { loadGalleryPhotos } from "../data/photos";
+import { loadGalleryAssets } from "../data/photos";
 
 export const Route = createFileRoute("/")({
-  loader: loadGalleryPhotos,
+  loader: loadGalleryAssets,
   component: Home,
 });
 

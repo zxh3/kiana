@@ -3,6 +3,15 @@
 The Kiana gallery is a TanStack Start app styled with Tailwind CSS. It reads a
 Mediaforge release manifest and displays the responsive images described by it.
 
+## Playback
+
+- Photos remain on screen for 10 seconds.
+- Live Photos loop their video for the same 10-second slide.
+- Regular videos play once at their full duration; the bottom bar follows video
+  progress instead of the photo timer.
+- The global sound button controls both Live Photos and regular videos. Playback
+  starts muted so browser autoplay remains reliable.
+
 ## Development
 
 From the repository root:

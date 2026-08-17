@@ -3,23 +3,16 @@ import { type Frame, frames } from "./model";
 
 export function FramePicker({
   frame,
-  touchVisible,
   onPick,
 }: {
   frame: Frame;
-  touchVisible: boolean;
   onPick: (frame: Frame) => void;
 }) {
   return (
     <div className="group/picker absolute bottom-0 left-1/2 z-6 h-[170px] w-[min(100vw,560px)] -translate-x-1/2">
       <fieldset
         aria-label="Photo frame"
-        className={cx(
-          "absolute bottom-[76px] left-1/2 m-0 flex -translate-x-1/2 gap-1 rounded-full border border-[rgba(246,240,230,.08)] bg-[rgba(23,18,15,.5)] p-1.5 shadow-[0_12px_36px_rgba(0,0,0,.16)] backdrop-blur-2xl transition-opacity duration-850 ease-[cubic-bezier(.22,1,.36,1)] group-hover/picker:pointer-events-auto group-hover/picker:opacity-100 group-hover/picker:delay-0 group-hover/picker:duration-500 group-focus-within/picker:pointer-events-auto group-focus-within/picker:opacity-100 group-focus-within/picker:delay-0 motion-reduce:transition-none max-sm:bottom-[calc(80px+env(safe-area-inset-bottom))] max-sm:gap-0.5 max-sm:p-[5px]",
-          touchVisible
-            ? "pointer-events-auto opacity-100 delay-0"
-            : "pointer-events-none opacity-0 delay-150",
-        )}
+        className="pointer-events-none absolute bottom-[76px] left-1/2 m-0 flex -translate-x-1/2 gap-1 rounded-full border border-[rgba(246,240,230,.08)] bg-[rgba(23,18,15,.5)] p-1.5 opacity-0 shadow-[0_12px_36px_rgba(0,0,0,.16)] backdrop-blur-2xl transition-opacity delay-150 duration-850 ease-[cubic-bezier(.22,1,.36,1)] group-hover/picker:pointer-events-auto group-hover/picker:opacity-100 group-hover/picker:delay-0 group-hover/picker:duration-500 group-focus-within/picker:pointer-events-auto group-focus-within/picker:opacity-100 group-focus-within/picker:delay-0 motion-reduce:transition-none max-sm:bottom-[calc(80px+env(safe-area-inset-bottom))] max-sm:gap-0.5 max-sm:p-[5px]"
       >
         {frames.map((option, index) => (
           <button

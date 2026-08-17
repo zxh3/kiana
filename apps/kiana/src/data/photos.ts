@@ -1,10 +1,19 @@
-export type GalleryPhoto = {
+export type GalleryVideo = {
+  src: string;
+  width: number;
+  height: number;
+  durationMs: number;
+};
+
+export type GalleryAsset = {
   id: string;
-  date: string;
+  type: "photo" | "live_photo" | "video";
+  date: string | null;
   small: string;
   large: string;
   width: number;
   height: number;
+  video?: GalleryVideo;
 };
 
 const DEFAULT_MEDIA_RELEASE_URL = "https://media.kiana.me/releases/current";
@@ -37,6 +46,27 @@ function requiredPositiveNumber(value: unknown, label: string) {
   return value;
 }
 
+function optionalDate(value: unknown, label: string) {
+  if (value === null || value === undefined) return null;
+  const date = requiredString(value, label);
+  if (!/^\d{4}-\d{2}-\d{2}/.test(date)) {
+    throw new Error(`Invalid Mediaforge manifest: ${label} is not an ISO date`);
+  }
+  return date.slice(0, 10);
+}
+
+function requiredMediaType(
+  value: unknown,
+  label: string,
+): GalleryAsset["type"] {
+  if (value !== "photo" && value !== "live_photo" && value !== "video") {
+    throw new Error(
+      `Invalid Mediaforge manifest: ${label} is not a supported media type`,
+    );
+  }
+  return value;
+}
+
 function releaseUrl(value: string) {
   const normalized = value.endsWith("/") ? value : `${value}/`;
   return new URL(normalized);
@@ -45,7 +75,7 @@ function releaseUrl(value: string) {
 export function parseMediaforgeManifest(
   value: unknown,
   mediaReleaseUrl: string,
-): GalleryPhoto[] {
+): GalleryAsset[] {
   const manifest = requiredRecord(value, "root");
   if (manifest.schemaVersion !== 1) {
     throw new Error("Unsupported Mediaforge manifest schema");
@@ -58,16 +88,16 @@ export function parseMediaforgeManifest(
   const photos = manifest.assets.map((value, index) => {
     const asset = requiredRecord(value, `assets[${index}]`);
     const image = requiredRecord(asset.image, `assets[${index}].image`);
-    const date = requiredString(asset.date, `assets[${index}].date`);
-    if (!/^\d{4}-\d{2}-\d{2}/.test(date)) {
-      throw new Error(
-        `Invalid Mediaforge manifest: assets[${index}].date is not an ISO date`,
-      );
-    }
+    const type = requiredMediaType(asset.type, `assets[${index}].type`);
+    const video =
+      type === "photo"
+        ? undefined
+        : requiredRecord(asset.video, `assets[${index}].video`);
 
     return {
       id: requiredString(asset.id, `assets[${index}].id`),
-      date: date.slice(0, 10),
+      type,
+      date: optionalDate(asset.date, `assets[${index}].date`),
       small: new URL(
         requiredString(image.small, `assets[${index}].image.small`),
         baseUrl,
@@ -84,6 +114,26 @@ export function parseMediaforgeManifest(
         image.height,
         `assets[${index}].image.height`,
       ),
+      video: video
+        ? {
+            src: new URL(
+              requiredString(video.src, `assets[${index}].video.src`),
+              baseUrl,
+            ).href,
+            width: requiredPositiveNumber(
+              video.width,
+              `assets[${index}].video.width`,
+            ),
+            height: requiredPositiveNumber(
+              video.height,
+              `assets[${index}].video.height`,
+            ),
+            durationMs: requiredPositiveNumber(
+              video.durationMs,
+              `assets[${index}].video.durationMs`,
+            ),
+          }
+        : undefined,
     };
   });
 
@@ -96,7 +146,7 @@ export function parseMediaforgeManifest(
   return photos;
 }
 
-export async function loadGalleryPhotos(): Promise<GalleryPhoto[]> {
+export async function loadGalleryAssets(): Promise<GalleryAsset[]> {
   const mediaReleaseUrl =
     import.meta.env.VITE_KIANA_MEDIA_BASE_URL?.trim() ||
     DEFAULT_MEDIA_RELEASE_URL;

@@ -1,55 +1,26 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { getSlidePosition, SLIDE_DURATION, type SlidePosition } from "./model";
+import type { GalleryAsset } from "../../data/photos";
+import { SLIDE_DURATION } from "./model";
 
-export function useSlideshow(itemCount: number) {
-  const [live, setLive] = useState(() =>
-    getSlidePosition(Date.now(), itemCount),
-  );
-  const [paused, setPaused] = useState<SlidePosition | null>(null);
+export function useSlideshow(assets: ReadonlyArray<GalleryAsset>) {
+  const [index, setIndex] = useState(0);
+  const activeAsset = assets[index];
+  const activeId = activeAsset?.id;
+  const usesTimer = activeAsset?.type !== "video";
+
+  const advance = useCallback(() => {
+    setIndex((current) => (current + 1) % assets.length);
+  }, [assets.length]);
 
   useEffect(() => {
-    let timeout: number;
-
-    const schedule = () => {
-      window.clearTimeout(timeout);
-      const phase = Date.now() % SLIDE_DURATION;
-      timeout = window.setTimeout(sync, SLIDE_DURATION - phase + 16);
-    };
-
-    const sync = () => {
-      setLive(getSlidePosition(Date.now(), itemCount));
-      schedule();
-    };
-
-    const syncWhenVisible = () => {
-      if (!document.hidden) sync();
-    };
-
-    schedule();
-    document.addEventListener("visibilitychange", syncWhenVisible);
-
-    return () => {
-      window.clearTimeout(timeout);
-      document.removeEventListener("visibilitychange", syncWhenVisible);
-    };
-  }, [itemCount]);
-
-  const pause = () => {
-    setPaused((current) => current ?? getSlidePosition(Date.now(), itemCount));
-  };
-
-  const resume = () => {
-    setLive(getSlidePosition(Date.now(), itemCount));
-    setPaused(null);
-  };
+    if (!usesTimer || !activeId) return;
+    const timeout = window.setTimeout(advance, SLIDE_DURATION);
+    return () => window.clearTimeout(timeout);
+  }, [activeId, advance, usesTimer]);
 
   return {
-    isPaused: paused !== null,
-    liveIndex: live.index,
-    pause,
-    position: paused ?? live,
-    resume,
-    touchControlsVisible: paused !== null,
+    advance,
+    index,
   };
 }
