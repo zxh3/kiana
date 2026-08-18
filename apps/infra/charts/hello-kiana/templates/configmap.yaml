@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-content
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  index.html: |
+    <!doctype html>
+    <html lang="en">
+      <head><title>Hello Helm</title></head>
+      <body>
+        <h1>{{ .Values.message }}</h1>
+        <p>Release: {{ .Release.Name }}</p>
+      </body>
+    </html>

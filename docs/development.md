@@ -22,6 +22,9 @@ To install only the infrastructure app's dependencies, run
 `uv sync --package infra`. See [`apps/infra/README.md`](../apps/infra/README.md)
 for Pulumi commands and prerequisites.
 
+To learn how the Pulumi-managed EKS cluster, plain Kubernetes YAML, and Helm
+chart fit together, follow [`docs/kubernetes.md`](kubernetes.md).
+
 ## Development
 
 Start the web app at <http://localhost:3000>:

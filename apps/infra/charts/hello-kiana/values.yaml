@@ -1,0 +1,11 @@
+replicaCount: 1
+
+image:
+  repository: nginx
+  tag: 1.29-alpine
+  pullPolicy: IfNotPresent
+
+service:
+  port: 80
+
+message: Hello from a Helm chart!

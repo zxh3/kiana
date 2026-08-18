@@ -1,0 +1,6 @@
+apiVersion: v2
+name: hello-kiana
+description: A small chart for learning how Helm packages Kubernetes resources
+type: application
+version: 0.1.0
+appVersion: "1.29"
