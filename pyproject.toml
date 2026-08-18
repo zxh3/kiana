@@ -1,5 +1,5 @@
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["apps/infra", "packages/*"]
 
 [dependency-groups]
 dev = [
@@ -22,7 +22,7 @@ addopts = ["--strict-config", "--strict-markers"]
 
 [tool.ty.environment]
 python-version = "3.11"
-root = ["./packages/mediaforge/src"]
+root = ["./apps/infra", "./packages/mediaforge/src"]
 
 [tool.ty.src]
 exclude = ["kiana-icloud", "kiana-web"]
