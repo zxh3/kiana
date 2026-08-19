@@ -59,6 +59,9 @@ pulumi destroy
 
 - `__main__.py`: Pulumi program entry point
 - `cluster.py`: small EKS cluster definition
+- `certificate.py`: ACM certificate for the public dummy-server hostname
+- `load_balancer_controller.py`: IAM role used by the in-cluster ALB controller
+- `policies/load-balancer-controller.json`: controller permissions from AWS's v2.14.1 installation guide
 - `website.py`: reusable S3 website component
 - `index.html`: website content uploaded to S3
 - `kubernetes/hello.yaml`: plain Kubernetes YAML exercise
