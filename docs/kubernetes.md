@@ -132,6 +132,87 @@ Access it at <http://localhost:8081>:
 kubectl port-forward -n dummy-server service/dummy-server 8081:80
 ```
 
+## 4. Expose dummy-server through an AWS ALB
+
+The public hostname is `dummy-server.kianax.com`. Cloudflare remains the DNS
+provider, while AWS Certificate Manager (ACM) provides the TLS certificate and
+an Application Load Balancer (ALB) forwards requests into the cluster.
+
+First create the ACM certificate and the controller's IAM role:
+
+```bash
+cd apps/infra
+pulumi preview
+pulumi up
+```
+
+Display ACM's validation record:
+
+```bash
+pulumi stack output dummy_server_certificate_dns_validation
+```
+
+In Cloudflare, add the displayed CNAME record. Keep its proxy status **DNS
+only** so ACM can validate and renew the certificate. Then wait for validation:
+
+```bash
+CERTIFICATE_ARN="$(pulumi stack output dummy_server_certificate_arn)"
+aws acm wait certificate-validated --certificate-arn "$CERTIFICATE_ARN"
+```
+
+Install the AWS Load Balancer Controller. Its Kubernetes ServiceAccount uses
+the IAM role created by Pulumi, so the controller can create and configure ALBs
+without giving those permissions to the application Pod:
+
+```bash
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update eks
+
+CLUSTER_NAME="$(pulumi stack output cluster_name)"
+CONTROLLER_ROLE_ARN="$(pulumi stack output aws_load_balancer_controller_role_arn)"
+
+helm upgrade --install aws-load-balancer-controller \
+  eks/aws-load-balancer-controller \
+  --namespace kube-system \
+  --version 1.14.0 \
+  --set-string clusterName="$CLUSTER_NAME" \
+  --set serviceAccount.create=true \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set-string "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=$CONTROLLER_ROLE_ARN"
+
+kubectl rollout status deployment/aws-load-balancer-controller \
+  --namespace kube-system
+```
+
+Enable the chart's Ingress and give it the certificate ARN:
+
+```bash
+helm upgrade --install dummy-server charts/dummy-server \
+  --namespace dummy-server \
+  --create-namespace \
+  --set ingress.enabled=true \
+  --set-string ingress.certificateArn="$CERTIFICATE_ARN"
+
+kubectl get ingress dummy-server --namespace dummy-server --watch
+```
+
+Once the `ADDRESS` column contains an AWS hostname, create one more Cloudflare
+record:
+
+```text
+Type: CNAME
+Name: dummy-server
+Target: <the ADDRESS shown by kubectl>
+Proxy status: DNS only
+```
+
+After DNS propagates, verify both the redirect and the application:
+
+```bash
+curl -I http://dummy-server.kianax.com
+curl https://dummy-server.kianax.com/health
+```
+
 Helm can remove every resource in the release as one unit:
 
 ```bash
@@ -139,7 +220,7 @@ helm uninstall dummy-server -n dummy-server
 kubectl delete namespace dummy-server
 ```
 
-## 4. Destroy the cluster
+## 5. Destroy the cluster
 
 EKS charges continue while the cluster exists, even when no application is
 running. Destroy it as soon as the exercise is over:
