@@ -11,8 +11,12 @@ class InfraMocks(Mocks):
         outputs.setdefault("kubeconfigJson", "{}")
         return f"{args.name}-id", outputs
 
-    def call(self, args: MockCallArgs) -> tuple[dict, list[tuple[str, str]] | None]:
-        return {}, None
+    def call(self, args: MockCallArgs) -> tuple[dict, list[tuple[str, str]]]:
+        if args.token == "aws:ec2/getVpc:getVpc":
+            return {"default": True, "id": "vpc-default"}, []
+        if args.token == "aws:ec2/getSubnets:getSubnets":
+            return {"ids": ["subnet-a", "subnet-b"]}, []
+        return {}, []
 
 
 set_mocks(InfraMocks())
