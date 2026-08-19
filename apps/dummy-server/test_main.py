@@ -1,32 +1,20 @@
+import asyncio
 import json
 from typing import Any
 
 import main
 
 
-class FakeCursor:
-    def __enter__(self) -> "FakeCursor":
-        return self
-
-    def __exit__(self, *_args: object) -> None:
-        pass
-
-    def execute(self, query: str) -> None:
-        assert query == "SELECT 1"
-
-    def fetchone(self) -> tuple[int]:
-        return (1,)
-
-
 class FakeConnection:
-    def __enter__(self) -> "FakeConnection":
-        return self
+    closed = False
 
-    def __exit__(self, *_args: object) -> None:
-        pass
+    async def fetchval(self, query: str) -> int:
+        assert query == "SELECT 1"
+        return 1
 
-    def cursor(self) -> FakeCursor:
-        return FakeCursor()
+    async def close(self, *, timeout: float) -> None:
+        assert timeout == 3
+        self.closed = True
 
 
 class FakeSecretCache:
@@ -41,20 +29,24 @@ def test_database_check_uses_secret_and_environment(monkeypatch: Any) -> None:
     monkeypatch.setenv("DB_NAME", "kiana")
     monkeypatch.setattr(main, "get_secret_cache", FakeSecretCache)
     connection_arguments: dict[str, object] = {}
+    connection = FakeConnection()
 
-    def connect(**kwargs: object) -> FakeConnection:
+    async def connect(**kwargs: object) -> FakeConnection:
         connection_arguments.update(kwargs)
-        return FakeConnection()
+        return connection
 
-    monkeypatch.setattr(main.psycopg, "connect", connect)
+    monkeypatch.setattr(main.asyncpg, "connect", connect)
 
-    main.check_database_connection()
+    asyncio.get_event_loop().run_until_complete(main.check_database_connection())
 
     assert connection_arguments == {
         "host": "database.example",
         "port": 5432,
-        "dbname": "kiana",
+        "database": "kiana",
         "user": "kiana_admin",
         "password": "secret",
-        "connect_timeout": 3,
+        "timeout": 3,
+        "command_timeout": 3,
+        "ssl": "require",
     }
+    assert connection.closed
