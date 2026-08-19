@@ -72,7 +72,10 @@ def _build_secret_read_policy(secret_arn: str) -> str:
             "Statement": [
                 {
                     "Effect": "Allow",
-                    "Action": "secretsmanager:GetSecretValue",
+                    "Action": [
+                        "secretsmanager:DescribeSecret",
+                        "secretsmanager:GetSecretValue",
+                    ],
                     "Resource": secret_arn,
                 }
             ],

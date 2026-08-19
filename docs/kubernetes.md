@@ -239,8 +239,9 @@ pulumi up
 
 The Helm chart creates a Kubernetes `ServiceAccount` named `dummy-server`.
 Pulumi creates an IAM role whose trust policy allows only that service account
-in the `dummy-server` namespace to assume it. The role can perform only
-`secretsmanager:GetSecretValue` on this database's one secret.
+in the `dummy-server` namespace to assume it. The role can describe and read
+only this database's one secret, which supports the client-side secret cache
+without granting access to any other secret.
 
 Pass the non-secret connection settings and the two ARNs to Helm:
 

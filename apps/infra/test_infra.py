@@ -107,7 +107,10 @@ def test_database_role_can_read_only_its_secret() -> None:
     policy = json.loads(_build_secret_read_policy(secret_arn))
 
     statement = policy["Statement"][0]
-    assert statement["Action"] == "secretsmanager:GetSecretValue"
+    assert statement["Action"] == [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue",
+    ]
     assert statement["Resource"] == secret_arn
 
 
