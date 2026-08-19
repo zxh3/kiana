@@ -1,5 +1,5 @@
 [tool.uv.workspace]
-members = ["apps/dummy-server", "apps/infra", "packages/*"]
+members = ["packages/*"]
 
 [dependency-groups]
 dev = [
@@ -17,12 +17,12 @@ extend-exclude = ["kiana-icloud", "kiana-web"]
 select = ["E", "F", "I", "UP", "B", "SIM", "PT"]
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "apps/dummy-server", "apps/infra"]
+testpaths = ["packages"]
 addopts = ["--strict-config", "--strict-markers"]
 
 [tool.ty.environment]
 python-version = "3.11"
-root = ["./apps/dummy-server", "./apps/infra", "./packages/mediaforge/src"]
+root = ["./packages/mediaforge/src"]
 
 [tool.ty.src]
 exclude = ["kiana-icloud", "kiana-web"]

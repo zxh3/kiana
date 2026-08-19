@@ -1,6 +1,0 @@
-apiVersion: v2
-name: dummy-server
-description: Deploy the Kiana dummy FastAPI server
-type: application
-version: 0.1.0
-appVersion: "0.1.0"
