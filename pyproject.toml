@@ -17,7 +17,7 @@ extend-exclude = ["kiana-icloud", "kiana-web"]
 select = ["E", "F", "I", "UP", "B", "SIM", "PT"]
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "apps/infra"]
+testpaths = ["packages", "apps/dummy-server", "apps/infra"]
 addopts = ["--strict-config", "--strict-markers"]
 
 [tool.ty.environment]

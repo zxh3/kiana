@@ -17,6 +17,7 @@ spec:
         app.kubernetes.io/name: {{ .Chart.Name }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -28,6 +29,17 @@ spec:
           ports:
             - name: http
               containerPort: 8000
+          {{- if .Values.database.enabled }}
+          env:
+            - name: DB_HOST
+              value: {{ required "database.host is required when database is enabled" .Values.database.host | quote }}
+            - name: DB_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: DB_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: DB_SECRET_ARN
+              value: {{ required "database.secretArn is required when database is enabled" .Values.database.secretArn | quote }}
+          {{- end }}
           readinessProbe:
             httpGet:
               path: /health

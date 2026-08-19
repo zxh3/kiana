@@ -3,8 +3,13 @@ import json
 import pulumi
 from certificate import create_dummy_server_certificate
 from cluster import create_cluster
+from database import (
+    _build_assume_role_policy as _build_database_assume_role_policy,
+)
+from database import _build_secret_read_policy, _extract_secret_arn, create_postgres_database
 from load_balancer_controller import _build_assume_role_policy
 from pulumi.runtime import MockCallArgs, MockResourceArgs, Mocks, set_mocks
+from pulumi_aws.rds.outputs import InstanceMasterUserSecret
 from registry import create_dummy_server_repository
 
 
@@ -13,6 +18,18 @@ class InfraMocks(Mocks):
         outputs = dict(args.inputs)
         outputs.setdefault("name", args.name)
         outputs.setdefault("kubeconfigJson", "{}")
+        if args.typ == "aws:rds/instance:Instance":
+            outputs.setdefault(
+                "masterUserSecrets",
+                [
+                    {
+                        "secretArn": (
+                            "arn:aws:secretsmanager:us-west-2:123456789012:"
+                            "secret:rds!db-example"
+                        )
+                    }
+                ],
+            )
         return f"{args.name}-id", outputs
 
     def call(self, args: MockCallArgs) -> tuple[dict, list[tuple[str, str]]]:
@@ -41,6 +58,11 @@ def test_program_constructs_dummy_server_certificate() -> None:
     assert create_dummy_server_certificate() is not None
 
 
+@pulumi.runtime.test
+def test_program_constructs_postgres_database() -> None:
+    assert create_postgres_database(create_cluster()) is not None
+
+
 def test_load_balancer_controller_trust_policy() -> None:
     issuer = "oidc.eks.us-west-2.amazonaws.com/id/example"
     policy = json.loads(
@@ -60,3 +82,36 @@ def test_load_balancer_controller_trust_policy() -> None:
             "system:serviceaccount:kube-system:aws-load-balancer-controller"
         ),
     }
+
+
+def test_database_service_account_trust_policy() -> None:
+    issuer = "oidc.eks.us-west-2.amazonaws.com/id/example"
+    policy = json.loads(
+        _build_database_assume_role_policy(
+            {
+                "provider_arn": "arn:aws:iam::123456789012:oidc-provider/example",
+                "issuer": issuer,
+            }
+        )
+    )
+
+    statement = policy["Statement"][0]
+    assert statement["Condition"]["StringEquals"] == {
+        f"{issuer}:aud": "sts.amazonaws.com",
+        f"{issuer}:sub": "system:serviceaccount:dummy-server:dummy-server",
+    }
+
+
+def test_database_role_can_read_only_its_secret() -> None:
+    secret_arn = "arn:aws:secretsmanager:us-west-2:123456789012:secret:rds!db-example"
+    policy = json.loads(_build_secret_read_policy(secret_arn))
+
+    statement = policy["Statement"][0]
+    assert statement["Action"] == "secretsmanager:GetSecretValue"
+    assert statement["Resource"] == secret_arn
+
+
+def test_extract_database_secret_arn() -> None:
+    secret_arn = "arn:aws:secretsmanager:us-west-2:123456789012:secret:example"
+
+    assert _extract_secret_arn([InstanceMasterUserSecret(secret_arn=secret_arn)]) == secret_arn

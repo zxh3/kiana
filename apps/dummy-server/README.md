@@ -13,6 +13,11 @@ Then open <http://localhost:8000> or the interactive API documentation at
 <http://localhost:8000/docs>. The health-check endpoint is available at
 <http://localhost:8000/health>.
 
+When deployed to EKS, `/db-health` reads the RDS master credential from AWS
+Secrets Manager and runs `SELECT 1` against PostgreSQL. The regular `/health`
+endpoint deliberately does not depend on the database, so a temporary database
+problem does not make Kubernetes restart an otherwise healthy application.
+
 Build and run the container locally:
 
 ```bash
