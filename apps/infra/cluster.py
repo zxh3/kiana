@@ -18,6 +18,7 @@ def create_cluster() -> eks.Cluster:
 
     return eks.Cluster(
         "kiana-cluster",
+        create_oidc_provider=True,
         vpc_id=default_vpc.id,
         subnet_ids=default_subnets.ids,
         instance_type="t3.medium",
