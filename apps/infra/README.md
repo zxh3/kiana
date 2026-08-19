@@ -62,6 +62,6 @@ pulumi destroy
 - `website.py`: reusable S3 website component
 - `index.html`: website content uploaded to S3
 - `kubernetes/hello.yaml`: plain Kubernetes YAML exercise
-- `charts/hello-kiana`: Helm version of the exercise
+- `charts/dummy-server`: Helm chart for deploying the dummy FastAPI server
 - `Pulumi.yaml`: Pulumi project and uv runtime configuration
 - `Pulumi.dev.yaml`: development stack configuration

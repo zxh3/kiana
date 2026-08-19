@@ -17,28 +17,33 @@ spec:
         app.kubernetes.io/name: {{ .Chart.Name }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
-        - name: nginx
+        - name: dummy-server
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8000
           readinessProbe:
             httpGet:
-              path: /
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
               port: http
           resources:
             requests:
               cpu: 25m
-              memory: 32Mi
-            limits:
               memory: 64Mi
-          volumeMounts:
-            - name: content
-              mountPath: /usr/share/nginx/html
-              readOnly: true
-      volumes:
-        - name: content
-          configMap:
-            name: {{ .Release.Name }}-content
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL

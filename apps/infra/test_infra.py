@@ -1,6 +1,7 @@
 import pulumi
 from cluster import create_cluster
 from pulumi.runtime import MockCallArgs, MockResourceArgs, Mocks, set_mocks
+from registry import create_dummy_server_repository
 
 
 class InfraMocks(Mocks):
@@ -20,3 +21,8 @@ set_mocks(InfraMocks())
 @pulumi.runtime.test
 def test_program_constructs_eks_cluster() -> None:
     assert create_cluster() is not None
+
+
+@pulumi.runtime.test
+def test_program_constructs_dummy_server_repository() -> None:
+    assert create_dummy_server_repository() is not None

@@ -1,0 +1,9 @@
+replicaCount: 1
+
+image:
+  repository: 456432081170.dkr.ecr.us-west-2.amazonaws.com/dummy-server-5398d57
+  tag: 0.1.0
+  pullPolicy: IfNotPresent
+
+service:
+  port: 80

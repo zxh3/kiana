@@ -6,7 +6,7 @@ This repository uses three layers with separate jobs:
 - Kubernetes YAML describes the objects that should run in the cluster.
 - Helm turns related Kubernetes YAML templates into a configurable package.
 
-The examples use separate namespaces, `learning-yaml` and `learning-helm`, so
+The examples use separate namespaces, `learning-yaml` and `dummy-server`, so
 they can be installed and removed independently.
 
 ## 1. Create the cluster
@@ -86,49 +86,57 @@ Remove this example when finished:
 kubectl delete -f kubernetes/hello.yaml
 ```
 
-## 3. Deploy the Helm chart
+## 3. Deploy dummy-server with Helm
 
-The chart under `charts/hello-kiana` contains nearly the same Kubernetes
-objects. The difference is that reusable values such as the image tag, message,
-and replica count live in `values.yaml`.
+The chart under `charts/dummy-server` deploys the FastAPI application image from
+Amazon ECR. Reusable values such as the image repository, image tag, and replica
+count live in `values.yaml`.
 
 Render the templates locally before installing anything:
 
 ```bash
-helm lint charts/hello-kiana
-helm template hello-helm charts/hello-kiana --namespace learning-helm
+helm lint charts/dummy-server
+helm template dummy-server charts/dummy-server --namespace dummy-server
+```
+
+If the previous nginx Helm exercise is still installed, remove that release
+before installing its replacement:
+
+```bash
+helm uninstall hello-helm -n learning-helm
+kubectl delete namespace learning-helm
 ```
 
 Install the rendered resources as a tracked Helm release:
 
 ```bash
-helm upgrade --install hello-helm charts/hello-kiana \
-  --namespace learning-helm \
+helm upgrade --install dummy-server charts/dummy-server \
+  --namespace dummy-server \
   --create-namespace
-helm list -n learning-helm
-kubectl get all -n learning-helm
+helm list -n dummy-server
+kubectl get all -n dummy-server
 ```
 
-Try an upgrade without editing the chart:
+After pushing a new immutable image tag, deploy that version without editing the
+chart:
 
 ```bash
-helm upgrade hello-helm charts/hello-kiana \
-  --namespace learning-helm \
-  --set replicaCount=2 \
-  --set-string message="Hello after a Helm upgrade!"
+helm upgrade dummy-server charts/dummy-server \
+  --namespace dummy-server \
+  --set-string image.tag="<new-image-tag>"
 ```
 
 Access it at <http://localhost:8081>:
 
 ```bash
-kubectl port-forward -n learning-helm service/hello-helm 8081:80
+kubectl port-forward -n dummy-server service/dummy-server 8081:80
 ```
 
 Helm can remove every resource in the release as one unit:
 
 ```bash
-helm uninstall hello-helm -n learning-helm
-kubectl delete namespace learning-helm
+helm uninstall dummy-server -n dummy-server
+kubectl delete namespace dummy-server
 ```
 
 ## 4. Destroy the cluster
