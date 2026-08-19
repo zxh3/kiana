@@ -220,10 +220,77 @@ helm uninstall dummy-server -n dummy-server
 kubectl delete namespace dummy-server
 ```
 
-## 5. Destroy the cluster
+## 5. Connect dummy-server to private PostgreSQL
 
-EKS charges continue while the cluster exists, even when no application is
-running. Destroy it as soon as the exercise is over:
+Pulumi creates a small, single-AZ `db.t4g.micro` PostgreSQL instance in the same
+VPC as EKS. The database has no public address. Its security group accepts port
+5432 only from the EKS worker security group.
+
+RDS generates the master password and stores it in AWS Secrets Manager. Pulumi
+exports the secret's ARN but never reads or stores the password. Creating RDS
+can take several minutes, and both RDS and the Secrets Manager secret are
+billable:
+
+```bash
+cd apps/infra
+pulumi preview
+pulumi up
+```
+
+The Helm chart creates a Kubernetes `ServiceAccount` named `dummy-server`.
+Pulumi creates an IAM role whose trust policy allows only that service account
+in the `dummy-server` namespace to assume it. The role can describe and read
+only this database's one secret, which supports the client-side secret cache
+without granting access to any other secret.
+
+Pass the non-secret connection settings and the two ARNs to Helm:
+
+```bash
+DB_HOST="$(pulumi stack output dummy_server_database_host)"
+DB_SECRET_ARN="$(pulumi stack output dummy_server_database_secret_arn)"
+DB_ROLE_ARN="$(pulumi stack output dummy_server_database_role_arn)"
+
+helm upgrade dummy-server charts/dummy-server \
+  --namespace dummy-server \
+  --reset-then-reuse-values \
+  --set database.enabled=true \
+  --set-string database.host="$DB_HOST" \
+  --set-string database.secretArn="$DB_SECRET_ARN" \
+  --set-string serviceAccount.roleArn="$DB_ROLE_ARN" \
+  --atomic \
+  --wait
+```
+
+This chart change configures access, but the running image must also contain the
+new application code. Build and push a new immutable image tag using the manual
+update workflow, then deploy that tag with another `helm upgrade`.
+
+Verify the AWS identity mapping and the database connection:
+
+```bash
+kubectl describe serviceaccount dummy-server -n dummy-server
+kubectl rollout status deployment/dummy-server -n dummy-server
+curl https://dummy-server.kianax.com/db-health
+```
+
+The expected response is:
+
+```json
+{"status":"ok","database":"connected"}
+```
+
+The app caches the secret for five minutes, avoiding a Secrets Manager API call
+on every request while still picking up RDS-managed password rotation.
+
+This learning setup connects as the RDS master user. A production application
+should instead use a separate PostgreSQL role limited to the tables and actions
+the application actually needs.
+
+## 6. Destroy the cluster and database
+
+EKS and RDS charges continue while they exist, even when no application is
+running. This learning database has no final snapshot, so `pulumi destroy`
+permanently deletes its data:
 
 ```bash
 cd apps/infra

@@ -8,6 +8,17 @@ image:
 service:
   port: 80
 
+serviceAccount:
+  name: dummy-server
+  roleArn: ""
+
+database:
+  enabled: false
+  host: ""
+  port: "5432"
+  name: kiana
+  secretArn: ""
+
 ingress:
   enabled: false
   host: dummy-server.kianax.com

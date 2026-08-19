@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "A tiny FastAPI service for learning Kubernetes deployments."
 requires-python = ">=3.11"
 dependencies = [
+    "asyncpg>=0.31,<1",
+    "aws-secretsmanager-caching>=1.1,<2",
     "fastapi>=0.116,<1",
     "uvicorn>=0.35,<1",
 ]

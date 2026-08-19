@@ -1,8 +1,8 @@
 # Kiana infrastructure
 
 This uv application manages Kiana's AWS infrastructure with Pulumi. It creates
-an S3-backed static website and a small Amazon EKS cluster for learning
-Kubernetes and Helm.
+an S3-backed static website, a small Amazon EKS cluster, and a private
+PostgreSQL RDS instance for learning Kubernetes, Helm, and AWS networking.
 
 ## Prerequisites
 
@@ -10,7 +10,8 @@ Kubernetes and Helm.
 - [uv](https://docs.astral.sh/uv/)
 - [Pulumi](https://www.pulumi.com/docs/install/)
 - AWS CLI, `kubectl`, and Helm
-- AWS credentials with permission to manage S3, EKS, EC2, VPC, and IAM resources
+- AWS credentials with permission to manage S3, EKS, EC2, VPC, IAM, RDS, and
+  Secrets Manager resources
 - A default VPC with subnets in at least two availability zones
 
 ## Setup
@@ -61,6 +62,7 @@ pulumi destroy
 - `cluster.py`: small EKS cluster definition
 - `certificate.py`: ACM certificate for the public dummy-server hostname
 - `load_balancer_controller.py`: IAM role used by the in-cluster ALB controller
+- `database.py`: private RDS PostgreSQL instance and dummy-server's secret-reader role
 - `policies/load-balancer-controller.json`: controller permissions from AWS's v2.14.1 installation guide
 - `website.py`: reusable S3 website component
 - `index.html`: website content uploaded to S3
