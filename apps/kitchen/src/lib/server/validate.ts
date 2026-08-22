@@ -8,6 +8,7 @@ import {
   memoryRange,
   type RetentionDays,
   retentionOptions,
+  sandboxNamePattern,
   type VolumeMount,
 } from "$lib/types";
 
@@ -24,7 +25,7 @@ export function validateSpec(body: any): Result {
   const image = String(body?.image ?? "");
   const rawVolumes = Array.isArray(body?.volumes) ? body.volumes : [];
 
-  if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(name)) {
+  if (!sandboxNamePattern.test(name)) {
     return {
       ok: false,
       error:

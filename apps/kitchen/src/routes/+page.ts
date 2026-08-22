@@ -1,5 +1,6 @@
 import { redirect } from "@sveltejs/kit";
 import { ApiError, api } from "$lib/api";
+import { collapseTwins } from "$lib/points";
 import { hiddenPoints } from "$lib/restorePoints";
 import { RUNTIME_VERSION } from "$lib/runtimeVersion";
 import {
@@ -44,7 +45,7 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
       api<{
         summary: {
           sandbox: string;
-          points: { tag: string; createdAt: string }[];
+          points: { tag: string; createdAt: string; kind: "auto" | "keep" }[];
         }[];
       }>("/api/restore-points", {}, fetch).catch(() => ({ summary: [] })),
     ]);
@@ -55,7 +56,10 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
     const deleted = hiddenPoints(workspace);
     const points = new Map(
       summary.map((entry) => {
-        const live = entry.points.filter((p) => !deleted.includes(p.tag));
+        // Same collapse the drawer applies, so the count matches the list.
+        const live = collapseTwins(
+          entry.points.filter((p) => !deleted.includes(p.tag)),
+        );
         return [
           entry.sandbox,
           {
@@ -65,6 +69,9 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
                 !newest || p.createdAt > newest ? p.createdAt : newest,
               null,
             ),
+            // Every tag, collapsed twins included: what to forget when a start
+            // proves none of them work any more.
+            tags: entry.points.map((p) => p.tag),
           },
         ];
       }),
@@ -151,7 +158,14 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
       }
     }
 
-    return { rows, workspace, runtimeVersion: RUNTIME_VERSION };
+    return {
+      rows,
+      workspace,
+      runtimeVersion: RUNTIME_VERSION,
+      pointTags: Object.fromEntries(
+        [...points.entries()].map(([name, p]) => [name, p.tags]),
+      ),
+    };
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) redirect(307, "/connect");
     throw e;

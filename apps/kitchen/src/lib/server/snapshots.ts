@@ -16,6 +16,7 @@
  */
 
 import { type Image, ModalClient, type Sandbox } from "modal";
+import { collapseTwins } from "$lib/points";
 import { APP_NAME, type ModalCredentials } from "$lib/server/modal";
 import { RUNTIME_VERSION } from "$lib/server/runtime";
 import type { RestorePoint, RetentionDays } from "$lib/types";
@@ -183,15 +184,9 @@ export async function listRestorePoints(
   // still listed. Collapse that twin — but only the automatic one: two kept
   // points at the same state are two deliberate bookmarks, both worth showing.
   const now = Date.now();
-  const live = points.filter(
-    (p) => !p.expiresAt || new Date(p.expiresAt).getTime() > now,
-  );
-  const keptStates = new Set(
-    live.filter((p) => p.kind === "keep").map((p) => p.createdAt),
-  );
-  return live
-    .filter((p) => p.kind === "keep" || !keptStates.has(p.createdAt))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return collapseTwins(
+    points.filter((p) => !p.expiresAt || new Date(p.expiresAt).getTime() > now),
+  ).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 /**
@@ -200,6 +195,12 @@ export async function listRestorePoints(
  * browser would otherwise have to remember — a sandbox's last-stopped time and
  * whether it has anything to go back to.
  */
+export interface SummaryPoint {
+  tag: string;
+  createdAt: string;
+  kind: RestorePoint["kind"];
+}
+
 export async function restorePointSummary(
   ctx: SnapshotContext,
 ): Promise<
@@ -229,11 +230,15 @@ export async function restorePointSummary(
   // points it has deleted — Modal has no unpublish, so a deleted point's tag
   // is still listed here.
   const now = Date.now();
-  const summary = new Map<string, { tag: string; createdAt: string }[]>();
+  const summary = new Map<string, SummaryPoint[]>();
   for (const point of points) {
     if (point.expiresAt && new Date(point.expiresAt).getTime() <= now) continue;
     const entry = summary.get(point.sandbox) ?? [];
-    entry.push({ tag: point.tag, createdAt: point.createdAt });
+    entry.push({
+      tag: point.tag,
+      createdAt: point.createdAt,
+      kind: point.kind,
+    });
     summary.set(point.sandbox, entry);
   }
   return [...summary.entries()].map(([sandbox, sandboxPoints]) => ({

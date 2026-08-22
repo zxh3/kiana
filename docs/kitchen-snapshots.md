@@ -114,6 +114,12 @@ never asks for a number:
 
 ## Where the controls live
 
+- **Naming** — the create drawer opens with a suggestion
+  (`sb-stable-scarlet-dragonfly`, from `unique-names-generator`'s adjective /
+  colour / animal dictionaries) and a reshuffle button, so a sandbox never
+  needs naming to get started. Names are readable rather than hashed because
+  the name *is* the identity restore points hang off; three words can exceed
+  the 32-character limit, so generation retries and falls back to two.
 - **Row chip** — a sandbox with points shows `N points`; clicking it opens the
   drawer. This is the discoverable path to time travel, rather than hiding it
   behind a menu.
@@ -230,6 +236,29 @@ the client's environment. An empty `environmentName` resolves to the
 `PERMISSION_DENIED: does not have read access to environment main` — a failed
 read of the wrong environment, not a write into it. Verified with an
 environment-scoped token that published images land only in that environment.
+
+## When every restore point is gone
+
+Deleting a point removes its image but not its tag, so a sandbox whose points
+have all been deleted (or have expired) still *looks* like it has state to
+return to. Resolving the newest tag then fails at `SandboxCreate`, which used
+to leave the row permanently failed with a Retry that could never work.
+
+Starting now walks the points newest-first and skips any whose image Modal no
+longer has. Three outcomes:
+
+- **A point works** — normal start, nothing to report.
+- **No point ever existed** (a brand new name) — build the runtime and start.
+  This is the ordinary first launch.
+- **Points existed but none survive** — stop and say so, rather than quietly
+  handing back an empty machine under a familiar name. The row explains that
+  the saved state is gone and offers **Start fresh**, which builds a new
+  machine from the base image. That is a deliberate second click: silently
+  starting empty invites someone to keep working in a sandbox they believe
+  holds their files.
+
+The browser also forgets that sandbox's tags at that moment — a start proved
+they are all dead — so the row stops advertising points it cannot use.
 
 ## Known rough edges
 

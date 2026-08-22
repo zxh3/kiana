@@ -38,6 +38,7 @@ export const POST: RequestHandler = async ({ request }) => {
     typeof body?.fromPoint === "string" ? body.fromPoint : undefined;
   const forkedFrom =
     typeof body?.forkedFrom === "string" ? body.forkedFrom : undefined;
+  const fresh = body?.fresh === true;
 
   return ndjsonStream(
     "resolving",
@@ -45,6 +46,7 @@ export const POST: RequestHandler = async ({ request }) => {
       const { sandboxId } = await launchSandbox(creds, result.spec, phase, {
         fromPoint,
         forkedFrom,
+        fresh,
       });
       return { sandboxId };
     },

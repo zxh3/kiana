@@ -94,14 +94,17 @@ function startLaunch(spec: SandboxSpec, options: LaunchOptions = {}) {
       },
       onError: (message) => {
         delete livePhase[spec.name];
-        // A point Modal no longer has is a dead row: its tag still lists
-        // (there is no unpublish), so drop it locally rather than leave a
-        // button that always fails.
+        // Points Modal no longer has still list, so a row would keep
+        // advertising them and every button on them would fail. Forget them
+        // locally instead: one named point, or all of them when a start proved
+        // that none survive.
         if (
           options.fromPoint &&
           /no longer available|has expired/i.test(message)
         ) {
           hidePoint(data.workspace, options.fromPoint);
+        } else if (/can be used any more/.test(message)) {
+          forgetPointsOf(spec.name);
         }
         actionError = message;
         void invalidate("app:sandboxes");
@@ -198,6 +201,17 @@ async function forget(name: string) {
     // confuse, and the points expire on their own
   }
   await invalidate("app:sandboxes");
+}
+
+/**
+ * Stop listing a sandbox's points once a start has proved none of them work.
+ * Every tag, including the twins the drawer collapses — otherwise a hidden
+ * keep would let its auto twin resurface.
+ */
+function forgetPointsOf(name: string) {
+  for (const tag of data.pointTags[name] ?? []) {
+    hidePoint(data.workspace, tag);
+  }
 }
 
 async function dismissError(name: string) {
@@ -495,13 +509,26 @@ const modeIcons: Record<string, string> = {
 								: 'almost there'}
 						</span>
 					{:else}
-						<button
-							type="button"
-							onclick={() => startLaunch(spec)}
-							class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[11px] py-[6px] text-[11.5px] leading-none font-medium hover:bg-white/5"
-						>
-							{row.kind === 'failed' ? 'Retry' : 'Start'}
-						</button>
+						{#if row.kind === 'failed' && /any more/.test(row.error)}
+							<!-- Every point is gone: retrying cannot help, so offer the only
+							     thing that can, and name it honestly. -->
+							<button
+								type="button"
+								onclick={() => startLaunch(spec, { fresh: true })}
+								title="Launch {spec.name} as a new machine from {spec.image}. Its saved state is already gone."
+								class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[11px] py-[6px] text-[11.5px] leading-none font-medium hover:bg-white/5"
+							>
+								Start fresh
+							</button>
+						{:else}
+							<button
+								type="button"
+								onclick={() => startLaunch(spec)}
+								class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[11px] py-[6px] text-[11.5px] leading-none font-medium hover:bg-white/5"
+							>
+								{row.kind === 'failed' ? 'Retry' : 'Start'}
+							</button>
+						{/if}
 						<DropdownMenu.Root>
 							<DropdownMenu.Trigger
 								class="text-body flex size-[26px] cursor-pointer items-center justify-center rounded-[5px] border border-white/12 text-xs hover:bg-white/5"

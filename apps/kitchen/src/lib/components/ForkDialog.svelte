@@ -7,6 +7,7 @@ import {
   memoryRange,
   type RestorePoint,
   type SandboxSpec,
+  sandboxNamePattern,
 } from "$lib/types";
 
 let {
@@ -53,7 +54,7 @@ function submit(event: SubmitEvent) {
   event.preventDefault();
   if (!point || !spec) return;
   const target = name.trim();
-  if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(target)) {
+  if (!sandboxNamePattern.test(target)) {
     error =
       "Name must be lowercase letters, digits and dashes (up to 32 characters).";
     return;

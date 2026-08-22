@@ -33,7 +33,7 @@ import {
 } from "$lib/server/runtime";
 import {
   imageForPoint,
-  newestRestorePoint,
+  listRestorePoints,
   type SnapshotContext,
   saveRestorePoint,
 } from "$lib/server/snapshots";
@@ -260,6 +260,30 @@ export interface LaunchOptions {
   fromPoint?: string;
   /** Lineage recorded on a fork, for the UI to show. */
   forkedFrom?: string;
+  /** Ignore any restore points and build a new machine. */
+  fresh?: boolean;
+}
+
+/**
+ * A restore point whose image Modal no longer has.
+ *
+ * Modal has no unpublish, so a deleted point's tag keeps listing and even
+ * resolves; the truth only arrives at `SandboxCreate`. An expired image says
+ * so distinctly, which is worth telling apart from a deletion.
+ */
+function isMissingImage(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /NOT_FOUND: Image|has expired/i.test(msg);
+}
+
+/** Thrown when every restore point a sandbox has is gone. */
+export class NoUsableRestorePointError extends Error {
+  constructor(name: string, image: string) {
+    super(
+      `None of ${name}'s restore points can be used any more — they were deleted or have expired. Start fresh to launch it as a new machine from ${image}; its saved state is gone either way.`,
+    );
+    this.name = "NoUsableRestorePointError";
+  }
 }
 
 export async function launchSandbox(
@@ -274,32 +298,11 @@ export async function launchSandbox(
       createIfMissing: true,
       environment: envOf(creds),
     });
-
-    // Starting an existing sandbox means booting its newest restore point —
-    // the whole machine as it was, in one create call. Only a sandbox with no
-    // points left (or a brand new name) pays for an image build.
-    onPhase("resolving");
     const ctx = contextOf(creds, client);
-    const point = options.fromPoint
-      ? options.fromPoint
-      : (await newestRestorePoint(ctx, spec.name))?.tag;
-
-    let image: Image;
-    if (point) {
-      image = await imageForPoint(ctx, point);
-    } else {
-      onPhase("image");
-      image = await withRetry(3, () =>
-        client.images
-          .fromRegistry(spec.image)
-          .dockerfileCommands(runtimeCommands)
-          .build(app),
-      );
-    }
 
     // Volumes are the user's own choice now, never a runtime mechanism. Their
     // contents stay out of restore points, which is exactly why someone would
-    // mount one.
+    // mount one. Resolved once: every attempt below mounts the same ones.
     const volumes: Record<string, Volume> = {};
     if (spec.volumes.length > 0) {
       onPhase("volumes");
@@ -311,32 +314,77 @@ export async function launchSandbox(
       }
     }
 
-    onPhase("creating");
-    const sandbox = await client.sandboxes.create(app, image, {
-      cpu: spec.cpu,
-      memoryMiB: spec.memoryGib * 1024,
-      gpu: gpuSpec(spec.gpu, spec.gpuCount),
-      timeoutMs: SANDBOX_TIMEOUT_MS,
-      command: ["/bin/bash", "-c", bootScript],
-      env: {
-        KITCHEN_SECRET: paneSecret(creds, spec.name),
-        KITCHEN_SANDBOX_NAME: spec.name,
-        KITCHEN_VOLUMES: spec.volumes
-          .map((v) => `${v.name} -> ${v.mount}`)
-          .join(", "),
-      },
-      encryptedPorts: [...runtimePorts],
-      volumes,
-      // Modal enforces name uniqueness among running sandboxes in the App.
-      name: spec.name,
-      tags: {
-        ...specToTags(spec, new Date().toISOString()),
-        ...(options.forkedFrom
-          ? { "kitchen-forked-from": options.forkedFrom }
-          : {}),
-      },
-    });
-    return { sandboxId: sandbox.sandboxId };
+    const create = async (image: Image) => {
+      onPhase("creating");
+      const sandbox = await client.sandboxes.create(app, image, {
+        cpu: spec.cpu,
+        memoryMiB: spec.memoryGib * 1024,
+        gpu: gpuSpec(spec.gpu, spec.gpuCount),
+        timeoutMs: SANDBOX_TIMEOUT_MS,
+        command: ["/bin/bash", "-c", bootScript],
+        env: {
+          KITCHEN_SECRET: paneSecret(creds, spec.name),
+          KITCHEN_SANDBOX_NAME: spec.name,
+          KITCHEN_VOLUMES: spec.volumes
+            .map((v) => `${v.name} -> ${v.mount}`)
+            .join(", "),
+        },
+        encryptedPorts: [...runtimePorts],
+        volumes,
+        // Modal enforces name uniqueness among running sandboxes in the App.
+        name: spec.name,
+        tags: {
+          ...specToTags(spec, new Date().toISOString()),
+          ...(options.forkedFrom
+            ? { "kitchen-forked-from": options.forkedFrom }
+            : {}),
+        },
+      });
+      return { sandboxId: sandbox.sandboxId };
+    };
+
+    const buildFresh = async () => {
+      onPhase("image");
+      return create(
+        await withRetry(3, () =>
+          client.images
+            .fromRegistry(spec.image)
+            .dockerfileCommands(runtimeCommands)
+            .build(app),
+        ),
+      );
+    };
+
+    // An explicitly chosen point is not something to silently substitute: the
+    // caller asked for that state, so a missing image is an error.
+    if (options.fromPoint) {
+      onPhase("resolving");
+      return await create(await imageForPoint(ctx, options.fromPoint));
+    }
+
+    if (options.fresh) return await buildFresh();
+
+    // Starting an existing sandbox means booting its newest restore point —
+    // the whole machine as it was, in one create call. Points whose image has
+    // been deleted or has expired are skipped rather than fatal, because their
+    // tags outlive them and would otherwise make the sandbox unstartable.
+    onPhase("resolving");
+    const points = await listRestorePoints(ctx, spec.name);
+    for (const point of points) {
+      try {
+        return await create(await imageForPoint(ctx, point.tag));
+      } catch (e) {
+        if (!isMissingImage(e)) throw e;
+      }
+    }
+
+    // No point ever existed: a brand new sandbox, so build its runtime. But if
+    // points existed and none worked, the saved state is gone — say so instead
+    // of quietly handing back an empty machine under a familiar name.
+    if (points.length > 0) {
+      throw new NoUsableRestorePointError(spec.name, spec.image);
+    }
+    return await buildFresh();
   } finally {
     client.close();
   }
@@ -477,6 +525,8 @@ export async function getSession(
 
 /** One line for the UI when a Modal call fails: cause first, then the fix. */
 export function modalErrorMessage(e: unknown): string {
+  // Our own diagnosis, not Modal's — pass it through unprefixed.
+  if (e instanceof NoUsableRestorePointError) return e.message;
   if (e instanceof AlreadyExistsError) {
     return "A sandbox with that name is already running — pick another name.";
   }

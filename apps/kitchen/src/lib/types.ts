@@ -35,6 +35,13 @@ export const maxVolumeMounts = 8;
 /** Where shells and code-server open. An ordinary directory in the image. */
 export const WORKSPACE_DIR = "/workspace";
 
+/**
+ * A sandbox name is also its identity across restarts, and it ends up in Modal
+ * object names, so it stays conservative: lowercase, digits and dashes.
+ */
+export const maxSandboxNameLength = 32;
+export const sandboxNamePattern = /^[a-z0-9][a-z0-9-]{0,31}$/;
+
 /** Public (tunneled) port per session mode. */
 export const modePorts = {
   zsh: 7681,

@@ -138,6 +138,8 @@ export interface LaunchOptions {
   fromPoint?: string;
   /** Lineage to record when this launch is a fork. */
   forkedFrom?: string;
+  /** Ignore restore points and build a new machine. */
+  fresh?: boolean;
 }
 
 export async function launch(
@@ -172,6 +174,7 @@ export async function launch(
             gpu: spec.gpu ?? "none",
             fromPoint: options.fromPoint,
             forkedFrom: options.forkedFrom,
+            fresh: options.fresh,
           }),
         }),
       phase,

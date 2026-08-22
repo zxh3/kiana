@@ -1,5 +1,6 @@
 <script lang="ts">
 import { Dialog, Select, Slider } from "bits-ui";
+import { suggestName } from "$lib/names";
 import {
   cpuOptions,
   gpuCountOptions,
@@ -8,6 +9,7 @@ import {
   maxVolumeMounts,
   memoryRange,
   type SandboxSpec,
+  sandboxNamePattern,
 } from "$lib/types";
 
 let {
@@ -33,6 +35,12 @@ let volumes = $state<{ name: string; mount: string }[]>([
   { name: "", mount: "" },
 ]);
 let error = $state<string | null>(null);
+
+// Open with a name already filled in: naming a sandbox is meaningful (it is
+// the identity its restore points hang off) but rarely worth stopping for.
+$effect(() => {
+  if (open && !name) name = suggestName(takenNames);
+});
 
 const chip =
   "flex-1 cursor-pointer rounded-md border py-[9px] text-center font-mono text-xs";
@@ -67,7 +75,7 @@ function create(event: SubmitEvent) {
 }
 
 function specProblem(spec: SandboxSpec): string | null {
-  if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(spec.name)) {
+  if (!sandboxNamePattern.test(spec.name)) {
     return "Name must be lowercase letters, digits and dashes (up to 32 characters), starting with a letter or digit.";
   }
   if (takenNames.includes(spec.name)) {
@@ -116,21 +124,33 @@ function specProblem(spec: SandboxSpec): string | null {
 				<div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-[22px] py-5">
 					<label class="flex flex-col gap-2">
 						<span class="text-label text-[11.5px] font-medium">Name</span>
-						<input
-							bind:value={name}
-							required
-							autocomplete="off"
-							spellcheck="false"
-							placeholder="my-sandbox"
-							data-1p-ignore
-							data-lpignore="true"
-							pattern="[a-z0-9][a-z0-9\-]*"
-							class="focus:border-accent/45 rounded-[7px] border border-white/10 bg-white/2 px-3 py-[10px]
-								font-mono text-[13px] focus:bg-white/3 focus:outline-none"
-						/>
+						<div class="flex items-center gap-2">
+							<input
+								bind:value={name}
+								required
+								autocomplete="off"
+								spellcheck="false"
+								placeholder="my-sandbox"
+								data-1p-ignore
+								data-lpignore="true"
+								pattern="[a-z0-9][a-z0-9\-]*"
+								class="focus:border-accent/45 w-0 flex-1 rounded-[7px] border border-white/10 bg-white/2 px-3 py-[10px]
+									font-mono text-[13px] focus:bg-white/3 focus:outline-none"
+							/>
+							<button
+								type="button"
+								onclick={() => (name = suggestName(takenNames))}
+								aria-label="Suggest another name"
+								title="Suggest another name"
+								class="text-body flex size-[34px] flex-none cursor-pointer items-center justify-center rounded-[7px] border border-white/12 text-[13px] hover:bg-white/5"
+							>
+								↻
+							</button>
+						</div>
 						<span class="text-muted text-[11px] leading-[1.5]">
-							The name identifies the machine: a sandbox created with a previous name
-							resumes that machine from its newest restore point.
+							Suggested — type your own if you like. The name identifies the machine: a
+							sandbox created with a previous name resumes that machine from its newest
+							restore point.
 						</span>
 					</label>
 
