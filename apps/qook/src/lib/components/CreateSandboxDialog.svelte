@@ -97,7 +97,9 @@ async function create(event: SubmitEvent) {
 							required
 							autocomplete="off"
 							spellcheck="false"
-							placeholder="sb-3"
+							placeholder="my-sandbox"
+							data-1p-ignore
+							data-lpignore="true"
 							pattern="[a-z0-9][a-z0-9\-]*"
 							class="focus:border-accent/45 rounded-[7px] border border-white/10 bg-white/2 px-3 py-[10px]
 								font-mono text-[13px] focus:bg-white/3 focus:outline-none"
@@ -226,7 +228,7 @@ async function create(event: SubmitEvent) {
 						<!-- Built-in state mount: every sandbox gets it, shown for truth, not editable -->
 						<div class="flex items-center gap-2 opacity-60">
 							<input
-								value={`qook-state/sandboxes/${name.trim() || '<name>'}/workspace`}
+								value={`qook-state/sandboxes/${name.trim() || 'my-sandbox'}/workspace`}
 								disabled
 								class="w-0 flex-1 rounded-[7px] border border-white/10 bg-white/2 px-3 py-[10px] font-mono text-xs"
 							/>
@@ -294,7 +296,7 @@ async function create(event: SubmitEvent) {
 						{#if builtinsOpen}
 							<div class="flex flex-col gap-[7px] rounded-[7px] border border-white/8 bg-white/2 p-[11px]">
 								<span class="section-label">
-									BUILT-IN · qook-state/sandboxes/{name.trim() || '<name>'}/
+									BUILT-IN · qook-state/sandboxes/{name.trim() || 'my-sandbox'}/
 								</span>
 								{#each builtinMounts as m (m.sub)}
 									<span
