@@ -5,19 +5,27 @@ import {
   deleteRestorePoint,
   keepRestorePoint,
   listRestorePoints,
+  restorePointSummary,
   snapshotContext,
 } from "$lib/server/snapshots";
 import type { RequestHandler } from "./$types";
 
-/** GET /api/restore-points?sandbox=<name> — newest first, expired filtered out. */
+/**
+ * GET /api/restore-points?sandbox=<name> — that sandbox's points, newest
+ * first, expired filtered out. Without `sandbox`, a summary across all of
+ * them: point counts and newest-state times, which the table uses instead of
+ * remembering when each sandbox was stopped.
+ */
 export const GET: RequestHandler = async ({ request, url }) => {
   const creds = credentialsFrom(request);
   if (!creds) return json({ error: "No Modal credentials." }, { status: 401 });
   const sandbox = url.searchParams.get("sandbox");
-  if (!sandbox) return json({ error: "Missing ?sandbox=." }, { status: 400 });
 
   const ctx = snapshotContext(creds);
   try {
+    if (!sandbox) {
+      return json({ summary: await restorePointSummary(ctx) });
+    }
     return json({ points: await listRestorePoints(ctx, sandbox) });
   } catch (e) {
     return json({ error: modalErrorMessage(e) }, { status: 502 });

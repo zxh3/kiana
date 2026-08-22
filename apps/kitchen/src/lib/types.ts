@@ -68,6 +68,34 @@ export interface SessionInfo {
 }
 
 /**
+ * A restore point: one published snapshot image of a sandbox's filesystem.
+ * `auto` points expire on the workspace retention policy; `keep` points are
+ * held until deleted. Modal cannot report an image's TTL, so the retention is
+ * encoded in the tag and `expiresAt` is derived from `createdAt`.
+ */
+export interface RestorePoint {
+  /** Full published tag, e.g. `kitchen-snap-api-work:keep.r2.20260822t1430.pre-refactor`. */
+  tag: string;
+  sandbox: string;
+  kind: "auto" | "keep";
+  /** User label for kept points; empty for automatic ones. */
+  label: string;
+  /** Runtime version the point was taken on. */
+  runtime: number;
+  /**
+   * When the machine state was captured — the field points are ordered by.
+   * Keeping a point republishes the same state, so this is deliberately not
+   * the publish time.
+   */
+  createdAt: string;
+  /** When this tag's image was created; what Modal measures the TTL from. */
+  publishedAt: string;
+  /** Null when the point is kept indefinitely. */
+  expiresAt: string | null;
+  imageId: string;
+}
+
+/**
  * Progress for the two slow operations. Starting a sandbox can take minutes
  * (a first-time image build) and stopping one takes as long as its snapshot,
  * so both endpoints stream these as NDJSON rather than leaving the client on a
@@ -100,36 +128,9 @@ export const opPhaseLabels: Record<OpPhase, string> = {
 export type OpEvent =
   | { phase: OpPhase }
   | { sandboxId: string }
+  | { point: RestorePoint }
   | { done: true }
   | { error: string };
-
-/**
- * A restore point: one published snapshot image of a sandbox's filesystem.
- * `auto` points expire on the workspace retention policy; `keep` points are
- * held until deleted. Modal cannot report an image's TTL, so the retention is
- * encoded in the tag and `expiresAt` is derived from `createdAt`.
- */
-export interface RestorePoint {
-  /** Full published tag, e.g. `kitchen-snap-api-work:keep.r2.20260822t1430.pre-refactor`. */
-  tag: string;
-  sandbox: string;
-  kind: "auto" | "keep";
-  /** User label for kept points; empty for automatic ones. */
-  label: string;
-  /** Runtime version the point was taken on. */
-  runtime: number;
-  /**
-   * When the machine state was captured — the field points are ordered by.
-   * Keeping a point republishes the same state, so this is deliberately not
-   * the publish time.
-   */
-  createdAt: string;
-  /** When this tag's image was created; what Modal measures the TTL from. */
-  publishedAt: string;
-  /** Null when the point is kept indefinitely. */
-  expiresAt: string | null;
-  imageId: string;
-}
 
 /** Retention choices for automatic restore points. Null keeps them forever. */
 export const retentionOptions = [

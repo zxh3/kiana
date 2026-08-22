@@ -194,6 +194,54 @@ export async function listRestorePoints(
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+/**
+ * One row per sandbox that has restore points, for the table: how many points
+ * it has and when its newest state was captured. This is server-side truth the
+ * browser would otherwise have to remember — a sandbox's last-stopped time and
+ * whether it has anything to go back to.
+ */
+export async function restorePointSummary(
+  ctx: SnapshotContext,
+): Promise<
+  { sandbox: string; points: { tag: string; createdAt: string }[] }[]
+> {
+  const points: RestorePoint[] = [];
+  let pageToken = "";
+  do {
+    const page = await ctx.client.cpClient.imageListTags({
+      environmentName: ctx.environment ?? "",
+      tagPrefix: TAG_PREFIX,
+      maxObjects: 100,
+      pageToken,
+    });
+    for (const item of page.items) {
+      const point = parseTag(
+        item.tag,
+        item.imageId,
+        new Date(item.createdAt * 1000),
+      );
+      if (point) points.push(point);
+    }
+    pageToken = page.nextPageToken;
+  } while (pageToken);
+
+  // Tags come back rather than a count, because only the browser knows which
+  // points it has deleted — Modal has no unpublish, so a deleted point's tag
+  // is still listed here.
+  const now = Date.now();
+  const summary = new Map<string, { tag: string; createdAt: string }[]>();
+  for (const point of points) {
+    if (point.expiresAt && new Date(point.expiresAt).getTime() <= now) continue;
+    const entry = summary.get(point.sandbox) ?? [];
+    entry.push({ tag: point.tag, createdAt: point.createdAt });
+    summary.set(point.sandbox, entry);
+  }
+  return [...summary.entries()].map(([sandbox, sandboxPoints]) => ({
+    sandbox,
+    points: sandboxPoints,
+  }));
+}
+
 /** The point a plain "Start" should boot from: the newest surviving one. */
 export async function newestRestorePoint(
   ctx: SnapshotContext,

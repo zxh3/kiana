@@ -343,6 +343,34 @@ export async function launchSandbox(
 }
 
 /**
+ * Save a restore point of a running sandbox and leave it running.
+ *
+ * The sandbox has to be alive for a snapshot, which makes this the only way to
+ * capture work *before* something ends the sandbox for you.
+ */
+export async function saveRunningSandbox(
+  creds: ModalCredentials,
+  sandboxId: string,
+  options: { retentionDays: RetentionDays; label?: string },
+  onPhase: (phase: OpPhase) => void = () => {},
+): Promise<RestorePoint> {
+  const client = clientFor(creds);
+  try {
+    const sandbox = await client.sandboxes.fromId(sandboxId);
+    const name = (await sandbox.getTags())["kitchen-name"] ?? sandboxId;
+    return await saveRestorePoint(
+      contextOf(creds, client),
+      sandbox,
+      name,
+      options,
+      onPhase,
+    );
+  } finally {
+    client.close();
+  }
+}
+
+/**
  * Stop a sandbox, saving a restore point first unless the caller discards it.
  * The snapshot has to happen while the sandbox is alive, so a failure here
  * aborts the stop — losing state silently would be worse than staying up.

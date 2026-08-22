@@ -1,5 +1,6 @@
 import { redirect } from "@sveltejs/kit";
 import { ApiError, api } from "$lib/api";
+import { hiddenPoints } from "$lib/restorePoints";
 import { RUNTIME_VERSION } from "$lib/runtimeVersion";
 import {
   loadSandboxStore,
@@ -14,31 +15,65 @@ import type { PageLoad } from "./$types";
  * other three states come from the browser's own memory of what it launched.
  */
 export type Row =
-  | { kind: "running"; sb: SandboxInfo; stopping: boolean }
+  | { kind: "running"; sb: SandboxInfo; stopping: boolean; points: number }
   | {
       kind: "creating";
       spec: SandboxSpec;
       startedAt: string;
       phase: OpPhase | null;
+      points: number;
     }
-  | { kind: "failed"; spec: SandboxSpec; error: string }
-  | { kind: "stopped"; spec: SandboxSpec; stoppedAt: string };
+  | { kind: "failed"; spec: SandboxSpec; error: string; points: number }
+  | {
+      kind: "stopped";
+      spec: SandboxSpec;
+      /** When its newest point was captured, else when this browser saw it stop. */
+      stoppedAt: string;
+      points: number;
+    };
 
 export const load: PageLoad = async ({ fetch, depends, parent }) => {
   depends("app:sandboxes");
   const { connection } = await parent();
   try {
-    const { sandboxes } = await api<{ sandboxes: SandboxInfo[] }>(
-      "/api/sandboxes",
-      {},
-      fetch,
+    // Modal knows what is running; the restore-point summary says what each
+    // sandbox can go back to, and when its state was last captured — so the
+    // browser does not have to remember either.
+    const [{ sandboxes }, { summary }] = await Promise.all([
+      api<{ sandboxes: SandboxInfo[] }>("/api/sandboxes", {}, fetch),
+      api<{
+        summary: {
+          sandbox: string;
+          points: { tag: string; createdAt: string }[];
+        }[];
+      }>("/api/restore-points", {}, fetch).catch(() => ({ summary: [] })),
+    ]);
+
+    // Points this browser deleted are still listed by Modal, so filter them
+    // out here — otherwise a row would advertise points that fail on use.
+    const workspace = connection?.workspace ?? "default";
+    const deleted = hiddenPoints(workspace);
+    const points = new Map(
+      summary.map((entry) => {
+        const live = entry.points.filter((p) => !deleted.includes(p.tag));
+        return [
+          entry.sandbox,
+          {
+            count: live.length,
+            newestAt: live.reduce<string | null>(
+              (newest, p) =>
+                !newest || p.createdAt > newest ? p.createdAt : newest,
+              null,
+            ),
+          },
+        ];
+      }),
     );
 
     // Reconcile the browser's memory with Modal's truth. Running sandboxes are
     // (re)recorded and settle any pending op; a recorded sandbox that is no
     // longer running becomes a stopped row that can be recreated (name-keyed
     // state means recreating is resuming).
-    const workspace = connection?.workspace ?? "default";
     const store = loadSandboxStore(workspace);
     const running = new Map(sandboxes.map((sb) => [sb.name, sb]));
 
@@ -47,7 +82,6 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
       const record = store[sb.name];
       store[sb.name] = {
         spec,
-        createdAt: record?.createdAt ?? createdAt,
         stoppedAt: null,
         // A running sandbox settles a pending launch; a pending terminate
         // stays pending until it actually leaves the list.
@@ -81,6 +115,7 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
       kind: "running" as const,
       sb,
       stopping: store[sb.name]?.op?.kind === "stopping",
+      points: points.get(sb.name)?.count ?? 0,
     }));
     for (const record of Object.values(store)) {
       const name = record.spec.name;
@@ -91,16 +126,27 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
           spec: record.spec,
           startedAt: record.op.startedAt,
           phase: record.op.phase,
+          points: points.get(name)?.count ?? 0,
         });
       } else if (record.error) {
-        rows.push({ kind: "failed", spec: record.spec, error: record.error });
+        rows.push({
+          kind: "failed",
+          spec: record.spec,
+          error: record.error,
+          points: points.get(name)?.count ?? 0,
+        });
       } else {
-        // A row that never ran has no stop time — fall back to when it was
-        // recorded, so dismissing an error can't make the row disappear.
+        // Prefer Modal's own answer for "when did this stop": the newest
+        // point's capture time. The stored one only covers a sandbox stopped
+        // with its changes discarded, which writes no point.
         rows.push({
           kind: "stopped",
           spec: record.spec,
-          stoppedAt: record.stoppedAt ?? record.createdAt,
+          stoppedAt:
+            points.get(name)?.newestAt ??
+            record.stoppedAt ??
+            new Date().toISOString(),
+          points: points.get(name)?.count ?? 0,
         });
       }
     }

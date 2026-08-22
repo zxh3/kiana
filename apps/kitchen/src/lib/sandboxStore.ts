@@ -1,9 +1,13 @@
 /**
- * Browser-side memory of sandboxes, keyed by workspace then name. Modal only
- * lists *running* sandboxes, so this store is what lets terminated ones stay
- * in the table as "stopped" rows that can be recreated (name-keyed state
- * makes recreation a resume). localStorage only — another browser won't see
- * these rows, same trust model as the credentials.
+ * Browser-side memory of sandboxes, keyed by workspace then name.
+ *
+ * This holds only what Modal cannot answer for us. Modal lists running
+ * sandboxes, and restore points say what each sandbox can go back to and when
+ * its state was last captured — but a *stopped* sandbox's shape (cpu, memory,
+ * gpu, image, mounts) lives nowhere server-side: sandbox tags die with the
+ * sandbox, and an image tag cannot carry an image reference or a mount path.
+ * So the spec is remembered here, and it is the reason stopped rows are
+ * browser-local. Same trust model as the credentials.
  *
  * It also holds in-flight operations. A launch can outlive the tab that
  * started it (image builds take minutes), so `op` is persisted: after a
@@ -21,7 +25,6 @@ export interface StoredOp {
 
 export interface StoredSandbox {
   spec: SandboxSpec;
-  createdAt: string;
   stoppedAt: string | null;
   op: StoredOp | null;
   /** Last launch failure, shown on the row until retried or dismissed. */
@@ -48,7 +51,6 @@ export function loadSandboxStore(workspace: string): SandboxStore {
     if (!record?.spec) continue;
     store[name] = {
       spec: record.spec,
-      createdAt: record.createdAt ?? new Date().toISOString(),
       stoppedAt: record.stoppedAt ?? null,
       op: record.op ?? null,
       error: record.error ?? null,
@@ -81,7 +83,6 @@ export function markCreating(
 ): void {
   update(workspace, spec.name, (record) => ({
     spec,
-    createdAt: record?.createdAt ?? now,
     stoppedAt: record?.stoppedAt ?? null,
     op: { kind: "creating", startedAt: now, phase: null },
     error: null,
@@ -101,15 +102,7 @@ export function setPhase(
 /** The launch succeeded: the row is Modal's now. */
 export function markLaunched(workspace: string, name: string): void {
   update(workspace, name, (record) =>
-    record
-      ? {
-          ...record,
-          createdAt: new Date().toISOString(),
-          stoppedAt: null,
-          op: null,
-          error: null,
-        }
-      : null,
+    record ? { ...record, stoppedAt: null, op: null, error: null } : null,
   );
 }
 

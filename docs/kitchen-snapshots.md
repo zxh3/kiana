@@ -112,6 +112,24 @@ never asks for a number:
   such points are written as `keep` with no label, since "keep" means exactly
   "no expiry" regardless of how it was chosen.
 
+## Where the controls live
+
+- **Row chip** — a sandbox with points shows `N points`; clicking it opens the
+  drawer. This is the discoverable path to time travel, rather than hiding it
+  behind a menu.
+- **Session bar** — `Save point` captures the machine *without stopping it*,
+  and `Points…` opens the same drawer from inside the sandbox. Saving mid-work
+  is the one mitigation the user can apply themselves for a sandbox that later
+  dies unattended.
+- **Running sandbox** — `Restore…` rewinds it in place: it stops the sandbox
+  and starts it again from the chosen point, with "save the current state as a
+  new point first" checked by default. From a session, the restored machine is
+  a new sandbox id, so the console follows it.
+- **Stopped sandbox** — `Start` (the newest point) or `Start from here` (any
+  older one).
+- **Any point** — `Fork…` branches into a separate sandbox and leaves this one
+  alone; `Keep` stops expiry; `Delete` removes it.
+
 ## What Start uses
 
 - A plain **Start** boots the newest point. The drawer marks it `NEXT START`
@@ -174,6 +192,30 @@ After a restore: apt packages, `cargo` (compiles), global npm binaries,
 `/workspace`, `~/.gitconfig` all intact, and all four panes ready. Starting
 from an *older* point dropped a later breakage while keeping the toolchain —
 time travel over the machine, code included.
+
+## What the browser has to remember
+
+Modal answers most questions, so localStorage holds only what it cannot:
+
+| Key | Why it cannot be server-side |
+|---|---|
+| `kitchen-modal-credentials` | the whole BYO-token model; deployment mode replaces it with env vars |
+| `kitchen-sandboxes:<workspace>` → `spec` | a stopped sandbox's shape. Sandbox tags die with the sandbox, an image tag cannot hold an image reference or a mount path, and the JS SDK has no Dict and no named `secrets.fromObject`. This is *the* reason stopped rows are browser-local |
+| `kitchen-sandboxes:<workspace>` → `op`, `error` | in-flight operation state, so a launch survives a reload |
+| `kitchen-deleted-points:<workspace>` | Modal has no unpublish, so deleted points must be filtered locally |
+| `kitchen-settings` | retention policy for new points |
+
+What was **removed** by asking Modal instead: the stored `createdAt`, and
+`stoppedAt` in the common case — a sandbox's last-stopped time is the capture
+time of its newest restore point, which is server-side and true in every
+browser. The same request returns each sandbox's point count for the row chip.
+Deleted-point records are pruned once Modal stops listing the tag at all.
+
+localStorage stays the right store: this is a few kilobytes of small values
+with no blobs, no queries and no need for transactions, and the synchronous
+read is what lets `load` and reactive code use it directly. IndexedDB would
+add async plumbing for no gain — revisit only if per-sandbox artifacts (logs,
+large point histories) ever get cached client-side.
 
 ## Environment containment
 

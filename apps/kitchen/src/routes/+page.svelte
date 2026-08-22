@@ -148,6 +148,34 @@ function openPoints(name: string) {
   pointsOpen = true;
 }
 
+/**
+ * Rewind a running sandbox to an earlier point: stop it (saving first unless
+ * told not to), then start it again from that point. Two operations, so the
+ * row narrates both — and the second only runs if the first got the sandbox
+ * down, since Modal will not free the name otherwise.
+ */
+async function restoreTo(point: RestorePoint, saveFirst: boolean) {
+  const row = data.rows.find(
+    (r) => r.kind === "running" && r.sb.name === point.sandbox,
+  );
+  if (row?.kind !== "running") return;
+  actionError = null;
+  livePhase[point.sandbox] = saveFirst ? "snapshotting" : "stopping";
+  await stop(
+    data.workspace,
+    row.sb.sandboxId,
+    row.sb.name,
+    { save: saveFirst, retentionDays: loadSettings().retentionDays },
+    {
+      onPhase: (phase) => {
+        livePhase[point.sandbox] = phase;
+      },
+    },
+  );
+  await invalidate("app:sandboxes");
+  startLaunch(row.sb, { fromPoint: point.tag });
+}
+
 function openFork(point: RestorePoint) {
   const row = data.rows.find(
     (r) => (r.kind === "running" ? r.sb.name : r.spec.name) === point.sandbox,
@@ -289,6 +317,16 @@ const modeIcons: Record<string, string> = {
 						<span class="truncate font-mono text-[13.5px] leading-none font-semibold">
 							{spec.name}
 						</span>
+						{#if row.points > 0}
+							<button
+								type="button"
+								onclick={() => openPoints(spec.name)}
+								title="{row.points} restore point{row.points > 1 ? 's' : ''} — browse, restore an earlier one, or fork"
+								class="text-secondary hover:text-control flex-none cursor-pointer rounded-[5px] border border-white/10 px-[6px] py-[3px] font-mono text-[10px] leading-none hover:bg-white/5"
+							>
+								{row.points} point{row.points > 1 ? 's' : ''}
+							</button>
+						{/if}
 						{#if sb && sb.volumes.length > 0}
 							<Popover.Root>
 								<Popover.Trigger
@@ -425,6 +463,9 @@ const modeIcons: Record<string, string> = {
 									>
 										Restore points…
 									</DropdownMenu.Item>
+									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
+										Rewind this sandbox to an earlier point, or fork one into a new sandbox.
+									</div>
 									<DropdownMenu.Item
 										class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
 										onSelect={() => stopSandbox(sb.sandboxId, sb.name)}
@@ -480,6 +521,9 @@ const modeIcons: Record<string, string> = {
 									>
 										Restore points…
 									</DropdownMenu.Item>
+									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
+										Start from an earlier point instead of the newest, or fork one.
+									</div>
 									{#if row.kind === 'failed'}
 										<DropdownMenu.Item
 											class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
@@ -525,6 +569,7 @@ const modeIcons: Record<string, string> = {
 		if (spec) startLaunch(spec, { fromPoint: point.tag });
 	}}
 	onfork={openFork}
+	onrestore={restoreTo}
 />
 
 <ForkDialog

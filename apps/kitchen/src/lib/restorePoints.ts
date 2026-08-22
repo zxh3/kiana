@@ -27,3 +27,23 @@ export function hidePoint(workspace: string, tag: string): void {
     localStorage.setItem(key(workspace), JSON.stringify([...tags, tag]));
   }
 }
+
+/**
+ * Forget hidden tags Modal has stopped listing.
+ *
+ * A hidden tag only earns its keep while the tag itself still exists — once
+ * the underlying point has expired out of the listing there is nothing left to
+ * filter, so remembering it is pure growth. Scoped to the tags of one sandbox,
+ * since that is all a listing proves anything about.
+ */
+export function pruneHiddenPoints(
+  workspace: string,
+  sandbox: string,
+  listedTags: string[],
+): void {
+  const prefix = `kitchen-snap-${sandbox}:`;
+  const kept = hiddenPoints(workspace).filter(
+    (tag) => !tag.startsWith(prefix) || listedTags.includes(tag),
+  );
+  localStorage.setItem(key(workspace), JSON.stringify(kept));
+}

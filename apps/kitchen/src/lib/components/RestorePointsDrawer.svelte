@@ -2,7 +2,7 @@
 import { Dialog } from "bits-ui";
 import { ApiError, api } from "$lib/api";
 import { formatAgo } from "$lib/format";
-import { hiddenPoints, hidePoint } from "$lib/restorePoints";
+import { hiddenPoints, hidePoint, pruneHiddenPoints } from "$lib/restorePoints";
 import type { RestorePoint, SandboxSpec } from "$lib/types";
 
 let {
@@ -14,16 +14,19 @@ let {
   runtimeVersion,
   onstart,
   onfork,
+  onrestore,
 }: {
   open?: boolean;
   sandbox: string;
   spec: SandboxSpec | null;
-  /** A running sandbox cannot be started; it can still be forked. */
+  /** A running sandbox restores in place instead of starting. */
   running: boolean;
   workspace: string;
   runtimeVersion: number;
   onstart: (point: RestorePoint) => void;
   onfork: (point: RestorePoint) => void;
+  /** Rewind a running sandbox to this point, optionally saving first. */
+  onrestore: (point: RestorePoint, saveFirst: boolean) => void;
 } = $props();
 
 let points = $state<RestorePoint[] | null>(null);
@@ -32,6 +35,9 @@ let busy = $state<string | null>(null);
 /** Tag whose "keep" name input is open, plus the name being typed. */
 let keeping = $state<string | null>(null);
 let keepName = $state("");
+/** Tag whose restore confirmation is open. Saving first is the safe default. */
+let restoring = $state<string | null>(null);
+let saveFirst = $state(true);
 let now = $state(Date.now());
 
 // Load on open, and forget on close so a reopen always shows Modal's truth.
@@ -39,6 +45,7 @@ $effect(() => {
   if (!open) {
     points = null;
     keeping = null;
+    restoring = null;
     return;
   }
   void refresh();
@@ -50,6 +57,11 @@ async function refresh() {
     const hidden = hiddenPoints(workspace);
     const result = await api<{ points: RestorePoint[] }>(
       `/api/restore-points?sandbox=${encodeURIComponent(sandbox)}`,
+    );
+    pruneHiddenPoints(
+      workspace,
+      sandbox,
+      result.points.map((p) => p.tag),
     );
     points = result.points.filter((p) => !hidden.includes(p.tag));
     now = Date.now();
@@ -156,10 +168,13 @@ const action =
 				{:else}
 					<!-- The model, stated where the confusion would otherwise happen -->
 					<p class="text-muted mb-1 text-[11.5px] leading-[1.6]">
-						Starting <span class="font-mono">{sandbox}</span> uses the newest point.
-						<span class="text-secondary">Keep</span> stops a point expiring — it does not change
-						which one Start uses. <span class="text-secondary">Fork</span> branches any point into
-						a separate sandbox.
+						{running ? 'Restore' : 'Start'} puts
+						<span class="font-mono">{sandbox}</span> back at a point{running
+							? ''
+							: ' — plain Start uses the newest'}.
+						<span class="text-secondary">Keep</span> stops a point expiring; it does not change
+						which point is newest. <span class="text-secondary">Fork</span> branches a point into
+						a separate sandbox, leaving this one alone.
 					</p>
 
 					{#each points as point, i (point.tag)}
@@ -232,8 +247,53 @@ const action =
 										Cancel
 									</button>
 								</div>
+							{:else if restoring === point.tag}
+								<!-- Rewinding stops the machine, so say so and offer the safe path -->
+								<div class="flex flex-col gap-[8px]">
+									<span class="text-body text-[11.5px] leading-[1.6]">
+										Put <span class="font-mono">{sandbox}</span> back at
+										<span class="font-mono">{point.label || 'this point'}</span>? It stops and
+										starts again from here — running processes end either way.
+									</span>
+									<label class="text-body flex cursor-pointer items-center gap-[7px] text-[11.5px]">
+										<input type="checkbox" bind:checked={saveFirst} class="accent-accent size-[13px] cursor-pointer" />
+										Save the current state as a new point first
+									</label>
+									<div class="flex items-center gap-[6px]">
+										<button
+											type="button"
+											onclick={() => {
+												open = false;
+												onrestore(point, saveFirst);
+											}}
+											class="bg-accent text-canvas cursor-pointer rounded-[5px] px-[11px] py-[6px] text-[11px] leading-none font-semibold"
+										>
+											Restore
+										</button>
+										<button
+											type="button"
+											onclick={() => (restoring = null)}
+											class="text-body {action}"
+										>
+											Cancel
+										</button>
+									</div>
+								</div>
 							{:else}
 								<div class="flex flex-wrap items-center gap-[6px]">
+									{#if spec && running && i !== 0}
+										<button
+											type="button"
+											onclick={() => {
+												restoring = point.tag;
+												saveFirst = true;
+											}}
+											title="Stop this sandbox and start it again from this point"
+											class="text-control {action}"
+										>
+											Restore…
+										</button>
+									{/if}
 									{#if spec && !running}
 										<button
 											type="button"
@@ -287,8 +347,8 @@ const action =
 
 					{#if running}
 						<p class="text-muted mt-1 text-[11px] leading-[1.6]">
-							<span class="font-mono">{sandbox}</span> is running, so it cannot be started from an
-							earlier point. Stop it first, or fork a point into a new sandbox.
+							<span class="font-mono">{sandbox}</span> is running on its newest point. Restore
+							rewinds it in place; Fork leaves it running and branches into a new sandbox.
 						</p>
 					{/if}
 				{/if}

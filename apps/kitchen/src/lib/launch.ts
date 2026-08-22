@@ -27,6 +27,7 @@ import {
 import type {
   OpEvent,
   OpPhase,
+  RestorePoint,
   RetentionDays,
   SandboxInfo,
   SandboxSpec,
@@ -66,6 +67,8 @@ async function isRunning(name: string): Promise<boolean> {
 export async function driveStream(
   request: () => Promise<Response>,
   onPhase: (phase: OpPhase) => void,
+  /** Called for every event, for callers that need the terminal payload. */
+  onEvent: (event: OpEvent) => void = () => {},
 ): Promise<{ ok: true } | { ok: false; error: string; streamDied: boolean }> {
   let res: Response;
   try {
@@ -102,10 +105,12 @@ export async function driveStream(
         } catch {
           continue;
         }
+        onEvent(event);
         if ("phase" in event) onPhase(event.phase);
-        else if ("sandboxId" in event || "done" in event)
-          verdict = { ok: true };
         else if ("error" in event) verdict = { ok: false, error: event.error };
+        // Anything else is the terminal success payload — a sandbox id, a
+        // saved point, or a bare done.
+        else verdict = { ok: true };
       }
     }
   } catch (e) {
@@ -256,4 +261,40 @@ export async function stop(
   markStopped(workspace, name);
   if (result.ok) handlers.onDone?.();
   else handlers.onError?.(result.error);
+}
+
+/**
+ * Save a restore point of a running sandbox, leaving it running.
+ *
+ * The counterpart to Stop-and-save: same snapshot, no shutdown. Resolves with
+ * the point so a caller can show what it captured.
+ */
+export async function savePoint(
+  sandboxId: string,
+  options: { retentionDays: RetentionDays; label?: string },
+  onPhase: (phase: OpPhase) => void = () => {},
+): Promise<{ ok: true; point: RestorePoint } | { ok: false; error: string }> {
+  const query = new URLSearchParams({
+    retentionDays:
+      options.retentionDays === null
+        ? "forever"
+        : String(options.retentionDays),
+  });
+  if (options.label) query.set("label", options.label);
+
+  let saved: RestorePoint | null = null;
+  const result = await driveStream(
+    () =>
+      fetch(`/api/sandboxes/${sandboxId}/restore-point?${query}`, {
+        method: "POST",
+        headers: credentialHeaders(),
+      }),
+    onPhase,
+    (event) => {
+      if ("point" in event) saved = event.point;
+    },
+  );
+  if (!result.ok) return { ok: false, error: result.error };
+  if (!saved) return { ok: false, error: "The save finished without a point." };
+  return { ok: true, point: saved };
 }
