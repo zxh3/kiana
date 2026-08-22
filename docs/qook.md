@@ -225,9 +225,14 @@ Caddy owns the public ports; the services bind to localhost only. The
 run any dev server on 3000 and it appears in the tab; until then Caddy
 serves a friendly "nothing is listening on port 3000" message. The pane has
 a slim toolbar: reload, a path address bar (type `/route`, Enter), and
-open-in-new-tab. The iframe is cross-origin, so its live URL can't be read
-and true back/forward can't be driven from the parent — those would need
-same-origin proxying through the qook server.
+open-in-new-tab; the iframe canvas is white (unstyled pages assume a
+browser-default background) and sandboxed so `target=_top` links can't
+navigate the console away. The proxy rewrites the Host header to the
+upstream (so vite/next-style host validation passes) and strips
+X-Frame-Options / CSP so frame-shy dev apps still embed. Stress-tested:
+host-validating servers, frame-blocking headers, redirects, forms, 2 MB
+payloads. Cross-origin limits stand: the live URL can't be read, so true
+back/forward would need same-origin proxying through the qook server.
 
 **Shells everywhere are zsh**: the boot env exports `SHELL=/usr/bin/zsh`
 (inherited by herdr, whose panes fall back to `$SHELL`), root's login shell

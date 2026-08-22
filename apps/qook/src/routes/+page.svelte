@@ -93,6 +93,7 @@ const modeIcons: Record<string, string> = {
   zsh: ">_",
   herdr: "H",
   vscode: "{ }",
+  browser: "://",
 };
 </script>
 

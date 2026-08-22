@@ -243,11 +243,14 @@ const sb = $derived(data.session?.sandbox ?? null);
 			{#if visited[m] && data.session.panes[m].ready}
 				{#if m === 'browser'}
 					{#key browserReload}
+						<!-- White canvas: unstyled pages assume a browser-default background.
+						     sandbox blocks target=_top escapes from navigating the console away. -->
 						<iframe
 							src={browserSrc ?? data.session.panes.browser.url}
 							title="browser — {sb.name}"
-							class="bg-canvas min-h-0 w-full flex-1 border-0 {mode === m ? '' : 'hidden'}"
+							class="min-h-0 w-full flex-1 border-0 bg-white {mode === m ? '' : 'hidden'}"
 							allow="clipboard-read; clipboard-write"
+							sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
 						></iframe>
 					{/key}
 				{:else}

@@ -221,7 +221,27 @@ cat > /tmp/Caddyfile <<CADDYEOF
 	import qookauth 18443
 }
 :8080 {
-	import qookauth 3000
+	@login {
+		path /qook-auth
+		query token=$QOOK_SECRET
+	}
+	handle @login {
+		header Set-Cookie "qook=$QOOK_SECRET; Path=/; Secure; HttpOnly; SameSite=None"
+		redir * / 302
+	}
+	@authed {
+		header Cookie *qook=$QOOK_SECRET*
+	}
+	handle @authed {
+		reverse_proxy 127.0.0.1:3000 {
+			header_up Host {upstream_hostport}
+			header_down -X-Frame-Options
+			header_down -Content-Security-Policy
+		}
+	}
+	handle {
+		respond "qook: authentication required" 403
+	}
 	handle_errors {
 		respond "qook: nothing is listening on port 3000 in this sandbox yet. start your app on port 3000 and reload this tab." 502
 	}
