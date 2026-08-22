@@ -66,6 +66,7 @@ set -u
 [ -n "$QOOK_SECRET" ] || { echo "QOOK_SECRET not set" >&2; exit 1; }
 [ -n "$QOOK_SANDBOX_NAME" ] || QOOK_SANDBOX_NAME=sandbox
 export PATH="/root/.local/bin:$PATH"
+export SHELL=/usr/bin/zsh
 # herdr state lives on the volume, but volumes can't host unix sockets —
 # keep the socket on local disk.
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
@@ -98,7 +99,7 @@ printf '%s' "$QOOK_SANDBOX_NAME" > /etc/qook-name
 # herdr: replay recent pane contents after restarts (config lives on the
 # volume; only seed it once so user edits stick)
 if [ ! -f /qook-state/herdr/config/config.toml ]; then
-	printf '[experimental]\npane_history = true\n' > /qook-state/herdr/config/config.toml
+	printf '[terminal]\ndefault_shell = "zsh"\n\n[experimental]\npane_history = true\n' > /qook-state/herdr/config/config.toml
 fi
 
 # code-server: extensions and user state (settings, keybindings, UI state)

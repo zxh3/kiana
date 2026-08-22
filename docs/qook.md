@@ -223,7 +223,17 @@ sandbox failed.
 Caddy owns the public ports; the services bind to localhost only. The
 **browser** pane proxies to sandbox port 3000 behind the same cookie auth —
 run any dev server on 3000 and it appears in the tab; until then Caddy
-serves a friendly "nothing is listening on port 3000" message.
+serves a friendly "nothing is listening on port 3000" message. The pane has
+a slim toolbar: reload, a path address bar (type `/route`, Enter), and
+open-in-new-tab. The iframe is cross-origin, so its live URL can't be read
+and true back/forward can't be driven from the parent — those would need
+same-origin proxying through the qook server.
+
+**Shells everywhere are zsh**: the boot env exports `SHELL=/usr/bin/zsh`
+(inherited by herdr, whose panes fall back to `$SHELL`), root's login shell
+is zsh, and fresh herdr configs are seeded with
+`[terminal] default_shell = "zsh"` — user-editable on the volume at
+`herdr/config/config.toml`.
 
 **Auth.** Pane iframes load `https://<tunnel>/qook-auth?token=<secret>`;
 Caddy answers 302 + an `HttpOnly; Secure; SameSite=None` cookie, and every

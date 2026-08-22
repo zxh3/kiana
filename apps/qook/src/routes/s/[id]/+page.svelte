@@ -52,6 +52,35 @@ $effect(() => {
   return () => clearInterval(t);
 });
 
+// Browser pane controls. The iframe is cross-origin, so its current URL is
+// unreadable and true back/forward can't be driven from here — what works:
+// navigating to a path (the auth cookie is already set after first load),
+// reloading (remount via key), and opening the tunnel in a real tab.
+let browserPath = $state("/");
+let browserSrc = $state<string | null>(null);
+let browserReload = $state(0);
+
+function browserOrigin(): string | null {
+  const url = data.session?.panes.browser?.url;
+  return url ? new URL(url).origin : null;
+}
+
+function browserGo(event: SubmitEvent) {
+  event.preventDefault();
+  const origin = browserOrigin();
+  if (!origin) return;
+  const path = browserPath.trim().startsWith("/")
+    ? browserPath.trim()
+    : `/${browserPath.trim()}`;
+  browserPath = path;
+  browserSrc = origin + path;
+  browserReload++;
+}
+
+function browserOpenTab() {
+  window.open(browserSrc ?? data.session?.panes.browser?.url, "_blank");
+}
+
 async function terminate() {
   terminating = true;
   actionError = null;
@@ -177,14 +206,58 @@ const sb = $derived(data.session?.sandbox ?? null);
 			</div>
 		{/if}
 
+		{#if mode === 'browser' && data.session.panes.browser.ready}
+			<!-- Browser toolbar: path navigation + reload + open in tab -->
+			<div class="flex h-[36px] flex-none items-center gap-2 border-b border-white/6 px-3">
+				<button
+					type="button"
+					onclick={() => browserReload++}
+					aria-label="Reload"
+					title="Reload"
+					class="text-body flex size-[24px] cursor-pointer items-center justify-center rounded-[5px] border border-white/10 text-[11px] hover:bg-white/5"
+				>
+					↻
+				</button>
+				<form onsubmit={browserGo} class="flex min-w-0 flex-1 items-center gap-2">
+					<input
+						bind:value={browserPath}
+						spellcheck="false"
+						autocomplete="off"
+						placeholder="/"
+						class="focus:border-accent/45 w-0 flex-1 rounded-[5px] border border-white/10 bg-white/2 px-[9px] py-[5px] font-mono text-[11.5px] leading-none focus:outline-none"
+					/>
+				</form>
+				<span class="text-muted font-mono text-[10.5px] whitespace-nowrap">→ :3000</span>
+				<button
+					type="button"
+					onclick={browserOpenTab}
+					aria-label="Open in new tab"
+					title="Open in new tab"
+					class="text-body flex size-[24px] cursor-pointer items-center justify-center rounded-[5px] border border-white/10 text-[11px] hover:bg-white/5"
+				>
+					↗
+				</button>
+			</div>
+		{/if}
 		{#each sessionModes as m (m)}
 			{#if visited[m] && data.session.panes[m].ready}
-				<iframe
-					src={data.session.panes[m].url}
-					title="{m} — {sb.name}"
-					class="bg-canvas min-h-0 w-full flex-1 border-0 {mode === m ? '' : 'hidden'}"
-					allow="clipboard-read; clipboard-write"
-				></iframe>
+				{#if m === 'browser'}
+					{#key browserReload}
+						<iframe
+							src={browserSrc ?? data.session.panes.browser.url}
+							title="browser — {sb.name}"
+							class="bg-canvas min-h-0 w-full flex-1 border-0 {mode === m ? '' : 'hidden'}"
+							allow="clipboard-read; clipboard-write"
+						></iframe>
+					{/key}
+				{:else}
+					<iframe
+						src={data.session.panes[m].url}
+						title="{m} — {sb.name}"
+						class="bg-canvas min-h-0 w-full flex-1 border-0 {mode === m ? '' : 'hidden'}"
+						allow="clipboard-read; clipboard-write"
+					></iframe>
+				{/if}
 			{/if}
 		{/each}
 		{#if !data.session.panes[mode].ready}
