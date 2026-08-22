@@ -2,7 +2,12 @@
 import { goto } from "$app/navigation";
 import { ApiError, api } from "$lib/api";
 import { clearCredentials, loadCredentials, saveCredentials } from "$lib/creds";
-import type { ConnectionInfo } from "$lib/types";
+import { loadSettings, saveSettings } from "$lib/settings";
+import {
+  type ConnectionInfo,
+  type RetentionDays,
+  retentionOptions,
+} from "$lib/types";
 
 const stored = loadCredentials();
 let tokenId = $state(stored?.tokenId ?? "");
@@ -43,6 +48,16 @@ function disconnect() {
   tokenId = "";
   tokenSecret = "";
   environment = "";
+}
+
+// Retention applies to *new* automatic restore points: a snapshot's lifetime is
+// fixed when it is taken, so changing this never shortens or extends one that
+// already exists.
+let retentionDays = $state<RetentionDays>(loadSettings().retentionDays);
+
+function setRetention(days: RetentionDays) {
+  retentionDays = days;
+  saveSettings({ retentionDays: days });
 }
 </script>
 
@@ -141,5 +156,28 @@ function disconnect() {
 			server-side. Anyone with access to this browser profile can read them; disconnect to
 			clear them.
 		</p>
+
+		<div class="flex flex-col gap-[9px] border-t border-white/8 pt-5">
+			<span class="text-label text-[11.5px] font-medium">Keep automatic restore points for</span>
+			<div class="flex gap-[7px]">
+				{#each retentionOptions as option (option.label)}
+					<button
+						type="button"
+						onclick={() => setRetention(option.days)}
+						class="flex-1 cursor-pointer rounded-md border py-[9px] text-center font-mono text-xs
+							{retentionDays === option.days
+							? 'border-accent bg-accent/12 text-accent-bright font-semibold'
+							: 'text-data border-white/10 hover:border-white/20'}"
+					>
+						{option.label}
+					</button>
+				{/each}
+			</div>
+			<p class="text-muted text-[11px] leading-[1.6] text-pretty">
+				Stopping a sandbox saves the whole machine as a restore point. Automatic ones expire
+				after this long; points you name or pin are kept until you delete them. This applies
+				to new points — a saved point's lifetime is fixed when it is taken.
+			</p>
+		</div>
 	</form>
 </div>

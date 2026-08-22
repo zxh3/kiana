@@ -32,12 +32,8 @@ export interface VolumeMount {
 }
 export const maxVolumeMounts = 8;
 
-/** Mount point of the per-sandbox state volume; everything under it persists. */
-export const STATE_MOUNT = "/qook-state";
-/** Where shells and code-server open; symlinked onto the state volume. */
+/** Where shells and code-server open. An ordinary directory in the image. */
 export const WORKSPACE_DIR = "/workspace";
-/** Paths the runtime owns — user volume mounts may not collide with these. */
-export const reservedMountPaths: string[] = [STATE_MOUNT, WORKSPACE_DIR];
 
 /** Public (tunneled) port per session mode. */
 export const modePorts = {
@@ -46,30 +42,6 @@ export const modePorts = {
   vscode: 8443,
   browser: 8080,
 } as const;
-
-/**
- * Everything the runtime persists on the state volume, relative to
- * `qook-state/sandboxes/<name>/`. Shown verbatim in the UI — keep in sync
- * with the boot script in server/runtime.ts.
- */
-export const builtinMounts = [
-  { sub: "workspace", target: "/workspace" },
-  { sub: "herdr/config", target: "~/.config/herdr" },
-  { sub: "herdr/share", target: "~/.local/share/herdr" },
-  { sub: "herdr/state", target: "~/.local/state/herdr" },
-  { sub: "code-server/user", target: "~/.local/share/code-server/User" },
-  {
-    sub: "code-server/extensions",
-    target: "~/.local/share/code-server/extensions",
-  },
-  { sub: "agents/claude", target: "$CLAUDE_CONFIG_DIR" },
-  { sub: "agents/codex", target: "$CODEX_HOME" },
-  { sub: "agents/pi", target: "~/.pi" },
-  { sub: "tools/cargo", target: "$CARGO_HOME" },
-  { sub: "tools/rustup", target: "$RUSTUP_HOME" },
-  { sub: "tools/npm", target: "npm -g prefix" },
-  { sub: "bash_history", target: "$HISTFILE" },
-] as const;
 
 export interface SandboxInfo {
   sandboxId: string;
@@ -96,30 +68,71 @@ export interface SessionInfo {
 }
 
 /**
- * Launch progress. Creating a sandbox can take minutes — the first launch of
- * a base image builds the runtime — so POST /api/sandboxes streams these as
- * NDJSON instead of leaving the client on a blank spinner. `waiting` is the
- * window right after a terminate, while Modal still holds the name.
+ * Progress for the two slow operations. Starting a sandbox can take minutes
+ * (a first-time image build) and stopping one takes as long as its snapshot,
+ * so both endpoints stream these as NDJSON rather than leaving the client on a
+ * blank spinner. `waiting` is the window right after a terminate, while Modal
+ * still holds the name.
  */
-export const launchPhases = [
+export const opPhases = [
+  "resolving",
   "image",
   "volumes",
   "creating",
   "waiting",
+  "snapshotting",
+  "publishing",
+  "stopping",
 ] as const;
-export type LaunchPhase = (typeof launchPhases)[number];
+export type OpPhase = (typeof opPhases)[number];
 
-export const launchPhaseLabels: Record<LaunchPhase, string> = {
+export const opPhaseLabels: Record<OpPhase, string> = {
+  resolving: "finding restore point",
   image: "building image",
   volumes: "attaching volumes",
   creating: "starting machine",
   waiting: "waiting for the name to free",
+  snapshotting: "saving machine state",
+  publishing: "saving restore point",
+  stopping: "stopping machine",
 };
 
-export type LaunchEvent =
-  | { phase: LaunchPhase }
+export type OpEvent =
+  | { phase: OpPhase }
   | { sandboxId: string }
+  | { done: true }
   | { error: string };
+
+/**
+ * A restore point: one published snapshot image of a sandbox's filesystem.
+ * `auto` points expire on the workspace retention policy; `keep` points are
+ * held until deleted. Modal cannot report an image's TTL, so the retention is
+ * encoded in the tag and `expiresAt` is derived from `createdAt`.
+ */
+export interface RestorePoint {
+  /** Full published tag, e.g. `qook-snap-api-work:keep.r2.20260822t1430.pre-refactor`. */
+  tag: string;
+  sandbox: string;
+  kind: "auto" | "keep";
+  /** User label for kept points; empty for automatic ones. */
+  label: string;
+  /** Runtime version the point was taken on. */
+  runtime: number;
+  createdAt: string;
+  /** Null when the point is kept indefinitely. */
+  expiresAt: string | null;
+  imageId: string;
+}
+
+/** Retention choices for automatic restore points. Null keeps them forever. */
+export const retentionOptions = [
+  { days: 7, label: "7 days" },
+  { days: 30, label: "30 days" },
+  { days: 90, label: "90 days" },
+  { days: null, label: "forever" },
+] as const;
+export type RetentionDays = (typeof retentionOptions)[number]["days"];
+export const defaultRetentionDays: RetentionDays = 30;
 
 export interface ConnectionInfo {
   workspace: string;

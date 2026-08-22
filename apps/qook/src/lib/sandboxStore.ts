@@ -11,12 +11,12 @@
  * stopped, and reconciliation against Modal's list resolves it.
  */
 
-import type { LaunchPhase, SandboxSpec } from "$lib/types";
+import type { OpPhase, SandboxSpec } from "$lib/types";
 
 export interface StoredOp {
   kind: "creating" | "stopping";
   startedAt: string;
-  phase: LaunchPhase | null;
+  phase: OpPhase | null;
 }
 
 export interface StoredSandbox {
@@ -91,7 +91,7 @@ export function markCreating(
 export function setPhase(
   workspace: string,
   name: string,
-  phase: LaunchPhase,
+  phase: OpPhase,
 ): void {
   update(workspace, name, (record) =>
     record?.op ? { ...record, op: { ...record.op, phase } } : (record ?? null),

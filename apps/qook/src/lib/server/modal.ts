@@ -10,12 +10,14 @@
  * `sandboxes.list()` filtered by the `qook` tag, the spec (image, cpu,
  * memory, gpu, volumes, created-at) lives in tags, and the per-sandbox pane
  * secret is derived — HMAC(tokenSecret, name) — so nothing needs storing
- * anywhere.
+ * anywhere. State persists as restore points (see snapshots.ts), so a
+ * sandbox's filesystem outlives the sandbox without any volume plumbing.
  */
 
 import { createHmac } from "node:crypto";
 import {
   AlreadyExistsError,
+  type Image,
   InvalidError,
   ModalClient,
   NotFoundError,
@@ -28,10 +30,16 @@ import {
   modePorts,
   runtimeCommands,
   runtimePorts,
-  STATE_MOUNT,
 } from "$lib/server/runtime";
 import {
-  type LaunchPhase,
+  imageForPoint,
+  newestRestorePoint,
+  saveRestorePoint,
+} from "$lib/server/snapshots";
+import {
+  type OpPhase,
+  type RestorePoint,
+  type RetentionDays,
   type SandboxInfo,
   type SandboxSpec,
   type SessionInfo,
@@ -225,40 +233,55 @@ async function withRetry<T>(
   }
 }
 
+export interface LaunchOptions {
+  /** Boot from this restore point instead of a freshly built image. */
+  fromPoint?: string;
+  /** Lineage recorded on a fork, for the UI to show. */
+  forkedFrom?: string;
+}
+
 export async function launchSandbox(
   creds: ModalCredentials,
   spec: SandboxSpec,
-  onPhase: (phase: LaunchPhase) => void = () => {},
+  onPhase: (phase: OpPhase) => void = () => {},
+  options: LaunchOptions = {},
 ): Promise<{ sandboxId: string }> {
   const client = clientFor(creds);
   try {
     const app = await client.apps.fromName(APP_NAME, { createIfMissing: true });
-    // Base image + the qook runtime layer. Modal caches image builds by
-    // layer content: the first launch per base image builds (~minutes),
-    // every launch after reuses it.
-    onPhase("image");
-    const image = await withRetry(3, () =>
-      client.images
-        .fromRegistry(spec.image)
-        .dockerfileCommands(runtimeCommands)
-        .build(app),
-    );
 
-    // One shared state volume; subPaths are keyed by NAME so that creating a
-    // sandbox with a previous name resumes its /workspace and herdr state.
-    onPhase("volumes");
-    const stateVolume = await client.volumes.fromName("qook-state", {
-      createIfMissing: true,
-    });
-    const volumes: Record<string, Volume> = {
-      [STATE_MOUNT]: stateVolume.withMountOptions({
-        subPath: `sandboxes/${spec.name}`,
-      }),
-    };
-    for (const { name, mount } of spec.volumes) {
-      volumes[mount] = await client.volumes.fromName(name, {
-        createIfMissing: true,
-      });
+    // Starting an existing sandbox means booting its newest restore point —
+    // the whole machine as it was, in one create call. Only a sandbox with no
+    // points left (or a brand new name) pays for an image build.
+    onPhase("resolving");
+    const point = options.fromPoint
+      ? options.fromPoint
+      : (await newestRestorePoint(client, spec.name))?.tag;
+
+    let image: Image;
+    if (point) {
+      image = await imageForPoint(client, point);
+    } else {
+      onPhase("image");
+      image = await withRetry(3, () =>
+        client.images
+          .fromRegistry(spec.image)
+          .dockerfileCommands(runtimeCommands)
+          .build(app),
+      );
+    }
+
+    // Volumes are the user's own choice now, never a runtime mechanism. Their
+    // contents stay out of restore points, which is exactly why someone would
+    // mount one.
+    const volumes: Record<string, Volume> = {};
+    if (spec.volumes.length > 0) {
+      onPhase("volumes");
+      for (const { name, mount } of spec.volumes) {
+        volumes[mount] = await client.volumes.fromName(name, {
+          createIfMissing: true,
+        });
+      }
     }
 
     onPhase("creating");
@@ -271,12 +294,20 @@ export async function launchSandbox(
       env: {
         QOOK_SECRET: paneSecret(creds, spec.name),
         QOOK_SANDBOX_NAME: spec.name,
+        QOOK_VOLUMES: spec.volumes
+          .map((v) => `${v.name} -> ${v.mount}`)
+          .join(", "),
       },
       encryptedPorts: [...runtimePorts],
       volumes,
       // Modal enforces name uniqueness among running sandboxes in the App.
       name: spec.name,
-      tags: specToTags(spec, new Date().toISOString()),
+      tags: {
+        ...specToTags(spec, new Date().toISOString()),
+        ...(options.forkedFrom
+          ? { "qook-forked-from": options.forkedFrom }
+          : {}),
+      },
     });
     return { sandboxId: sandbox.sandboxId };
   } finally {
@@ -284,17 +315,52 @@ export async function launchSandbox(
   }
 }
 
-export async function terminateSandbox(
+/**
+ * Stop a sandbox, saving a restore point first unless the caller discards it.
+ * The snapshot has to happen while the sandbox is alive, so a failure here
+ * aborts the stop — losing state silently would be worse than staying up.
+ */
+export async function stopSandbox(
   creds: ModalCredentials,
   sandboxId: string,
-): Promise<void> {
+  options: {
+    save: boolean;
+    retentionDays: RetentionDays;
+    label?: string;
+  },
+  onPhase: (phase: OpPhase) => void = () => {},
+): Promise<{ point: RestorePoint | null }> {
   const client = clientFor(creds);
   try {
-    const sandbox = await client.sandboxes.fromId(sandboxId);
+    let sandbox: Sandbox;
+    try {
+      sandbox = await client.sandboxes.fromId(sandboxId);
+    } catch (e) {
+      if (e instanceof NotFoundError || e instanceof InvalidError) {
+        return { point: null }; // already gone
+      }
+      throw e;
+    }
+
+    let point: RestorePoint | null = null;
+    if (options.save) {
+      const name = (await sandbox.getTags())["qook-name"] ?? sandboxId;
+      point = await saveRestorePoint(
+        sandbox,
+        name,
+        { retentionDays: options.retentionDays, label: options.label },
+        onPhase,
+      );
+    }
+
+    onPhase("stopping");
     await sandbox.terminate();
+    return { point };
   } catch (e) {
-    // Already gone — that is the state we wanted.
-    if (!(e instanceof NotFoundError || e instanceof InvalidError)) throw e;
+    if (e instanceof NotFoundError || e instanceof InvalidError) {
+      return { point: null };
+    }
+    throw e;
   } finally {
     client.close();
   }
@@ -359,5 +425,11 @@ export function modalErrorMessage(e: unknown): string {
     return "A sandbox with that name is already running — pick another name.";
   }
   const detail = e instanceof Error ? e.message : String(e);
+  if (/has expired/.test(detail)) {
+    return "That restore point has expired. Start from an earlier point, or start fresh from the base image.";
+  }
+  if (/NOT_FOUND: Image/.test(detail)) {
+    return "That restore point is no longer available — it was deleted.";
+  }
   return `Modal returned an error: ${detail}`;
 }

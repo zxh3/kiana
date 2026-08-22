@@ -1,14 +1,12 @@
 <script lang="ts">
 import { Dialog, Select, Slider } from "bits-ui";
 import {
-  builtinMounts,
   cpuOptions,
   gpuCountOptions,
   gpuOptions,
   imageOptions,
   maxVolumeMounts,
   memoryRange,
-  reservedMountPaths,
   type SandboxSpec,
 } from "$lib/types";
 
@@ -35,7 +33,6 @@ let volumes = $state<{ name: string; mount: string }[]>([
   { name: "", mount: "" },
 ]);
 let error = $state<string | null>(null);
-let builtinsOpen = $state(false);
 
 const chip =
   "flex-1 cursor-pointer rounded-md border py-[9px] text-center font-mono text-xs";
@@ -83,9 +80,6 @@ function specProblem(spec: SandboxSpec): string | null {
     if (!mount.startsWith("/")) {
       return `Mount path "${mount}" must be absolute (start with /).`;
     }
-    if (reservedMountPaths.includes(mount)) {
-      return `${mount} is reserved by the runtime — pick another mount path.`;
-    }
   }
   const mounts = spec.volumes.map((v) => v.mount);
   if (new Set(mounts).size !== mounts.length) {
@@ -108,7 +102,7 @@ function specProblem(spec: SandboxSpec): string | null {
 							Create sandbox
 						</Dialog.Title>
 						<Dialog.Description class="text-secondary text-xs leading-[1.4]">
-							Runs in {workspace} · first launch of a base image builds the runtime (~2 min)
+							Runs in {workspace} · a brand new machine builds its runtime (~2 min)
 						</Dialog.Description>
 					</div>
 					<Dialog.Close
@@ -135,8 +129,8 @@ function specProblem(spec: SandboxSpec): string | null {
 								font-mono text-[13px] focus:bg-white/3 focus:outline-none"
 						/>
 						<span class="text-muted text-[11px] leading-[1.5]">
-							The name is also the state identity: creating a sandbox with a previous name
-							resumes its /workspace, agent logins and installed toolchains.
+							The name identifies the machine: a sandbox created with a previous name
+							resumes that machine from its newest restore point.
 						</span>
 					</label>
 
@@ -255,25 +249,11 @@ function specProblem(spec: SandboxSpec): string | null {
 
 					<div class="flex flex-col gap-[9px]">
 						<span class="text-label text-[11.5px] font-medium">Volume mounts</span>
-						<!-- Built-in state mount: every sandbox gets it, shown for truth, not editable -->
-						<div class="flex items-center gap-2 opacity-60">
-							<input
-								value={`qook-state/sandboxes/${name.trim() || 'my-sandbox'}/workspace`}
-								disabled
-								class="w-0 flex-1 rounded-[7px] border border-white/10 bg-white/2 px-3 py-[10px] font-mono text-xs"
-							/>
-							<span class="text-muted font-mono text-xs">→</span>
-							<input
-								value="/workspace"
-								disabled
-								class="w-0 flex-[1.4] rounded-[7px] border border-white/10 bg-white/2 px-3 py-[10px] font-mono text-xs"
-							/>
-							<span
-								class="text-muted flex h-[26px] flex-none items-center px-[2px] text-[10px] whitespace-nowrap"
-							>
-								built-in
-							</span>
-						</div>
+						<span class="text-muted text-[11px] leading-[1.5]">
+							Optional. The machine itself — packages, config, /workspace — is saved as a
+							restore point when you stop it. Mount a volume for data you want saved
+							continuously, shared live between sandboxes, or kept out of restore points.
+						</span>
 						{#each volumes as volume, i (i)}
 							<div class="flex items-center gap-2">
 								<input
@@ -304,40 +284,14 @@ function specProblem(spec: SandboxSpec): string | null {
 								</button>
 							</div>
 						{/each}
-						<div class="flex items-center justify-between">
+						{#if volumes.length < maxVolumeMounts}
 							<button
 								type="button"
-								onclick={() => (builtinsOpen = !builtinsOpen)}
-								class="text-muted hover:text-secondary flex cursor-pointer items-center gap-[6px] text-[11px] leading-[1.5]"
+								onclick={() => volumes.push({ name: "", mount: "" })}
+								class="text-control cursor-pointer self-start rounded-[5px] border border-white/12 px-[9px] py-[5px] text-[11px] leading-none font-medium hover:bg-white/5"
 							>
-								<span class="text-[9px]">{builtinsOpen ? '▾' : '▸'}</span>
-								{builtinMounts.length - 1} more paths persist on the built-in mount
+								+ Add volume
 							</button>
-							{#if volumes.length < maxVolumeMounts}
-								<button
-									type="button"
-									onclick={() => volumes.push({ name: "", mount: "" })}
-									class="text-control flex-none cursor-pointer rounded-[5px] border border-white/12 px-[9px] py-[5px] text-[11px] leading-none font-medium whitespace-nowrap hover:bg-white/5"
-								>
-									+ Add volume
-								</button>
-							{/if}
-						</div>
-						{#if builtinsOpen}
-							<div class="flex flex-col gap-[7px] rounded-[7px] border border-white/8 bg-white/2 p-[11px]">
-								<span class="section-label">
-									BUILT-IN · qook-state/sandboxes/{name.trim() || 'my-sandbox'}/
-								</span>
-								{#each builtinMounts as m (m.sub)}
-									<span
-										class="text-data flex items-center gap-2 font-mono text-[10.5px] leading-none whitespace-nowrap"
-									>
-										{m.sub}
-										<span class="text-muted">→</span>
-										<span class="text-control">{m.target}</span>
-									</span>
-								{/each}
-							</div>
 						{/if}
 					</div>
 

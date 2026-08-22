@@ -1,6 +1,11 @@
 /**
  * The qook sandbox runtime: what turns a bare base image into a sandbox
- * with working bash / herdr / vscode panes.
+ * with working zsh / herdr / vscode / browser panes.
+ *
+ * Persistence is NOT wired up here. A sandbox is its filesystem, and restore
+ * points (see server/snapshots.ts) capture that filesystem whole — so tools
+ * live where tools normally live, and anything installed anywhere survives.
+ * Volumes are a user-visible option, never a runtime mechanism.
  *
  * Two halves:
  *  - `runtimeCommands` — image layers appended to every base image. Modal
@@ -24,23 +29,26 @@
 // were silently dropped. Master bundles the addon and commits a prebuilt web
 // UI (src/html.h), so it builds from source with cmake alone. Pinned commit.
 const TTYD_COMMIT = "2922cb89f518bae4d0fcf4d757a7419638fc71fc";
+
+/**
+ * Bump when `runtimeCommands` changes in a way an existing sandbox would care
+ * about (new binary versions, new preinstalled tooling). Restore points record
+ * it, so the UI can tell that a restored sandbox is on an older runtime and
+ * offer to rebuild. The boot script is passed at create time, so changes there
+ * need no bump — they apply on the next start.
+ *
+ * Mirrored in $lib/runtimeVersion.ts for the client; keep the two in step.
+ */
+export const RUNTIME_VERSION = 2;
 const CODE_SERVER_VERSION = "4.133.0";
 const CADDY_VERSION = "2.11.4";
 
-import {
-  modePorts,
-  reservedMountPaths,
-  STATE_MOUNT,
-  WORKSPACE_DIR,
-} from "$lib/types";
+import { modePorts, WORKSPACE_DIR } from "$lib/types";
 
 /** Caddy proxies each public port to the service on localhost. */
 export { modePorts };
 export const runtimePorts = Object.values(modePorts);
-
-// The paths themselves live in types.ts so the create dialog can check a spec
-// against them without importing server code.
-export { reservedMountPaths, STATE_MOUNT, WORKSPACE_DIR };
+export { WORKSPACE_DIR };
 
 export const runtimeCommands = [
   "RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl ca-certificates git && rm -rf /var/lib/apt/lists/*",
@@ -57,6 +65,9 @@ export const runtimeCommands = [
   "RUN ln -sf /root/.local/bin/herdr /root/.local/bin/code-server /usr/local/bin/",
   // code-server defaults: dark theme, no telemetry, no trust prompts
   `RUN mkdir -p /root/.local/share/code-server/User && printf '%s' '{"workbench.colorTheme":"Default Dark Modern","security.workspace.trust.enabled":false,"telemetry.telemetryLevel":"off","workbench.startupEditor":"none"}' > /root/.local/share/code-server/User/settings.json`,
+  // the working directory: an ordinary directory, captured by restore points
+  // like the rest of the machine
+  `RUN mkdir -p ${WORKSPACE_DIR} && printf '%s' '${RUNTIME_VERSION}' > /etc/qook-runtime-version`,
   // zsh + oh-my-zsh as the default shell, with git + autosuggestions plugins.
   // ZSH_THEME stays empty: the qook prompt is set at boot (/etc/qook-zshrc).
   "RUN apt-get update && apt-get install -y --no-install-recommends zsh && rm -rf /var/lib/apt/lists/* && chsh -s /usr/bin/zsh root",
@@ -73,122 +84,78 @@ set -u
 [ -n "$QOOK_SANDBOX_NAME" ] || QOOK_SANDBOX_NAME=sandbox
 export PATH="/root/.local/bin:$PATH"
 export SHELL=/usr/bin/zsh
-# herdr state lives on the volume, but volumes can't host unix sockets —
-# keep the socket on local disk.
+# Unix sockets are fine on the sandbox's own filesystem now, but /tmp keeps
+# the socket out of restore points, where a stale socket file is meaningless.
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
 
-# --- persistent state: volume mounted at /qook-state ---
-mkdir -p /qook-state/workspace /qook-state/herdr/config /qook-state/herdr/share /qook-state/herdr/state
-ln -sfn /qook-state/workspace /workspace
-mkdir -p /root/.config /root/.local/share /root/.local/state
-ln -sfn /qook-state/herdr/config /root/.config/herdr
-ln -sfn /qook-state/herdr/share /root/.local/share/herdr
-ln -sfn /qook-state/herdr/state /root/.local/state/herdr
-
-# --- agent state: claude code, codex and pi persist across restarts ---
-mkdir -p /qook-state/agents/claude /qook-state/agents/codex /qook-state/agents/pi
-export CLAUDE_CONFIG_DIR=/qook-state/agents/claude
-export CODEX_HOME=/qook-state/agents/codex
-ln -sfn /qook-state/agents/pi /root/.pi
-export HISTFILE=/qook-state/bash_history
-
-# --- toolchains: rustup/cargo and npm -g land on the volume, so they persist ---
-mkdir -p /qook-state/tools/cargo /qook-state/tools/rustup /qook-state/tools/npm
-export CARGO_HOME=/qook-state/tools/cargo
-export RUSTUP_HOME=/qook-state/tools/rustup
-export NPM_CONFIG_PREFIX=/qook-state/tools/npm
-export PATH="/qook-state/tools/cargo/bin:/qook-state/tools/npm/bin:$PATH"
-
+mkdir -p /workspace
 # name marker for the in-sandbox qook command
 printf '%s' "$QOOK_SANDBOX_NAME" > /etc/qook-name
 
-# herdr: replay recent pane contents after restarts (config lives on the
-# volume; only seed it once so user edits stick)
-if [ ! -f /qook-state/herdr/config/config.toml ]; then
-	printf '[terminal]\ndefault_shell = "zsh"\n\n[experimental]\npane_history = true\n' > /qook-state/herdr/config/config.toml
+# herdr: replay recent pane contents after restarts. Seeded once only — the
+# config lives in the machine now, so user edits stick.
+mkdir -p /root/.config/herdr
+if [ ! -f /root/.config/herdr/config.toml ]; then
+	printf '[terminal]\ndefault_shell = "zsh"\n\n[experimental]\npane_history = true\n' > /root/.config/herdr/config.toml
 fi
-
-# code-server: extensions and user state (settings, keybindings, UI state)
-# persist on the volume. Only these two subdirs — the data-dir root holds
-# code-server's IPC socket, and sockets can't live on a volume. The image's
-# baked settings.json seeds the volume copy once.
-CODESERVER=/root/.local/share/code-server
-mkdir -p /qook-state/code-server/extensions /qook-state/code-server/user
-if [ ! -f /qook-state/code-server/user/settings.json ] && [ -f "$CODESERVER/User/settings.json" ]; then
-	cp "$CODESERVER/User/settings.json" /qook-state/code-server/user/settings.json
-fi
-rm -rf "$CODESERVER/User" "$CODESERVER/extensions"
-mkdir -p "$CODESERVER"
-ln -sfn /qook-state/code-server/user "$CODESERVER/User"
-ln -sfn /qook-state/code-server/extensions "$CODESERVER/extensions"
 
 # --- prompt (root's .bashrc would otherwise override profile.d) ---
 cat > /etc/profile.d/qook.sh <<PROFILE
 export PS1='\[\e[38;5;191m\]qook@'$QOOK_SANDBOX_NAME'\[\e[0m\]:\[\e[38;5;110m\]\w\[\e[0m\]$ '
-export PATH="/qook-state/tools/cargo/bin:/qook-state/tools/npm/bin:/root/.local/bin:\$PATH"
+export PATH="/root/.local/bin:\$PATH"
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
-export CLAUDE_CONFIG_DIR=/qook-state/agents/claude
-export CODEX_HOME=/qook-state/agents/codex
-export HISTFILE=/qook-state/bash_history
-export CARGO_HOME=/qook-state/tools/cargo
-export RUSTUP_HOME=/qook-state/tools/rustup
-export NPM_CONFIG_PREFIX=/qook-state/tools/npm
 case \$- in *i*)
 	if [ -z "\$QOOK_MOTD_SHOWN" ]; then
 		export QOOK_MOTD_SHOWN=1
-		printf '\e[90m/workspace, agent logins and installed toolchains persist across restarts of $QOOK_SANDBOX_NAME.\neverything else resets on terminate. type \e[0mqook\e[90m for details.\e[0m\n'
+		printf '\e[90mthe whole machine is saved when you stop $QOOK_SANDBOX_NAME - packages, config, /workspace, all of it.\ntype \e[0mqook\e[90m for details.\e[0m\n'
 	fi
 ;; esac
 PROFILE
 echo '[ -f /etc/profile.d/qook.sh ] && . /etc/profile.d/qook.sh' >> /root/.bashrc
 
-# --- the in-sandbox reference: what persists, what resets ---
+# --- the in-sandbox reference: how persistence actually works here ---
 cat > /usr/local/bin/qook <<'QOOKCMD'
 #!/bin/sh
 NAME=$(cat /etc/qook-name 2>/dev/null || echo sandbox)
 printf '\033[1mqook\033[0m - sandbox \033[1m%s\033[0m\n\n' "$NAME"
-printf 'persists across restarts of %s (volume qook-state/sandboxes/%s):\n' "$NAME" "$NAME"
+printf 'this sandbox IS its filesystem. stopping it saves a restore point of the\n'
+printf 'whole machine; starting %s again restores it:\n\n' "$NAME"
 printf '  /workspace                      your files\n'
-printf '  herdr sessions                  ~/.config|share|state/herdr\n'
-printf '  vscode settings + extensions    code-server User/ and extensions/\n'
-printf '  agent logins + sessions         claude / codex / pi\n'
-printf '  shell history\n\n'
-printf 'installs that land on the volume, so they persist too:\n'
-if command -v cargo >/dev/null 2>&1; then
-	printf '  rust                            installed (%s) - persisted\n' "$(cargo --version | cut -d' ' -f2)"
-else
-	printf '  rust                            not installed. to install (persists):\n'
-	printf '                                  curl -fsSL https://sh.rustup.rs | sh -s -- -y\n'
+printf '  apt / pip / npm -g installs     wherever they normally land\n'
+printf '  rustup, nvm, any toolchain      no special setup needed\n'
+printf '  agent logins, herdr sessions    claude / codex / pi, ~/.config\n'
+printf '  vscode settings + extensions    dotfiles, /etc, shell history\n\n'
+printf 'so install things normally - nothing needs to live in a special path.\n\n'
+if [ -n "$QOOK_VOLUMES" ]; then
+	printf 'mounted volumes (saved continuously, NOT part of restore points):\n'
+	printf '  %s\n\n' "$QOOK_VOLUMES"
 fi
-printf '  npm -g <pkg>                    global installs are volume-backed\n\n'
+printf 'what is not saved:\n'
+printf '  running processes - a restored sandbox boots its services fresh\n'
+printf '  /etc/hosts, /etc/resolv.conf - the container rewrites these at boot\n'
+printf '  work done after the last restore point, if this sandbox is killed\n'
+printf '  without being stopped (it has a 24h lifetime). stop it when you are\n'
+printf '  done, or mount a volume for anything you cannot lose.\n\n'
 printf 'browser tab:\n'
-printf '  proxies to port 3000 in this sandbox - start any dev server there\n\n'
-printf 'resets on terminate:\n'
-printf '  apt/system packages, $HOME dotfiles, anything outside the paths above\n'
-printf '  tip: keep other toolchains under /workspace or /qook-state/tools\n'
+printf '  proxies to port 3000 in this sandbox - start any dev server there\n'
 QOOKCMD
 chmod +x /usr/local/bin/qook
 
 # --- zsh: env for every invocation, plus the qook prompt + MOTD ---
 cat > /etc/zsh/zshenv <<ZSHENV
-export PATH="/qook-state/tools/cargo/bin:/qook-state/tools/npm/bin:/root/.local/bin:\$PATH"
+export PATH="/root/.local/bin:\$PATH"
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
-export CLAUDE_CONFIG_DIR=/qook-state/agents/claude
-export CODEX_HOME=/qook-state/agents/codex
-export CARGO_HOME=/qook-state/tools/cargo
-export RUSTUP_HOME=/qook-state/tools/rustup
-export NPM_CONFIG_PREFIX=/qook-state/tools/npm
 export SHELL=/usr/bin/zsh
 ZSHENV
 
 cat > /etc/qook-zshrc <<QOOKZSH
-export HISTFILE=/qook-state/zsh_history
+export HISTFILE=/root/.zsh_history
 export HISTSIZE=10000
 export SAVEHIST=10000
 setopt share_history
 if [ -z "\$QOOK_MOTD_SHOWN" ]; then
 	export QOOK_MOTD_SHOWN=1
-	printf '\e[90m/workspace, agent logins and installed toolchains persist across restarts of $QOOK_SANDBOX_NAME.\neverything else resets on terminate. type \e[0mqook\e[90m for details.\e[0m\n'
+	printf '\e[90mthe whole machine is saved when you stop $QOOK_SANDBOX_NAME - packages, config, /workspace, all of it.\ntype \e[0mqook\e[90m for details.\e[0m\n'
 fi
 QOOKZSH
 

@@ -1,22 +1,20 @@
 <script lang="ts">
 import { DropdownMenu, Popover } from "bits-ui";
 import { goto, invalidate } from "$app/navigation";
-import { ApiError, api } from "$lib/api";
+import { api } from "$lib/api";
 import CreateSandboxDialog from "$lib/components/CreateSandboxDialog.svelte";
+import ForkDialog from "$lib/components/ForkDialog.svelte";
 import Logo from "$lib/components/Logo.svelte";
+import RestorePointsDrawer from "$lib/components/RestorePointsDrawer.svelte";
 import StatusDot from "$lib/components/StatusDot.svelte";
 import { formatAgo, formatResources, formatUptime } from "$lib/format";
-import { launch } from "$lib/launch";
+import { type LaunchOptions, launch, stop } from "$lib/launch";
+import { clearError, forgetSandbox } from "$lib/sandboxStore";
+import { loadSettings } from "$lib/settings";
 import {
-  clearError,
-  forgetSandbox,
-  markStopped,
-  markStopping,
-} from "$lib/sandboxStore";
-import {
-  builtinMounts,
-  type LaunchPhase,
-  launchPhaseLabels,
+  type OpPhase,
+  opPhaseLabels,
+  type RestorePoint,
   type SandboxSpec,
   sessionModes,
 } from "$lib/types";
@@ -33,7 +31,14 @@ let now = $state(Date.now());
 // Phases arrive on the launch's own stream, ahead of any list refresh, so the
 // live phase is kept here and the persisted one (from the store) is the
 // fallback after a reload.
-let livePhase = $state<Record<string, LaunchPhase>>({});
+let livePhase = $state<Record<string, OpPhase>>({});
+
+// Restore points and forking, both driven from a row.
+let pointsFor = $state<string | null>(null);
+let pointsOpen = $state(false);
+let forkPoint = $state<RestorePoint | null>(null);
+let forkSpec = $state<SandboxSpec | null>(null);
+let forkOpen = $state(false);
 
 const pending = $derived(
   data.rows.some(
@@ -70,37 +75,88 @@ $effect(() => {
   return () => clearInterval(t);
 });
 
-function startLaunch(spec: SandboxSpec) {
+function startLaunch(spec: SandboxSpec, options: LaunchOptions = {}) {
   actionError = null;
-  livePhase[spec.name] = "image";
+  livePhase[spec.name] = "resolving";
   // Deliberately not awaited: a launch outlives the click, and the row in the
   // table is where its progress shows.
-  void launch(data.workspace, spec, {
-    onPhase: (phase) => {
-      livePhase[spec.name] = phase;
+  void launch(
+    data.workspace,
+    spec,
+    {
+      onPhase: (phase) => {
+        livePhase[spec.name] = phase;
+      },
+      onDone: () => {
+        delete livePhase[spec.name];
+        void invalidate("app:sandboxes");
+      },
+      onError: () => {
+        delete livePhase[spec.name];
+        void invalidate("app:sandboxes");
+      },
     },
-    onDone: () => {
-      delete livePhase[spec.name];
-      void invalidate("app:sandboxes");
-    },
-    onError: () => {
-      delete livePhase[spec.name];
-      void invalidate("app:sandboxes");
-    },
-  });
+    options,
+  );
   void invalidate("app:sandboxes");
 }
 
-async function terminate(sandboxId: string, name: string) {
+/**
+ * Stop a sandbox. By default the machine is snapshotted on the way out, which
+ * is the slow part — so this is fire-and-forget too, with the phases showing
+ * on the row.
+ */
+function stopSandbox(sandboxId: string, name: string, save = true) {
   actionError = null;
-  markStopping(data.workspace, name);
-  await invalidate("app:sandboxes");
+  livePhase[name] = save ? "snapshotting" : "stopping";
+  void stop(
+    data.workspace,
+    sandboxId,
+    name,
+    { save, retentionDays: loadSettings().retentionDays },
+    {
+      onPhase: (phase) => {
+        livePhase[name] = phase;
+      },
+      onDone: () => {
+        delete livePhase[name];
+        void invalidate("app:sandboxes");
+      },
+      onError: (message) => {
+        delete livePhase[name];
+        actionError = message;
+        void invalidate("app:sandboxes");
+      },
+    },
+  );
+  void invalidate("app:sandboxes");
+}
+
+function openPoints(name: string) {
+  pointsFor = name;
+  pointsOpen = true;
+}
+
+function openFork(point: RestorePoint) {
+  const row = data.rows.find(
+    (r) => (r.kind === "running" ? r.sb.name : r.spec.name) === point.sandbox,
+  );
+  forkSpec = row ? (row.kind === "running" ? row.sb : row.spec) : null;
+  forkPoint = point;
+  forkOpen = true;
+}
+
+async function forget(name: string) {
+  forgetSandbox(data.workspace, name);
+  // The rows are browser-local, but the restore points are not — dropping the
+  // row without them would leak storage nothing can reach.
   try {
-    await api(`/api/sandboxes/${sandboxId}`, { method: "DELETE" });
-    markStopped(data.workspace, name);
-  } catch (e) {
-    actionError = e instanceof ApiError ? e.message : String(e);
-    markStopped(data.workspace, name);
+    await api(`/api/restore-points?sandbox=${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    });
+  } catch {
+    // the row is already gone from this browser; surfacing this would only
+    // confuse, and the points expire on their own
   }
   await invalidate("app:sandboxes");
 }
@@ -110,14 +166,9 @@ async function dismissError(name: string) {
   await invalidate("app:sandboxes");
 }
 
-async function forget(name: string) {
-  forgetSandbox(data.workspace, name);
-  await invalidate("app:sandboxes");
-}
-
-function phaseLabel(name: string, stored: LaunchPhase | null): string {
+function phaseLabel(name: string, stored: OpPhase | null): string {
   const phase = livePhase[name] ?? stored;
-  return phase ? launchPhaseLabels[phase] : "starting";
+  return phase ? opPhaseLabels[phase] : "starting";
 }
 
 function elapsed(since: string): string {
@@ -227,14 +278,14 @@ const modeIcons: Record<string, string> = {
 						<span class="truncate font-mono text-[13.5px] leading-none font-semibold">
 							{spec.name}
 						</span>
-						{#if sb}
+						{#if sb && sb.volumes.length > 0}
 							<Popover.Root>
 								<Popover.Trigger
 									class="text-secondary hover:text-control flex-none cursor-pointer rounded-[5px] border border-white/10 px-[6px] py-[3px] font-mono text-[10px] leading-none hover:bg-white/5"
 									aria-label="Show volume mounts"
 								>
-									{sb.volumes.length + 1}
-									vol{sb.volumes.length + 1 > 1 ? 's' : ''}
+									{sb.volumes.length}
+									vol{sb.volumes.length > 1 ? 's' : ''}
 								</Popover.Trigger>
 								<Popover.Portal>
 									<Popover.Content
@@ -252,18 +303,9 @@ const modeIcons: Record<string, string> = {
 												<span class="text-control">{volume.mount}</span>
 											</span>
 										{/each}
-										<span class="section-label pt-[4px]">
-											BUILT-IN · qook-state/sandboxes/{sb.name}/
+										<span class="text-muted text-[10.5px] leading-[1.5]">
+											Saved continuously and kept out of restore points.
 										</span>
-										{#each builtinMounts as m (m.sub)}
-											<span
-												class="text-data flex items-center gap-2 font-mono text-[11px] leading-none whitespace-nowrap"
-											>
-												{m.sub}
-												<span class="text-muted">→</span>
-												<span class="text-control">{m.target}</span>
-											</span>
-										{/each}
 									</Popover.Content>
 								</Popover.Portal>
 							</Popover.Root>
@@ -367,20 +409,36 @@ const modeIcons: Record<string, string> = {
 									align="end"
 								>
 									<DropdownMenu.Item
-										class="text-failed-text data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
-										onSelect={() => terminate(sb.sandboxId, sb.name)}
+										class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
+										onSelect={() => openPoints(sb.name)}
 									>
-										Terminate
+										Restore points…
+									</DropdownMenu.Item>
+									<DropdownMenu.Item
+										class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
+										onSelect={() => stopSandbox(sb.sandboxId, sb.name)}
+									>
+										Stop and save
 									</DropdownMenu.Item>
 									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
-										Stops the machine. The row stays listed — Start restores its state.
+										Saves the whole machine as a restore point, then stops it. Starting it
+										again picks up exactly here.
+									</div>
+									<DropdownMenu.Item
+										class="text-failed-text data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
+										onSelect={() => stopSandbox(sb.sandboxId, sb.name, false)}
+									>
+										Discard changes and stop
+									</DropdownMenu.Item>
+									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
+										Stops without saving. The last restore point stays as it was.
 									</div>
 								</DropdownMenu.Content>
 							</DropdownMenu.Portal>
 						</DropdownMenu.Root>
 					{:else if row.kind === 'creating'}
 						<span class="text-muted font-mono text-[11px] whitespace-nowrap">
-							{phaseLabel(spec.name, row.phase) === launchPhaseLabels.image
+							{phaseLabel(spec.name, row.phase) === opPhaseLabels.image
 								? 'first build ~2 min'
 								: 'almost there'}
 						</span>
@@ -405,6 +463,12 @@ const modeIcons: Record<string, string> = {
 									sideOffset={6}
 									align="end"
 								>
+									<DropdownMenu.Item
+										class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
+										onSelect={() => openPoints(spec.name)}
+									>
+										Restore points…
+									</DropdownMenu.Item>
 									{#if row.kind === 'failed'}
 										<DropdownMenu.Item
 											class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
@@ -420,7 +484,7 @@ const modeIcons: Record<string, string> = {
 										Forget
 									</DropdownMenu.Item>
 									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
-										Removes the row from this browser only. Its saved state stays on the volume.
+										Drops the row and deletes this sandbox's restore points.
 									</div>
 								</DropdownMenu.Content>
 							</DropdownMenu.Portal>
@@ -431,6 +495,34 @@ const modeIcons: Record<string, string> = {
 		{/each}
 	{/if}
 </div>
+
+<RestorePointsDrawer
+	bind:open={pointsOpen}
+	sandbox={pointsFor ?? ''}
+	spec={pointsFor
+		? (data.rows
+				.map((row) => (row.kind === 'running' ? row.sb : row.spec))
+				.find((candidate) => candidate.name === pointsFor) ?? null)
+		: null}
+	workspace={data.workspace}
+	runtimeVersion={data.runtimeVersion}
+	onstart={(point) => {
+		const spec = data.rows
+			.map((row) => (row.kind === 'running' ? row.sb : row.spec))
+			.find((candidate) => candidate.name === point.sandbox);
+		if (spec) startLaunch(spec, { fromPoint: point.tag });
+	}}
+	onfork={openFork}
+/>
+
+<ForkDialog
+	bind:open={forkOpen}
+	point={forkPoint}
+	spec={forkSpec}
+	takenNames={data.rows.map((row) => (row.kind === 'running' ? row.sb.name : row.spec.name))}
+	onfork={(spec, point) =>
+		startLaunch(spec, { fromPoint: point.tag, forkedFrom: point.tag })}
+/>
 
 <CreateSandboxDialog
 	bind:open={createOpen}

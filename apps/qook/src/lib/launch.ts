@@ -20,11 +20,14 @@ import {
   markCreating,
   markFailed,
   markLaunched,
+  markStopped,
+  markStopping,
   setPhase,
 } from "$lib/sandboxStore";
 import type {
-  LaunchEvent,
-  LaunchPhase,
+  OpEvent,
+  OpPhase,
+  RetentionDays,
   SandboxInfo,
   SandboxSpec,
 } from "$lib/types";
@@ -39,7 +42,7 @@ const NAME_RETRY_INTERVAL_MS = 4000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export interface LaunchHandlers {
-  onPhase?: (phase: LaunchPhase) => void;
+  onPhase?: (phase: OpPhase) => void;
   onDone?: () => void;
   onError?: (error: string) => void;
 }
@@ -55,18 +58,18 @@ async function isRunning(name: string): Promise<boolean> {
   }
 }
 
-/** One POST: drive the NDJSON stream to a verdict. */
-async function attempt(
-  spec: SandboxSpec,
-  onPhase: (phase: LaunchPhase) => void,
+/**
+ * Drive one NDJSON progress stream to a verdict. Shared by starting and
+ * stopping: both are slow, both report phases, both end in success or a
+ * message.
+ */
+export async function driveStream(
+  request: () => Promise<Response>,
+  onPhase: (phase: OpPhase) => void,
 ): Promise<{ ok: true } | { ok: false; error: string; streamDied: boolean }> {
   let res: Response;
   try {
-    res = await fetch("/api/sandboxes", {
-      method: "POST",
-      headers: { ...credentialHeaders(), "content-type": "application/json" },
-      body: JSON.stringify({ ...spec, gpu: spec.gpu ?? "none" }),
-    });
+    res = await request();
   } catch (e) {
     return { ok: false, error: String(e), streamDied: true };
   }
@@ -93,14 +96,15 @@ async function attempt(
       buffer = lines.pop() ?? "";
       for (const line of lines) {
         if (!line.trim()) continue;
-        let event: LaunchEvent;
+        let event: OpEvent;
         try {
           event = JSON.parse(line);
         } catch {
           continue;
         }
         if ("phase" in event) onPhase(event.phase);
-        else if ("sandboxId" in event) verdict = { ok: true };
+        else if ("sandboxId" in event || "done" in event)
+          verdict = { ok: true };
         else if ("error" in event) verdict = { ok: false, error: event.error };
       }
     }
@@ -124,12 +128,20 @@ async function attempt(
  * Launch `spec` and keep the sandbox store in step. Resolves when the outcome
  * is known; callers that want to stay responsive should not await it.
  */
+export interface LaunchOptions {
+  /** Boot this restore point rather than the sandbox's newest. */
+  fromPoint?: string;
+  /** Lineage to record when this launch is a fork. */
+  forkedFrom?: string;
+}
+
 export async function launch(
   workspace: string,
   spec: SandboxSpec,
   handlers: LaunchHandlers = {},
+  options: LaunchOptions = {},
 ): Promise<void> {
-  const phase = (p: LaunchPhase) => {
+  const phase = (p: OpPhase) => {
     setPhase(workspace, spec.name, p);
     handlers.onPhase?.(p);
   };
@@ -139,10 +151,26 @@ export async function launch(
   };
 
   markCreating(workspace, spec);
-  handlers.onPhase?.("image");
+  handlers.onPhase?.("resolving");
 
   for (let tries = 1; ; tries++) {
-    const result = await attempt(spec, phase);
+    const result = await driveStream(
+      () =>
+        fetch("/api/sandboxes", {
+          method: "POST",
+          headers: {
+            ...credentialHeaders(),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            ...spec,
+            gpu: spec.gpu ?? "none",
+            fromPoint: options.fromPoint,
+            forkedFrom: options.forkedFrom,
+          }),
+        }),
+      phase,
+    );
     if (result.ok) {
       markLaunched(workspace, spec.name);
       handlers.onDone?.();
@@ -183,4 +211,49 @@ export async function launch(
     );
     return;
   }
+}
+
+/**
+ * Stop a sandbox, saving a restore point on the way out.
+ *
+ * Like `launch`, this is fire-and-forget: the snapshot is the slow part, and
+ * the row shows its phases. A label makes the resulting point permanent;
+ * `save: false` discards the machine state instead.
+ */
+export async function stop(
+  workspace: string,
+  sandboxId: string,
+  name: string,
+  options: { save: boolean; retentionDays: RetentionDays; label?: string },
+  handlers: LaunchHandlers = {},
+): Promise<void> {
+  markStopping(workspace, name);
+  handlers.onPhase?.(options.save ? "snapshotting" : "stopping");
+
+  const query = new URLSearchParams({
+    save: options.save ? "1" : "0",
+    retentionDays:
+      options.retentionDays === null
+        ? "forever"
+        : String(options.retentionDays),
+  });
+  if (options.label) query.set("label", options.label);
+
+  const result = await driveStream(
+    () =>
+      fetch(`/api/sandboxes/${sandboxId}?${query}`, {
+        method: "DELETE",
+        headers: credentialHeaders(),
+      }),
+    (phase) => {
+      setPhase(workspace, name, phase);
+      handlers.onPhase?.(phase);
+    },
+  );
+
+  // Either way the sandbox is on its way out; the list reconciler settles the
+  // row. A failed snapshot leaves it running, which the next poll reveals.
+  markStopped(workspace, name);
+  if (result.ok) handlers.onDone?.();
+  else handlers.onError?.(result.error);
 }

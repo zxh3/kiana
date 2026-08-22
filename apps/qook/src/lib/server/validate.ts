@@ -1,5 +1,4 @@
 import type { SandboxSpec } from "$lib/server/modal";
-import { reservedMountPaths } from "$lib/server/runtime";
 import {
   cpuOptions,
   gpuCountOptions,
@@ -7,6 +6,8 @@ import {
   imageOptions,
   maxVolumeMounts,
   memoryRange,
+  type RetentionDays,
+  retentionOptions,
   type VolumeMount,
 } from "$lib/types";
 
@@ -75,16 +76,6 @@ export function validateSpec(body: any): Result {
     if (!mount.startsWith("/")) {
       return { ok: false, error: "Mount paths are absolute — start with /." };
     }
-    if (
-      reservedMountPaths.some(
-        (reserved) => mount === reserved || mount.startsWith(`${reserved}/`),
-      )
-    ) {
-      return {
-        ok: false,
-        error: `${mount} is reserved for the sandbox runtime — pick another mount path.`,
-      };
-    }
     if (volumes.some((v) => v.mount === mount)) {
       return {
         ok: false,
@@ -113,4 +104,17 @@ export function validateSpec(body: any): Result {
       volumes,
     },
   };
+}
+
+/**
+ * Retention for a new automatic restore point. Anything unrecognised — a
+ * missing param, a hand-edited request — falls back to keeping the point
+ * forever, because silently choosing a *shorter* life than the user intended
+ * is the one failure mode that loses data.
+ */
+export function retentionFrom(raw: string | null): RetentionDays {
+  if (raw === "forever") return null;
+  const days = Number(raw);
+  const match = retentionOptions.find((o) => o.days === days);
+  return match ? match.days : null;
 }

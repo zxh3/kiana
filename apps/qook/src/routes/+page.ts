@@ -1,11 +1,12 @@
 import { redirect } from "@sveltejs/kit";
 import { ApiError, api } from "$lib/api";
+import { RUNTIME_VERSION } from "$lib/runtimeVersion";
 import {
   loadSandboxStore,
   OP_STALE_MS,
   saveSandboxStore,
 } from "$lib/sandboxStore";
-import type { LaunchPhase, SandboxInfo, SandboxSpec } from "$lib/types";
+import type { OpPhase, SandboxInfo, SandboxSpec } from "$lib/types";
 import type { PageLoad } from "./$types";
 
 /**
@@ -18,7 +19,7 @@ export type Row =
       kind: "creating";
       spec: SandboxSpec;
       startedAt: string;
-      phase: LaunchPhase | null;
+      phase: OpPhase | null;
     }
   | { kind: "failed"; spec: SandboxSpec; error: string }
   | { kind: "stopped"; spec: SandboxSpec; stoppedAt: string };
@@ -104,7 +105,7 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
       }
     }
 
-    return { rows, workspace };
+    return { rows, workspace, runtimeVersion: RUNTIME_VERSION };
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) redirect(307, "/connect");
     throw e;

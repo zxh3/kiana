@@ -1,162 +1,204 @@
-# Proposal: filesystem snapshots instead of state volume mounts
+# Snapshots as the native persistence model
 
-Status: **proposal** (not implemented). Measurements below are from real probes
-against `cheonghiuwaa` on 2026-08-22 with the `modal` JS SDK 0.9.0.
+Status: **implemented**. Every measurement and API claim below was verified
+against `cheonghiuwaa` with the `modal` JS SDK 0.9.0 on 2026-08-22.
 
-## The question
+## The model
 
-Today a sandbox's persistence is a single shared volume (`qook-state`, subPath
-`sandboxes/<name>`) plus a boot script that drags every interesting path onto
-it — symlinks for `/workspace`, herdr's three directories, code-server's User
-and extensions dirs, `~/.pi`; env redirections for `CLAUDE_CONFIG_DIR`,
-`CODEX_HOME`, `CARGO_HOME`, `RUSTUP_HOME`, `NPM_CONFIG_PREFIX`, `HISTFILE`.
-Thirteen entries in `builtinMounts`, surfaced in two places in the UI.
+A qook sandbox **is its filesystem**. Persistence is not a set of paths wired
+onto a volume — it is a chain of **restore points**, each one a published
+Modal image captured from the sandbox's own filesystem.
 
-The flaw is not the complexity, it is the **coverage**. That list is an
-allowlist: `apt-get install jq`, `pip install`, `~/.gitconfig`, `~/.ssh`, a
-patched `/etc/hosts` — none of it survives, and every new tool needs a new
-special case. The `qook` MOTD has to explain a rule with thirteen exceptions.
-
-Filesystem snapshots invert this: capture the whole machine, and let the volume
-carry only what must never be lost.
-
-## What the API actually offers
-
-The JS SDK has first-class support (`sandbox.snapshotFilesystem()` returns an
-`Image`), so this needs no raw gRPC:
-
-```ts
-const image = await sandbox.snapshotFilesystem({ ttlMs: null }); // null = keep forever
-await image.publish(`qook-snap-${name}:${RUNTIME_VERSION}`);    // durable, server-side pointer
-const restored = await client.images.fromName(`qook-snap-${name}:${RUNTIME_VERSION}`);
-await client.sandboxes.create(app, restored, { ... });          // ordinary create
+```
+qook-snap-<sandbox>:<retention>.r<runtime>.<stamp>[.<label>]
 ```
 
-Verified behaviour:
+Volumes remain, but only as an **explicit user choice**: mount one when you
+want continuous durability, data shared live between sandboxes, or something
+too large to belong in a restore point.
+
+Everything the old design plumbed by hand — herdr's three directories,
+code-server's User and extensions dirs, `~/.pi`, `CLAUDE_CONFIG_DIR`,
+`CODEX_HOME`, `CARGO_HOME`, `RUSTUP_HOME`, `NPM_CONFIG_PREFIX`, `HISTFILE` —
+now persists because it is simply *in the machine*. So does everything that
+list never covered: `apt-get install`, `pip install`, `~/.gitconfig`,
+`~/.ssh`, a patched `/etc/apt/sources.list`.
+
+## Why this over a state volume
+
+The previous design split one machine into two durability zones and had to
+explain them ("`/workspace` continuously, everything else on stop"). Any rule
+with two halves invites "which half is this file in?".
+
+It was also a *leaky* guarantee: volume commits are background, so writes in
+the last seconds before an abrupt terminate were already lost. Trading an
+implicit leaky promise for an explicit one the user can see and control is a
+gain in honesty, not only in simplicity.
+
+The decisive API constraint: **`snapshotDirectory` cannot see a
+volume-mounted path** (`INVALID_ARGUMENT: path does not exist`). So a path is
+either volume-backed (continuous, no history) or filesystem-backed (history,
+saved at snapshot time) — never both. Choosing snapshots as the default puts
+history on the things people actually want to travel back through, including
+their code.
+
+An elegant consequence: because snapshots exclude volume mounts, **a mounted
+volume is simultaneously the "share it / never lose it" tool and the "keep it
+out of my restore points" tool.** One feature, two jobs, no new concepts.
+
+## Verified behaviour
 
 | Property | Result |
 |---|---|
-| Snapshot of a small diff | **0.7–2.1s** |
-| Snapshot of a 1.3 GB Rust toolchain | **9.3s** |
-| Create from a snapshot | **0.2s** (+~2s first-exec lazy pull) |
+| Snapshot, small diff | 0.7–2.1s |
+| Snapshot, 1.3 GB Rust toolchain | **9.3s** |
+| Create from a restore point | 0.2s (+~2s first-exec lazy pull) |
 | `apt-get install` survives | yes — binary, dpkg database, runs after restore |
-| Volume-mounted paths | **excluded** from the snapshot entirely |
-| Memory, processes, connections | excluded (docs); restored sandbox boots fresh |
-| Retention | 30 days by default, **`ttlMs: null` keeps it indefinitely** |
-| Layering new image commands onto a snapshot | works (4.3s) — keeps old state, gains new layer |
-| Listing published snapshots | `imageListTags({tagPrefix})` → tag, imageId, createdAt |
-| Deleting a snapshot | `images.delete(imageId)` works; the **tag string lingers** |
+| Volume-mounted paths | excluded from snapshots entirely |
+| Memory / processes / connections | excluded; a restored sandbox boots fresh |
+| `ttlMs: null` | retains the image indefinitely |
+| Expiry | distinguishable error: `NOT_FOUND: Image '…' has expired` |
+| Extending a TTL | impossible — but `dockerfileCommands(["RUN true"]).build()` yields a **TTL-free** image in 2.4s that survives its parent's expiry *and its parent's deletion*, data intact |
+| Layering the current runtime onto a snapshot | works (4.3s in a probe): keeps state, gains the new layer |
+| Listing restore points | `imageListTags({tagPrefix})` → tag, imageId, createdAt |
+| Deleting an image | works; the **tag string lingers** and still resolves — only `SandboxCreate` reports `NOT_FOUND` |
+| Tag charset | alphanumerics, dashes, periods, underscores; spaces rejected |
+| `mountImage(path, image)` | mounts a restore point into a *running* sandbox; read, diff, `cp` back, `unmountImage` |
+| Container-managed files | `/etc/hosts`, `/etc/resolv.conf` are rewritten at boot and do **not** survive; the rest of `/etc` does |
 
-## Proposed design
+## Lifecycle
 
-Two layers with two different durability promises, and one honest sentence for
-each.
+- **Create (new name)** — base image + `runtimeCommands`; `/workspace` is a
+  plain directory in the image.
+- **Start (name has restore points)** — create from the newest point, or from
+  a chosen one. 0.2s.
+- **Stop** — snapshot → publish an automatic point → terminate. The row shows
+  `saving machine state`. "Discard changes and stop" skips the snapshot.
+- **Fork** — create from any point under a **new name**, resources editable in
+  the dialog. Lineage goes in tags (`qook-forked-from`).
+- **Forget** — drop the row and delete that sandbox's point images.
 
-| Layer | Contents | Promise |
+## Retention
+
+TTL is chosen at snapshot time and cannot be changed afterwards, so the UI
+never asks for a number:
+
+| Class | TTL | Tag |
 |---|---|---|
-| Volume `qook-state`, subPath `sandboxes/<name>/workspace`, mounted **directly at `/workspace`** | the user's code and data | saved continuously, never expires |
-| Snapshot image `qook-snap-<name>` | the rest of the machine: apt/pip/npm packages, toolchains, agent logins, shell history, vscode extensions, dotfiles, `/etc` | saved when the sandbox stops |
-| Base image + `runtimeCommands` | ttyd, caddy, code-server, herdr, zsh, agent CLIs | rebuilt when `RUNTIME_VERSION` changes |
+| Automatic (on stop) | workspace policy, default 30 days | `a30d.r2.<stamp>` |
+| Named / pinned | `null` — kept until deleted | `keep.r2.<stamp>.<label>` |
 
-The volume stops being a state-plumbing mechanism and becomes just the work
-directory. `/qook-state` disappears as a concept.
+- The policy is one setting (7 / 30 / 90 days / forever), not a per-snapshot
+  question — the storage sits on the user's own Modal account, so it deserves
+  exactly one visible knob.
+- **Pin** promotes an automatic point to kept by deriving a TTL-free layer
+  (2.4s). This is the escape hatch that makes an immutable TTL safe.
+- TTLs cannot be read back, so the chosen **duration is encoded in the tag**
+  and expiry is computed from `createdAt`. Encoding the duration rather than
+  just the class keeps old points truthful after the policy changes.
+- With the policy set to *forever*, expiry disappears from the UI entirely:
+  such points are written as `keep` with no label, since "keep" means exactly
+  "no expiry" regardless of how it was chosen.
 
-### Lifecycle
+## Runtime updates
 
-- **Create (new name)** — as today: base image + `runtimeCommands`, volume at
-  `/workspace`. No snapshot exists yet.
-- **Stop** — `snapshotFilesystem({ttlMs: null})` → `publish("qook-snap-<name>:<RUNTIME_VERSION>")`
-  → `terminate()` → delete the previous snapshot image. The existing
-  `Stopping…` row gains a `saving machine state` phase; the streamed-phase
-  machinery from the launch rework already covers this.
-- **Start** — resolve `qook-snap-<name>:<RUNTIME_VERSION>`; if found, create
-  from it. If only an older runtime tag exists, layer the current
-  `runtimeCommands` on top of it (verified: 4.3s, keeps state) and republish
-  under the new tag. If nothing resolves, fall back to base + runtime — the
-  machine layer is gone but `/workspace` is untouched.
-- **Forget** — delete the snapshot image; optionally the volume subPath.
+A restore point freezes the image layer, so binary versions (ttyd, caddy,
+code-server, agent CLIs) are whatever they were when the point was taken. The
+boot script is passed at create time, not baked, so configuration fixes
+(Caddyfile, MOTD, zsh, herdr seeding) reach restored sandboxes immediately.
 
-### What this deletes
+Restore points therefore record the runtime version (`r<n>`). A sandbox
+restored onto an older runtime **boots as-is** — fast and predictable — and the
+UI offers an explicit *Rebuild runtime* action, because re-layering
+`runtimeCommands` onto a snapshot rebuilds the ttyd compile and costs minutes.
+Silent multi-minute starts would be a worse default than a visible hint.
 
-- Every symlink and env redirection in `bootScript` (herdr dirs, code-server
-  dirs, `~/.pi`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `CARGO_HOME`,
-  `RUSTUP_HOME`, `NPM_CONFIG_PREFIX`, `HISTFILE`). Tools live where they
-  normally live.
-- `builtinMounts` (13 entries) and its two UI surfaces — the drawer's
-  "12 more paths persist" expander and the table popover's BUILT-IN section —
-  collapse to one row: `/workspace`.
-- The `qook` command's persists/doesn't-persist table and its Rust
-  special-case detection.
-- `/qook-state` as a reserved path; only `/workspace` stays reserved.
+## The cost, stated plainly
 
-### What the UI must now say
+Anything written since the last restore point dies with an unattended sandbox,
+and our 24h maximum lifetime means every sandbox eventually ends that way.
+Mitigations, honestly bounded:
 
-Two promises instead of one rule with exceptions:
+- Stopping is cheap (0.7–9.3s), so "stop when done" is a reasonable habit.
+- A snapshot on tab close / visibility change, and periodic points while the
+  console is open — which is when work is actually happening, since the panes
+  *are* the console.
+- A pre-timeout point at ~23h, driven by the open tab.
+- A server-side cron can only cover env-var deployment mode: with BYO tokens
+  the server holds no credentials once the browser is gone. That limit is
+  structural and belongs in the UI, not in a footnote.
 
-> `/workspace` is saved continuously. Everything else you install or configure
-> is saved when you stop the sandbox.
+The exposed case is a closed laptop with an overnight build. Git is
+preinstalled; a volume mounted at `/workspace` is the opt-out for anyone who
+wants continuous durability instead.
 
-## Risks, honestly
+## Measured end to end
 
-1. **A sandbox that dies without a Stop loses its machine layer.** The 24h
-   timeout, a crash, or a boot-script exit takes no snapshot; the next start
-   falls back to the last snapshot (or the base image). `/workspace` is always
-   safe. Mitigations, in order of cost: a manual "Save machine state" item in
-   the session menu (cheap, honest); a periodic auto-snapshot driven by a
-   scheduled Modal function in `deploy.py` (we already deploy on Modal, so this
-   is a natural home); nothing else needed.
-2. **Snapshot-time cost on Stop** — 1–10s depending on how much was installed.
-   Acceptable, and now visible in the UI rather than hidden.
-3. **Files mid-write are captured mid-write.** `sync` before snapshotting; the
-   services are restarted by the boot script anyway, and herdr already restores
-   its sessions from its own files.
-4. **Runtime drift** — a restored snapshot freezes the image layer, so fixes
-   like today's ttyd clipboard build would never reach it. Handled by tagging
-   snapshots with `RUNTIME_VERSION` and re-layering on mismatch. This must be
-   built in from the start, or restored sandboxes silently rot.
-5. **Storage** — one image diff per stopped sandbox, deleted when superseded.
-   Note the docs' caveat: deleting an image does not delete intermediate
-   layers.
-6. **Dangling tags** — there is no unpublish RPC, so a deleted snapshot leaves
-   its tag string listed. Any discovery-by-tag must treat the list as a hint
-   and tolerate a `NotFoundError` at create time.
+Against a real machine carrying jq (apt), a Rust toolchain in `~/.cargo`,
+a global npm package, a `/workspace` file and a `~/.gitconfig`:
 
-## Bonus: stopped rows could stop being browser-local
+| Operation | Time |
+|---|---|
+| Build a brand new sandbox (runtime image, incl. ttyd compile) | 78s |
+| Stop and save (snapshot ~1.3 GB of toolchain + publish + terminate) | **4.3s** |
+| Start from the newest restore point | **1.0s** |
+| Fork to a new name on different hardware | **0.9s** |
+| Pin an automatic point (derive TTL-free image) | 3.7s |
+| Discard changes and stop (no snapshot) | 0.5s |
 
-`imageListTags({tagPrefix: "qook-snap-"})` enumerates snapshots from Modal, so
-stopped sandboxes become discoverable server-side instead of living only in
-this browser's localStorage — they would survive cleared storage and appear in
-a second browser. Given risk 6, localStorage should stay the primary row source
-and the tag list a supplement. Worth doing, but separable.
+After a restore: apt packages, `cargo` (compiles), global npm binaries,
+`/workspace`, `~/.gitconfig` all intact, and all four panes ready. Starting
+from an *older* point dropped a later breakage while keeping the toolchain —
+time travel over the machine, code included.
 
-## What I would not do yet
+## Known rough edges
 
-`sandbox.snapshotFilesystem` is the stable, documented path. The memory+
-filesystem snapshot (`_experimental_snapshot` / `SandboxSnapshot` /
-`sandboxRestore`) would additionally restore *running processes* — live shells,
-a running dev server — which is tempting. But it is an early-preview API,
-needs `enableSnapshot: true` at create, pins the gVisor version, restores only
-onto the same instance type, and GPU snapshotting is alpha. herdr already
-restores its sessions from disk, which covers most of the benefit. Revisit
-later; `sandboxRestore` even takes `replaceVolumeMounts`, so the volume split
-proposed here stays compatible.
+- **Ghost tags.** There is no unpublish. A deleted point's tag still lists and
+  still resolves; only `SandboxCreate` fails. v1 records deletions in
+  localStorage so the list stays clean in the browser that deleted them;
+  another browser may show a point that errors with a clear "no longer
+  available" message on use. A tombstone-revision scheme would fix this
+  server-side later.
+- **Pin durability.** A pinned point booted fine with its parent image both
+  expired *and* explicitly deleted, data intact — so Modal reference-counts
+  layer data and the cheap 2.4s pin is sound. Whether a much longer horizon
+  changes that is still unproven; the fallback would be to boot the point and
+  re-snapshot with `ttlMs: null`.
+- **Inter-snapshot dedup is unmeasured.** Docs describe snapshots as diffs
+  from the *base* image, so N points of a large toolchain may cost N×. Forks
+  demonstrably stack on shared parent layers. Until measured, default
+  retention stays modest.
+- **Snapshot call budget** defaults to 55s; very large filesystems need a
+  larger `timeoutMs`, and are a reason to steer big data onto a volume.
 
-## Suggested sequencing
+## Migration from the volume design
 
-1. Runtime + boot script: volume directly at `/workspace`, delete the symlink
-   and env-redirection plumbing, stamp `RUNTIME_VERSION` into the image.
-2. Stop path: snapshot → publish → terminate, with the phase surfaced on the
-   row; prune the superseded image.
-3. Start path: resolve tag → create; re-layer on runtime mismatch; fall back to
-   base image when nothing resolves.
-4. UI/copy: collapse `builtinMounts`, rewrite the MOTD and `qook` command
-   around the two promises.
-5. Optional: manual "Save machine state"; scheduled auto-snapshot; tag-based
-   discovery of stopped sandboxes.
+Nothing breaks: running sandboxes are untouched, and the `qook-state` volume
+still exists with all its data. A sandbox restarted under the new runtime gets
+a plain `/workspace` and no longer consults `/qook-state`.
 
-Existing sandboxes are unaffected by 1–4 in the sense that nothing breaks, but
-their `/qook-state` contents (agent logins, toolchains, herdr history) would no
-longer be consulted. A one-off migration could copy
-`qook-state/sandboxes/<name>/workspace` to the new subPath layout — or, since
-the old and new `/workspace` subPath can be made identical, skip migration
-entirely and simply let the non-workspace state go.
+Recovering old state needs no migration code — the optional-volume feature *is*
+the migration path: mount `qook-state` at `/old-state` and copy across.
+
+## Sequencing
+
+1. Runtime + boot script: drop the volume plumbing, plain `/workspace`, stamp
+   `RUNTIME_VERSION`, rewrite the MOTD and the in-sandbox `qook` command.
+2. Snapshot module: tag encode/parse, list, snapshot-and-publish, resolve,
+   pin.
+3. Stop path: snapshot → publish → terminate, streamed onto the row; plus
+   "discard changes and stop".
+4. Start path: newest point, a chosen point, or base image; `fromPoint` makes
+   fork the same code path under a different name.
+5. UI: restore-point drawer (age, expiry, pin, fork, start-from), fork dialog
+   with editable resources, retention setting.
+Steps 1–5 are done. Still open, in rough order of value:
+
+6. Periodic and tab-close automatic points, which is what shrinks the
+   unattended-death window from "since the last stop" to "a few minutes".
+7. Mount-beside-live-work at `/restore/<label>`, using the verified
+   `mountImage` — cherry-pick a file from an old point without rolling back.
+8. Rebuild-runtime action for a sandbox restored onto an older `r<n>`.
+9. Tag-based discovery of stopped sandboxes, which would finally make
+   localStorage non-load-bearing (needs the spec in the tag, or a tombstone
+   scheme for ghosts).
