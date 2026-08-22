@@ -2,9 +2,9 @@
 	"version": "0.0.1",
 	"configurations": [
 		{
-			"name": "qook",
+			"name": "kitchen",
 			"runtimeExecutable": "npm",
-			"runtimeArgs": ["run", "dev", "-w", "apps/qook", "--", "--port", "5199"],
+			"runtimeArgs": ["run", "dev", "-w", "apps/kitchen", "--", "--port", "5199"],
 			"port": 5199,
 			"autoPort": false
 		}
