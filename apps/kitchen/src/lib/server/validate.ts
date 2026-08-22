@@ -108,8 +108,8 @@ export function validateSpec(body: any): Result {
 }
 
 /**
- * Retention for a new automatic restore point. Anything unrecognised — a
- * missing param, a hand-edited request — falls back to keeping the point
+ * Retention for a new automatic snapshot. Anything unrecognised — a
+ * missing param, a hand-edited request — falls back to keeping the snapshot
  * forever, because silently choosing a *shorter* life than the user intended
  * is the one failure mode that loses data.
  */

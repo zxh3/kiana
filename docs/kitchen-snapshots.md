@@ -9,7 +9,7 @@ against `cheonghiuwaa` with the `modal` JS SDK 0.9.0 on 2026-08-22.
 ## The model
 
 A kitchen sandbox **is its filesystem**. Persistence is not a set of paths wired
-onto a volume — it is a chain of **restore points**, each one a published
+onto a volume — it is a chain of **snapshots**, each one a published
 Modal image captured from the sandbox's own filesystem.
 
 ```
@@ -18,7 +18,7 @@ kitchen-snap-<sandbox>:<retention>.r<runtime>.<stamp>[.<label>]
 
 Volumes remain, but only as an **explicit user choice**: mount one when you
 want continuous durability, data shared live between sandboxes, or something
-too large to belong in a restore point.
+too large to belong in a snapshot.
 
 Everything the old design plumbed by hand — herdr's three directories,
 code-server's User and extensions dirs, `~/.pi`, `CLAUDE_CONFIG_DIR`,
@@ -47,7 +47,7 @@ their code.
 
 An elegant consequence: because snapshots exclude volume mounts, **a mounted
 volume is simultaneously the "share it / never lose it" tool and the "keep it
-out of my restore points" tool.** One feature, two jobs, no new concepts.
+out of my snapshots" tool.** One feature, two jobs, no new concepts.
 
 ## Verified behaviour
 
@@ -55,7 +55,7 @@ out of my restore points" tool.** One feature, two jobs, no new concepts.
 |---|---|
 | Snapshot, small diff | 0.7–2.1s |
 | Snapshot, 1.3 GB Rust toolchain | **9.3s** |
-| Create from a restore point | 0.2s (+~2s first-exec lazy pull) |
+| Create from a snapshot | 0.2s (+~2s first-exec lazy pull) |
 | `apt-get install` survives | yes — binary, dpkg database, runs after restore |
 | Volume-mounted paths | excluded from snapshots entirely |
 | Memory / processes / connections | excluded; a restored sandbox boots fresh |
@@ -63,17 +63,17 @@ out of my restore points" tool.** One feature, two jobs, no new concepts.
 | Expiry | distinguishable error: `NOT_FOUND: Image '…' has expired` |
 | Extending a TTL | impossible — but `dockerfileCommands(["RUN true"]).build()` yields a **TTL-free** image in 2.4s that survives its parent's expiry *and its parent's deletion*, data intact |
 | Layering the current runtime onto a snapshot | works (4.3s in a probe): keeps state, gains the new layer |
-| Listing restore points | `imageListTags({tagPrefix})` → tag, imageId, createdAt |
+| Listing snapshots | `imageListTags({tagPrefix})` → tag, imageId, createdAt |
 | Deleting an image | works; the **tag string lingers** and still resolves — only `SandboxCreate` reports `NOT_FOUND` |
 | Tag charset | alphanumerics, dashes, periods, underscores; spaces rejected |
-| `mountImage(path, image)` | mounts a restore point into a *running* sandbox; read, diff, `cp` back, `unmountImage` |
+| `mountImage(path, image)` | mounts a snapshot into a *running* sandbox; read, diff, `cp` back, `unmountImage` |
 | Container-managed files | `/etc/hosts`, `/etc/resolv.conf` are rewritten at boot and do **not** survive; the rest of `/etc` does |
 
 ## Lifecycle
 
 - **Create (new name)** — base image + `runtimeCommands`; `/workspace` is a
   plain directory in the image.
-- **Start (name has restore points)** — create from the newest point, or from
+- **Start (name has snapshots)** — create from the newest point, or from
   a chosen one. 0.2s.
 - **Stop** — snapshot → publish an automatic point → terminate. The row shows
   `saving machine state`. "Discard changes and stop" skips the snapshot.
@@ -112,13 +112,20 @@ never asks for a number:
   such points are written as `keep` with no label, since "keep" means exactly
   "no expiry" regardless of how it was chosen.
 
+## Naming
+
+The product says **snapshot** everywhere — in the UI, the API (`/api/snapshots`),
+the types (`Snapshot`) and the tag prefix (`kitchen-snap-`). It briefly said
+"restore point", which is a blanket term for something people already have a
+word for: anyone using sandboxes knows what a snapshot is.
+
 ## Where the controls live
 
 - **Naming** — the create drawer opens with a suggestion
   (`sb-stable-scarlet-dragonfly`, from `unique-names-generator`'s adjective /
   colour / animal dictionaries) and a reshuffle button, so a sandbox never
   needs naming to get started. Names are readable rather than hashed because
-  the name *is* the identity restore points hang off; three words can exceed
+  the name *is* the identity snapshots hang off; three words can exceed
   the 32-character limit, so generation retries and falls back to two.
 - **Row chip** — a sandbox with points shows `N points`; clicking it opens the
   drawer. This is the discoverable path to time travel, rather than hiding it
@@ -150,12 +157,12 @@ never asks for a number:
 
 ## Runtime updates
 
-A restore point freezes the image layer, so binary versions (ttyd, caddy,
+A snapshot freezes the image layer, so binary versions (ttyd, caddy,
 code-server, agent CLIs) are whatever they were when the point was taken. The
 boot script is passed at create time, not baked, so configuration fixes
 (Caddyfile, MOTD, zsh, herdr seeding) reach restored sandboxes immediately.
 
-Restore points therefore record the runtime version (`r<n>`). A sandbox
+Snapshots therefore record the runtime version (`r<n>`). A sandbox
 restored onto an older runtime **boots as-is** — fast and predictable — and the
 UI offers an explicit *Rebuild runtime* action, because re-layering
 `runtimeCommands` onto a snapshot rebuilds the ttyd compile and costs minutes.
@@ -163,7 +170,7 @@ Silent multi-minute starts would be a worse default than a visible hint.
 
 ## The cost, stated plainly
 
-Anything written since the last restore point dies with an unattended sandbox,
+Anything written since the last snapshot dies with an unattended sandbox,
 and our 24h maximum lifetime means every sandbox eventually ends that way.
 Mitigations, honestly bounded:
 
@@ -189,7 +196,7 @@ a global npm package, a `/workspace` file and a `~/.gitconfig`:
 |---|---|
 | Build a brand new sandbox (runtime image, incl. ttyd compile) | 78s |
 | Stop and save (snapshot ~1.3 GB of toolchain + publish + terminate) | **4.3s** |
-| Start from the newest restore point | **1.0s** |
+| Start from the newest snapshot | **1.0s** |
 | Fork to a new name on different hardware | **0.9s** |
 | Pin an automatic point (derive TTL-free image) | 3.7s |
 | Discard changes and stop (no snapshot) | 0.5s |
@@ -213,7 +220,7 @@ Modal answers most questions, so localStorage holds only what it cannot:
 
 What was **removed** by asking Modal instead: the stored `createdAt`, and
 `stoppedAt` in the common case — a sandbox's last-stopped time is the capture
-time of its newest restore point, which is server-side and true in every
+time of its newest snapshot, which is server-side and true in every
 browser. The same request returns each sandbox's point count for the row chip.
 Deleted-point records are pruned once Modal stops listing the tag at all.
 
@@ -226,7 +233,7 @@ large point histories) ever get cached client-side.
 ## Environment containment
 
 Everything lives in the environment configured in Settings — app, sandboxes,
-volumes, and restore-point images. The client carries it as its default, and
+volumes, and snapshot images. The client carries it as its default, and
 every call that accepts an environment is passed it explicitly so containment
 is visible at the call site.
 
@@ -237,7 +244,7 @@ the client's environment. An empty `environmentName` resolves to the
 read of the wrong environment, not a write into it. Verified with an
 environment-scoped token that published images land only in that environment.
 
-## When every restore point is gone
+## When every snapshot is gone
 
 Deleting a point removes its image but not its tag, so a sandbox whose points
 have all been deleted (or have expired) still *looks* like it has state to

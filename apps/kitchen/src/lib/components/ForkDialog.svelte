@@ -5,25 +5,25 @@ import {
   gpuCountOptions,
   gpuOptions,
   memoryRange,
-  type RestorePoint,
   type SandboxSpec,
+  type Snapshot,
   sandboxNamePattern,
 } from "$lib/types";
 
 let {
   open = $bindable(false),
-  point,
+  snapshot,
   spec,
   takenNames = [],
   onfork,
 }: {
   open?: boolean;
-  /** The restore point to fork from; null while the dialog is closed. */
-  point: RestorePoint | null;
+  /** The snapshot to fork from; null while the dialog is closed. */
+  snapshot: Snapshot | null;
   /** The source sandbox's spec — the fork's defaults. */
   spec: SandboxSpec | null;
   takenNames?: string[];
-  onfork: (spec: SandboxSpec, point: RestorePoint) => void;
+  onfork: (spec: SandboxSpec, snapshot: Snapshot) => void;
 } = $props();
 
 let name = $state("");
@@ -33,10 +33,10 @@ let gpu = $state("none");
 let gpuCount = $state(1);
 let error = $state<string | null>(null);
 
-// Inherit the source's hardware each time the dialog opens; the whole point of
+// Inherit the source's hardware each time the dialog opens; the whole purpose of
 // a fork dialog is that these are the values you might want to change.
 $effect(() => {
-  if (!open || !spec || !point) return;
+  if (!open || !spec || !snapshot) return;
   name = `${spec.name}-fork`;
   cpu = spec.cpu;
   memory = spec.memoryGib;
@@ -52,7 +52,7 @@ const chipOn = "border-accent bg-accent/12 font-semibold text-accent-bright";
 
 function submit(event: SubmitEvent) {
   event.preventDefault();
-  if (!point || !spec) return;
+  if (!snapshot || !spec) return;
   const target = name.trim();
   if (!sandboxNamePattern.test(target)) {
     error =
@@ -77,7 +77,7 @@ function submit(event: SubmitEvent) {
       gpu: gpu === "none" ? null : gpu,
       gpuCount,
     },
-    point,
+    snapshot,
   );
 }
 </script>
@@ -95,8 +95,8 @@ function submit(event: SubmitEvent) {
 							Fork sandbox
 						</Dialog.Title>
 						<Dialog.Description class="text-secondary text-xs leading-[1.4]">
-							A copy of <span class="font-mono">{point?.sandbox}</span>
-							{point?.label ? `at ${point.label}` : 'at its last restore point'}, under a new
+							A copy of <span class="font-mono">{snapshot?.sandbox}</span>
+							{snapshot?.label ? `at ${snapshot.label}` : 'at its last snapshot'}, under a new
 							name. Starts in seconds.
 						</Dialog.Description>
 					</div>

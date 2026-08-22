@@ -1,7 +1,7 @@
 /**
- * Restore points: kitchen's whole persistence model.
+ * Snapshots: kitchen's whole persistence model.
  *
- * A restore point is a filesystem snapshot of a sandbox, published under a
+ * A snapshot is a filesystem snapshot of a sandbox, published under a
  * stable tag so it outlives the sandbox and is visible to any browser holding
  * the same Modal credentials. Nothing about persistence is stored by kitchen
  * itself — Modal's published image tags *are* the record.
@@ -12,14 +12,13 @@
  * write-only (set at snapshot time, never readable, never changeable), so the
  * retention that was actually chosen is encoded in the tag and expiry is
  * derived from the image's creation time. Encoding the duration rather than
- * just the class keeps old points truthful when the policy later changes.
+ * just the class keeps old snapshots truthful when the policy later changes.
  */
 
 import { type Image, ModalClient, type Sandbox } from "modal";
-import { collapseTwins } from "$lib/points";
 import { APP_NAME, type ModalCredentials } from "$lib/server/modal";
 import { RUNTIME_VERSION } from "$lib/server/runtime";
-import type { RestorePoint, RetentionDays } from "$lib/types";
+import type { RetentionDays, Snapshot } from "$lib/types";
 
 /**
  * Everything here is scoped to one Modal environment — the one configured in
@@ -64,7 +63,7 @@ function stamp(now: Date): string {
 
 /**
  * Inverse of `stamp`. This is the moment the machine state was captured, which
- * is not always the moment the tag was published — keeping a point republishes
+ * is not always the moment the tag was published — keeping a snapshot republishes
  * the same state under a new tag, and it must not jump the queue as a result.
  */
 function parseStamp(value: string): Date | null {
@@ -92,8 +91,8 @@ export function imageName(sandbox: string): string {
 }
 
 /**
- * `keep` covers both a labelled point and the "forever" retention policy —
- * anything with no expiry. Only a point that really does expire encodes days,
+ * `keep` covers both a labelled snapshot and the "forever" retention policy —
+ * anything with no expiry. Only a snapshot that really does expire encodes days,
  * because that is the number the UI needs to derive an expiry from.
  */
 function buildTag(
@@ -117,7 +116,7 @@ export function parseTag(
   tag: string,
   imageId: string,
   publishedAt: Date,
-): RestorePoint | null {
+): Snapshot | null {
   const [name, version] = tag.split(":");
   if (!name?.startsWith(TAG_PREFIX) || !version) return null;
   const [retention, runtime, stampField = "", label = ""] = version.split(".");
@@ -149,18 +148,23 @@ export function parseTag(
 }
 
 /**
- * Restore points for one sandbox, newest first, expired ones filtered out.
+ * Snapshots for one sandbox: everything still alive, newest first.
+ *
+ * Deliberately *not* collapsed and not deduplicated. Only the browser knows
+ * which snapshots it has deleted, and collapsing a kept snapshot's twin before
+ * that filtering runs would hide the twin while still counting it — the two
+ * have to happen in one order, in one place (see $lib/snapshots).
  *
  * Modal has no unpublish, so a tag outlives the image it pointed at and even
  * keeps resolving; only `SandboxCreate` reports the truth. Expiry is therefore
  * computed here rather than trusted from the API, and callers must still treat
- * a create-time `NOT_FOUND` as "this point is gone".
+ * a create-time `NOT_FOUND` as "this snapshot is gone".
  */
-export async function listRestorePoints(
+export async function listSnapshots(
   ctx: SnapshotContext,
   sandbox: string,
-): Promise<RestorePoint[]> {
-  const points: RestorePoint[] = [];
+): Promise<Snapshot[]> {
+  const snapshots: Snapshot[] = [];
   let pageToken = "";
   do {
     const page = await ctx.client.cpClient.imageListTags({
@@ -170,43 +174,40 @@ export async function listRestorePoints(
       pageToken,
     });
     for (const item of page.items) {
-      const point = parseTag(
+      const snapshot = parseTag(
         item.tag,
         item.imageId,
         new Date(item.createdAt * 1000),
       );
-      if (point) points.push(point);
+      if (snapshot) snapshots.push(snapshot);
     }
     pageToken = page.nextPageToken;
   } while (pageToken);
 
-  // Keeping a point republishes the same state, so the expiring original is
-  // still listed. Collapse that twin — but only the automatic one: two kept
-  // points at the same state are two deliberate bookmarks, both worth showing.
   const now = Date.now();
-  return collapseTwins(
-    points.filter((p) => !p.expiresAt || new Date(p.expiresAt).getTime() > now),
-  ).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return snapshots
+    .filter((s) => !s.expiresAt || new Date(s.expiresAt).getTime() > now)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 /**
- * One row per sandbox that has restore points, for the table: how many points
+ * One row per sandbox that has snapshots, for the table: how many snapshots
  * it has and when its newest state was captured. This is server-side truth the
  * browser would otherwise have to remember — a sandbox's last-stopped time and
  * whether it has anything to go back to.
  */
-export interface SummaryPoint {
+export interface SnapshotSummary {
   tag: string;
   createdAt: string;
-  kind: RestorePoint["kind"];
+  kind: Snapshot["kind"];
 }
 
-export async function restorePointSummary(
+export async function snapshotSummary(
   ctx: SnapshotContext,
 ): Promise<
-  { sandbox: string; points: { tag: string; createdAt: string }[] }[]
+  { sandbox: string; snapshots: { tag: string; createdAt: string }[] }[]
 > {
-  const points: RestorePoint[] = [];
+  const snapshots: Snapshot[] = [];
   let pageToken = "";
   do {
     const page = await ctx.client.cpClient.imageListTags({
@@ -216,57 +217,58 @@ export async function restorePointSummary(
       pageToken,
     });
     for (const item of page.items) {
-      const point = parseTag(
+      const snapshot = parseTag(
         item.tag,
         item.imageId,
         new Date(item.createdAt * 1000),
       );
-      if (point) points.push(point);
+      if (snapshot) snapshots.push(snapshot);
     }
     pageToken = page.nextPageToken;
   } while (pageToken);
 
   // Tags come back rather than a count, because only the browser knows which
-  // points it has deleted — Modal has no unpublish, so a deleted point's tag
+  // snapshots it has deleted — Modal has no unpublish, so a deleted snapshot's tag
   // is still listed here.
   const now = Date.now();
-  const summary = new Map<string, SummaryPoint[]>();
-  for (const point of points) {
-    if (point.expiresAt && new Date(point.expiresAt).getTime() <= now) continue;
-    const entry = summary.get(point.sandbox) ?? [];
+  const summary = new Map<string, SnapshotSummary[]>();
+  for (const snapshot of snapshots) {
+    if (snapshot.expiresAt && new Date(snapshot.expiresAt).getTime() <= now)
+      continue;
+    const entry = summary.get(snapshot.sandbox) ?? [];
     entry.push({
-      tag: point.tag,
-      createdAt: point.createdAt,
-      kind: point.kind,
+      tag: snapshot.tag,
+      createdAt: snapshot.createdAt,
+      kind: snapshot.kind,
     });
-    summary.set(point.sandbox, entry);
+    summary.set(snapshot.sandbox, entry);
   }
-  return [...summary.entries()].map(([sandbox, sandboxPoints]) => ({
+  return [...summary.entries()].map(([sandbox, sandboxSnapshots]) => ({
     sandbox,
-    points: sandboxPoints,
+    snapshots: sandboxSnapshots,
   }));
 }
 
-/** The point a plain "Start" should boot from: the newest surviving one. */
-export async function newestRestorePoint(
+/** The snapshot a plain "Start" should boot from: the newest surviving one. */
+export async function newestSnapshot(
   ctx: SnapshotContext,
   sandbox: string,
-): Promise<RestorePoint | null> {
-  return (await listRestorePoints(ctx, sandbox))[0] ?? null;
+): Promise<Snapshot | null> {
+  return (await listSnapshots(ctx, sandbox))[0] ?? null;
 }
 
 /**
- * Snapshot a running sandbox and publish it as a restore point. A label makes
- * the point permanent (`ttlMs: null`); without one it expires on the
+ * Snapshot a running sandbox and publish it as a snapshot. A label makes
+ * the snapshot permanent (`ttlMs: null`); without one it expires on the
  * workspace's retention policy.
  */
-export async function saveRestorePoint(
+export async function saveSnapshot(
   ctx: SnapshotContext,
   sandbox: Sandbox,
   name: string,
   options: { retentionDays: RetentionDays; label?: string; now?: Date },
   onPhase: (phase: "snapshotting" | "publishing") => void = () => {},
-): Promise<RestorePoint> {
+): Promise<Snapshot> {
   const label = options.label ? slugifyLabel(options.label) : "";
   const now = options.now ?? new Date();
   const keepForever = Boolean(label) || options.retentionDays === null;
@@ -281,41 +283,41 @@ export async function saveRestorePoint(
   const tag = buildTag(name, options.retentionDays, label, now);
   await image.publish(tag, { environment: ctx.environment });
 
-  const point = parseTag(tag, image.imageId, now);
-  if (!point) throw new Error(`kitchen built an unparseable tag: ${tag}`);
-  return point;
+  const snapshot = parseTag(tag, image.imageId, now);
+  if (!snapshot) throw new Error(`kitchen built an unparseable tag: ${tag}`);
+  return snapshot;
 }
 
 /**
- * Promote an automatic point to a kept one.
+ * Promote an automatic snapshot to a kept one.
  *
  * A snapshot's TTL cannot be extended, but an image *derived* from it is an
  * ordinary build with no expiry — and stacking an empty layer takes seconds
  * because layers are referenced, not copied.
  */
-export async function keepRestorePoint(
+export async function keepSnapshot(
   ctx: SnapshotContext,
-  point: RestorePoint,
+  snapshot: Snapshot,
   label: string,
   now = new Date(),
-): Promise<RestorePoint> {
+): Promise<Snapshot> {
   const app = await ctx.client.apps.fromName(APP_NAME, {
     createIfMissing: true,
     environment: ctx.environment,
   });
-  const source = await ctx.client.images.fromId(point.imageId);
+  const source = await ctx.client.images.fromId(snapshot.imageId);
   const kept = await source.dockerfileCommands(["RUN true"]).build(app);
 
-  // Republish under the SAME captured-state stamp. Keeping a point changes
-  // only its lifetime, so it must not become the newest point and quietly
+  // Republish under the SAME captured-state stamp. Keeping a snapshot changes
+  // only its lifetime, so it must not become the newest snapshot and quietly
   // change what a plain Start boots.
   // No name is fine: `keep.r<n>.<stamp>` is already unique, and the row then
   // reads as "automatic · KEPT" rather than carrying a synthetic label.
   const tag = buildTag(
-    point.sandbox,
+    snapshot.sandbox,
     null,
     slugifyLabel(label),
-    new Date(point.createdAt),
+    new Date(snapshot.createdAt),
   );
   await kept.publish(tag, { environment: ctx.environment });
   const result = parseTag(tag, kept.imageId, now);
@@ -323,8 +325,8 @@ export async function keepRestorePoint(
   return result;
 }
 
-/** Resolve a restore point's tag to an image, ready to launch from. */
-export async function imageForPoint(
+/** Resolve a snapshot's tag to an image, ready to launch from. */
+export async function imageForSnapshot(
   ctx: SnapshotContext,
   tag: string,
 ): Promise<Image> {
@@ -334,21 +336,21 @@ export async function imageForPoint(
   });
 }
 
-export async function deleteRestorePoint(
+export async function deleteSnapshot(
   ctx: SnapshotContext,
-  point: RestorePoint,
+  snapshot: Snapshot,
 ): Promise<void> {
-  await ctx.client.images.delete(point.imageId);
+  await ctx.client.images.delete(snapshot.imageId);
 }
 
-/** Every point of a sandbox, deleted — used by Forget. */
-export async function deleteAllRestorePoints(
+/** Every snapshot of a sandbox, deleted — used by Forget. */
+export async function deleteAllSnapshots(
   ctx: SnapshotContext,
   sandbox: string,
 ): Promise<number> {
-  const points = await listRestorePoints(ctx, sandbox);
+  const snapshots = await listSnapshots(ctx, sandbox);
   const results = await Promise.allSettled(
-    points.map((p) => ctx.client.images.delete(p.imageId)),
+    snapshots.map((p) => ctx.client.images.delete(p.imageId)),
   );
   return results.filter((r) => r.status === "fulfilled").length;
 }

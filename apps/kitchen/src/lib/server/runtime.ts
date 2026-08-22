@@ -2,8 +2,8 @@
  * The kitchen sandbox runtime: what turns a bare base image into a sandbox
  * with working zsh / herdr / vscode / browser panes.
  *
- * Persistence is NOT wired up here. A sandbox is its filesystem, and restore
- * points (see server/snapshots.ts) capture that filesystem whole — so tools
+ * Persistence is NOT wired up here. A sandbox is its filesystem, and snapshots
+ * (see server/snapshots.ts) capture that filesystem whole — so tools
  * live where tools normally live, and anything installed anywhere survives.
  * Volumes are a user-visible option, never a runtime mechanism.
  *
@@ -32,7 +32,7 @@ const TTYD_COMMIT = "2922cb89f518bae4d0fcf4d757a7419638fc71fc";
 
 /**
  * Bump when `runtimeCommands` changes in a way an existing sandbox would care
- * about (new binary versions, new preinstalled tooling). Restore points record
+ * about (new binary versions, new preinstalled tooling). Snapshots record
  * it, so the UI can tell that a restored sandbox is on an older runtime and
  * offer to rebuild. The boot script is passed at create time, so changes there
  * need no bump — they apply on the next start.
@@ -65,7 +65,7 @@ export const runtimeCommands = [
   "RUN ln -sf /root/.local/bin/herdr /root/.local/bin/code-server /usr/local/bin/",
   // code-server defaults: dark theme, no telemetry, no trust prompts
   `RUN mkdir -p /root/.local/share/code-server/User && printf '%s' '{"workbench.colorTheme":"Default Dark Modern","security.workspace.trust.enabled":false,"telemetry.telemetryLevel":"off","workbench.startupEditor":"none"}' > /root/.local/share/code-server/User/settings.json`,
-  // the working directory: an ordinary directory, captured by restore points
+  // the working directory: an ordinary directory, captured by snapshots
   // like the rest of the machine
   `RUN mkdir -p ${WORKSPACE_DIR} && printf '%s' '${RUNTIME_VERSION}' > /etc/kitchen-runtime-version`,
   // zsh + oh-my-zsh as the default shell, with git + autosuggestions plugins.
@@ -85,7 +85,7 @@ set -u
 export PATH="/root/.local/bin:$PATH"
 export SHELL=/usr/bin/zsh
 # Unix sockets are fine on the sandbox's own filesystem now, but /tmp keeps
-# the socket out of restore points, where a stale socket file is meaningless.
+# the socket out of snapshots, where a stale socket file is meaningless.
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
 
 mkdir -p /workspace
@@ -118,8 +118,8 @@ cat > /usr/local/bin/kitchen <<'KITCHENCMD'
 #!/bin/sh
 NAME=$(cat /etc/kitchen-name 2>/dev/null || echo sandbox)
 printf '\033[1mkitchen\033[0m - sandbox \033[1m%s\033[0m\n\n' "$NAME"
-printf 'this sandbox IS its filesystem. stopping it saves a restore point of the\n'
-printf 'whole machine; starting %s again restores it:\n\n' "$NAME"
+printf 'this sandbox IS its filesystem. stopping it saves a snapshot of the whole\n'
+printf 'machine; starting %s again restores it:\n\n' "$NAME"
 printf '  /workspace                      your files\n'
 printf '  apt / pip / npm -g installs     wherever they normally land\n'
 printf '  rustup, nvm, any toolchain      no special setup needed\n'
@@ -127,13 +127,13 @@ printf '  agent logins, herdr sessions    claude / codex / pi, ~/.config\n'
 printf '  vscode settings + extensions    dotfiles, /etc, shell history\n\n'
 printf 'so install things normally - nothing needs to live in a special path.\n\n'
 if [ -n "$KITCHEN_VOLUMES" ]; then
-	printf 'mounted volumes (saved continuously, NOT part of restore points):\n'
+	printf 'mounted volumes (saved continuously, NOT part of snapshots):\n'
 	printf '  %s\n\n' "$KITCHEN_VOLUMES"
 fi
 printf 'what is not saved:\n'
 printf '  running processes - a restored sandbox boots its services fresh\n'
 printf '  /etc/hosts, /etc/resolv.conf - the container rewrites these at boot\n'
-printf '  work done after the last restore point, if this sandbox is killed\n'
+printf '  work done after the last snapshot, if this sandbox is killed\n'
 printf '  without being stopped (it has a 24h lifetime). stop it when you are\n'
 printf '  done, or mount a volume for anything you cannot lose.\n\n'
 printf 'browser tab:\n'

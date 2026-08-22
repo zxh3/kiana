@@ -2,17 +2,17 @@
 import { DropdownMenu } from "bits-ui";
 import { goto, invalidate, replaceState } from "$app/navigation";
 import { page } from "$app/state";
-import RestorePointsDrawer from "$lib/components/RestorePointsDrawer.svelte";
+import SnapshotsDrawer from "$lib/components/SnapshotsDrawer.svelte";
 import { formatResources, formatUptime } from "$lib/format";
-import { launch, savePoint, stop } from "$lib/launch";
+import { launch, saveSnapshotNow, stop } from "$lib/launch";
 import { RUNTIME_VERSION } from "$lib/runtimeVersion";
 import { loadSettings } from "$lib/settings";
 import {
   modePorts,
   type OpPhase,
   opPhaseLabels,
-  type RestorePoint,
   type SessionMode,
+  type Snapshot,
   sessionModes,
 } from "$lib/types";
 import type { PageData } from "./$types";
@@ -30,10 +30,10 @@ let mode = $state<SessionMode>(initialMode);
 let visited = $state<Record<string, boolean>>({ [initialMode]: true });
 let actionError = $state<string | null>(null);
 
-// Restore points, from inside the sandbox. Saving here is the whole point:
-// a sandbox killed unattended keeps only what its last point holds, and this
+// Snapshots, from inside the sandbox. Saving here is the whole reason:
+// a sandbox killed unattended keeps only what its last snapshot holds, and this
 // is the one moment the user is present to say "capture this".
-let pointsOpen = $state(false);
+let snapshotsOpen = $state(false);
 let saving = $state<OpPhase | null>(null);
 let savedAt = $state<string | null>(null);
 const workspace = $derived(page.data.connection?.workspace ?? "default");
@@ -114,7 +114,7 @@ async function saveNow() {
   actionError = null;
   savedAt = null;
   saving = "snapshotting";
-  const result = await savePoint(
+  const result = await saveSnapshotNow(
     data.id,
     { retentionDays: loadSettings().retentionDays },
     (phase) => {
@@ -122,7 +122,7 @@ async function saveNow() {
     },
   );
   saving = null;
-  if (result.ok) savedAt = result.point.label || "saved";
+  if (result.ok) savedAt = result.snapshot.label || "saved";
   else actionError = result.error;
 }
 
@@ -143,10 +143,10 @@ async function stopHere(save: boolean) {
 }
 
 /**
- * Rewind this sandbox to an earlier point. The restored machine is a new
+ * Rewind this sandbox to an earlier snapshot. The restored machine is a new
  * sandbox with a new id, so follow it rather than leaving a dead session open.
  */
-async function restoreTo(point: RestorePoint, saveFirst: boolean) {
+async function restoreTo(snapshot: Snapshot, saveFirst: boolean) {
   if (!sb) return;
   actionError = null;
   saving = saveFirst ? "snapshotting" : "stopping";
@@ -162,20 +162,20 @@ async function restoreTo(point: RestorePoint, saveFirst: boolean) {
     workspace,
     sb,
     { onPhase: (phase) => (saving = phase) },
-    { fromPoint: point.tag },
+    { fromSnapshot: snapshot.tag },
   );
   saving = null;
   // The table resolves the new sandbox and its session link.
   await goto("/");
 }
 
-function forkFrom(point: RestorePoint) {
+function forkFrom(snapshot: Snapshot) {
   if (!sb) return;
   void launch(
     workspace,
     { ...sb, name: `${sb.name}-fork` },
     {},
-    { fromPoint: point.tag, forkedFrom: point.tag },
+    { fromSnapshot: snapshot.tag, forkedFrom: snapshot.tag },
   );
   void goto("/");
 }
@@ -253,7 +253,7 @@ const sb = $derived(data.session?.sandbox ?? null);
 				{/each}
 			</span>
 
-			<!-- Restore points, without leaving the sandbox -->
+			<!-- Snapshots, without leaving the sandbox -->
 			<div class="flex flex-none items-center gap-[6px]">
 				{#if saving}
 					<span class="text-accent flex items-center gap-[6px] text-[11px] whitespace-nowrap">
@@ -261,24 +261,24 @@ const sb = $derived(data.session?.sandbox ?? null);
 						{opPhaseLabels[saving]}…
 					</span>
 				{:else if savedAt}
-					<span class="text-running-text text-[11px] whitespace-nowrap">point saved</span>
+					<span class="text-running-text text-[11px] whitespace-nowrap">snapshot saved</span>
 				{/if}
 				<button
 					type="button"
 					onclick={saveNow}
 					disabled={Boolean(saving)}
-					title="Save a restore point of this machine now, without stopping it"
+					title="Save a snapshot of this machine now, without stopping it"
 					class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[9px] py-[6px] text-[11.5px] leading-none font-medium whitespace-nowrap hover:bg-white/5 disabled:opacity-60"
 				>
-					Save point
+					Save snapshot
 				</button>
 				<button
 					type="button"
-					onclick={() => (pointsOpen = true)}
-					title="Browse this sandbox's restore points"
+					onclick={() => (snapshotsOpen = true)}
+					title="Browse this sandbox's snapshots"
 					class="text-body cursor-pointer rounded-[5px] border border-white/12 px-[9px] py-[6px] text-[11.5px] leading-none font-medium whitespace-nowrap hover:bg-white/5"
 				>
-					Points…
+					Snapshots…
 				</button>
 			</div>
 
@@ -303,7 +303,7 @@ const sb = $derived(data.session?.sandbox ?? null);
 							Stop and save
 						</DropdownMenu.Item>
 						<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
-							Saves the whole machine as a restore point, then stops it.
+							Saves the whole machine as a snapshot, then stops it.
 						</div>
 						<DropdownMenu.Item
 							class="text-failed-text data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
@@ -313,7 +313,7 @@ const sb = $derived(data.session?.sandbox ?? null);
 							Discard changes and stop
 						</DropdownMenu.Item>
 						<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
-							Stops without saving. The last restore point stays as it was.
+							Stops without saving. The last snapshot stays as it was.
 						</div>
 					</DropdownMenu.Content>
 				</DropdownMenu.Portal>
@@ -410,8 +410,8 @@ const sb = $derived(data.session?.sandbox ?? null);
 </div>
 
 {#if sb}
-	<RestorePointsDrawer
-		bind:open={pointsOpen}
+	<SnapshotsDrawer
+		bind:open={snapshotsOpen}
 		sandbox={sb.name}
 		spec={sb}
 		running={true}

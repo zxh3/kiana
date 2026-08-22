@@ -1,20 +1,23 @@
 import { json } from "@sveltejs/kit";
 import { credentialsFrom, modalErrorMessage } from "$lib/server/modal";
 import {
-  deleteAllRestorePoints,
-  deleteRestorePoint,
-  keepRestorePoint,
-  listRestorePoints,
-  restorePointSummary,
+  deleteAllSnapshots,
+  deleteSnapshot,
+  keepSnapshot,
+  listSnapshots,
   snapshotContext,
+  snapshotSummary,
 } from "$lib/server/snapshots";
 import type { RequestHandler } from "./$types";
 
 /**
- * GET /api/restore-points?sandbox=<name> — that sandbox's points, newest
- * first, expired filtered out. Without `sandbox`, a summary across all of
- * them: point counts and newest-state times, which the table uses instead of
- * remembering when each sandbox was stopped.
+ * GET /api/snapshots?sandbox=<name> — that sandbox's live snapshots, newest
+ * first. Without `sandbox`, the same across every sandbox, which the table uses
+ * for its counts and for each sandbox's last-stopped time.
+ *
+ * Both return the raw list: deciding what a person should see (dropping what
+ * this browser deleted, collapsing kept twins) happens client-side, in one
+ * place, so a count can never disagree with the list it opens.
  */
 export const GET: RequestHandler = async ({ request, url }) => {
   const creds = credentialsFrom(request);
@@ -24,9 +27,9 @@ export const GET: RequestHandler = async ({ request, url }) => {
   const ctx = snapshotContext(creds);
   try {
     if (!sandbox) {
-      return json({ summary: await restorePointSummary(ctx) });
+      return json({ summary: await snapshotSummary(ctx) });
     }
-    return json({ points: await listRestorePoints(ctx, sandbox) });
+    return json({ snapshots: await listSnapshots(ctx, sandbox) });
   } catch (e) {
     return json({ error: modalErrorMessage(e) }, { status: 502 });
   } finally {
@@ -35,8 +38,9 @@ export const GET: RequestHandler = async ({ request, url }) => {
 };
 
 /**
- * POST — pin an automatic point so it stops expiring. A snapshot's TTL cannot
- * be changed, so this derives a TTL-free image from it and publishes that.
+ * POST — keep an automatic snapshot so it stops expiring. A snapshot's TTL
+ * cannot be changed, so this derives a TTL-free image from it and publishes
+ * that under the same captured-state stamp.
  */
 export const POST: RequestHandler = async ({ request }) => {
   const creds = credentialsFrom(request);
@@ -48,18 +52,18 @@ export const POST: RequestHandler = async ({ request }) => {
 
   const ctx = snapshotContext(creds);
   try {
-    const points = await listRestorePoints(
+    const snapshots = await listSnapshots(
       ctx,
       tag.split(":")[0].replace(/^kitchen-snap-/, ""),
     );
-    const point = points.find((p) => p.tag === tag);
-    if (!point) {
+    const snapshot = snapshots.find((p) => p.tag === tag);
+    if (!snapshot) {
       return json(
-        { error: "That restore point no longer exists." },
+        { error: "That snapshot no longer exists." },
         { status: 404 },
       );
     }
-    return json({ point: await keepRestorePoint(ctx, point, label) });
+    return json({ snapshot: await keepSnapshot(ctx, snapshot, label) });
   } catch (e) {
     return json({ error: modalErrorMessage(e) }, { status: 502 });
   } finally {
@@ -68,7 +72,7 @@ export const POST: RequestHandler = async ({ request }) => {
 };
 
 /**
- * DELETE ?tag=<tag> for one point, or ?sandbox=<name> for all of a sandbox's
+ * DELETE ?tag=<tag> for one snapshot, or ?sandbox=<name> for all of a sandbox's
  * (used by Forget). Modal has no unpublish, so the tag string survives; the
  * client remembers what it deleted to keep its list clean.
  */
@@ -81,17 +85,17 @@ export const DELETE: RequestHandler = async ({ request, url }) => {
   const ctx = snapshotContext(creds);
   try {
     if (sandbox) {
-      return json({ deleted: await deleteAllRestorePoints(ctx, sandbox) });
+      return json({ deleted: await deleteAllSnapshots(ctx, sandbox) });
     }
     if (!tag) {
       return json({ error: "Missing ?tag= or ?sandbox=." }, { status: 400 });
     }
     const name = tag.split(":")[0].replace(/^kitchen-snap-/, "");
-    const point = (await listRestorePoints(ctx, name)).find(
+    const snapshot = (await listSnapshots(ctx, name)).find(
       (p) => p.tag === tag,
     );
-    if (point) await deleteRestorePoint(ctx, point);
-    return json({ deleted: point ? 1 : 0 });
+    if (snapshot) await deleteSnapshot(ctx, snapshot);
+    return json({ deleted: snapshot ? 1 : 0 });
   } catch (e) {
     return json({ error: modalErrorMessage(e) }, { status: 502 });
   } finally {

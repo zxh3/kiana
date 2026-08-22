@@ -1,13 +1,12 @@
 import { redirect } from "@sveltejs/kit";
 import { ApiError, api } from "$lib/api";
-import { collapseTwins } from "$lib/points";
-import { hiddenPoints } from "$lib/restorePoints";
 import { RUNTIME_VERSION } from "$lib/runtimeVersion";
 import {
   loadSandboxStore,
   OP_STALE_MS,
   saveSandboxStore,
 } from "$lib/sandboxStore";
+import { hiddenSnapshots, visibleSnapshots } from "$lib/snapshots";
 import type { OpPhase, SandboxInfo, SandboxSpec } from "$lib/types";
 import type { PageLoad } from "./$types";
 
@@ -16,28 +15,28 @@ import type { PageLoad } from "./$types";
  * other three states come from the browser's own memory of what it launched.
  */
 export type Row =
-  | { kind: "running"; sb: SandboxInfo; stopping: boolean; points: number }
+  | { kind: "running"; sb: SandboxInfo; stopping: boolean; snapshots: number }
   | {
       kind: "creating";
       spec: SandboxSpec;
       startedAt: string;
       phase: OpPhase | null;
-      points: number;
+      snapshots: number;
     }
-  | { kind: "failed"; spec: SandboxSpec; error: string; points: number }
+  | { kind: "failed"; spec: SandboxSpec; error: string; snapshots: number }
   | {
       kind: "stopped";
       spec: SandboxSpec;
-      /** When its newest point was captured, else when this browser saw it stop. */
+      /** When its newest snapshot was captured, else when this browser saw it stop. */
       stoppedAt: string;
-      points: number;
+      snapshots: number;
     };
 
 export const load: PageLoad = async ({ fetch, depends, parent }) => {
   depends("app:sandboxes");
   const { connection } = await parent();
   try {
-    // Modal knows what is running; the restore-point summary says what each
+    // Modal knows what is running; the snapshot summary says what each
     // sandbox can go back to, and when its state was last captured — so the
     // browser does not have to remember either.
     const [{ sandboxes }, { summary }] = await Promise.all([
@@ -45,21 +44,24 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
       api<{
         summary: {
           sandbox: string;
-          points: { tag: string; createdAt: string; kind: "auto" | "keep" }[];
+          snapshots: {
+            tag: string;
+            createdAt: string;
+            kind: "auto" | "keep";
+          }[];
         }[];
-      }>("/api/restore-points", {}, fetch).catch(() => ({ summary: [] })),
+      }>("/api/snapshots", {}, fetch).catch(() => ({ summary: [] })),
     ]);
 
     // Points this browser deleted are still listed by Modal, so filter them
-    // out here — otherwise a row would advertise points that fail on use.
+    // out here — otherwise a row would advertise snapshots that fail on use.
     const workspace = connection?.workspace ?? "default";
-    const deleted = hiddenPoints(workspace);
-    const points = new Map(
+    const deleted = hiddenSnapshots(workspace);
+    const snapshots = new Map(
       summary.map((entry) => {
-        // Same collapse the drawer applies, so the count matches the list.
-        const live = collapseTwins(
-          entry.points.filter((p) => !deleted.includes(p.tag)),
-        );
+        // The same pipeline the drawer runs, so a count always matches the
+        // list it opens.
+        const live = visibleSnapshots(entry.snapshots, deleted);
         return [
           entry.sandbox,
           {
@@ -71,7 +73,7 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
             ),
             // Every tag, collapsed twins included: what to forget when a start
             // proves none of them work any more.
-            tags: entry.points.map((p) => p.tag),
+            tags: entry.snapshots.map((p) => p.tag),
           },
         ];
       }),
@@ -122,7 +124,7 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
       kind: "running" as const,
       sb,
       stopping: store[sb.name]?.op?.kind === "stopping",
-      points: points.get(sb.name)?.count ?? 0,
+      snapshots: snapshots.get(sb.name)?.count ?? 0,
     }));
     for (const record of Object.values(store)) {
       const name = record.spec.name;
@@ -133,27 +135,27 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
           spec: record.spec,
           startedAt: record.op.startedAt,
           phase: record.op.phase,
-          points: points.get(name)?.count ?? 0,
+          snapshots: snapshots.get(name)?.count ?? 0,
         });
       } else if (record.error) {
         rows.push({
           kind: "failed",
           spec: record.spec,
           error: record.error,
-          points: points.get(name)?.count ?? 0,
+          snapshots: snapshots.get(name)?.count ?? 0,
         });
       } else {
         // Prefer Modal's own answer for "when did this stop": the newest
-        // point's capture time. The stored one only covers a sandbox stopped
-        // with its changes discarded, which writes no point.
+        // snapshot's capture time. The stored one only covers a sandbox stopped
+        // with its changes discarded, which writes no snapshot.
         rows.push({
           kind: "stopped",
           spec: record.spec,
           stoppedAt:
-            points.get(name)?.newestAt ??
+            snapshots.get(name)?.newestAt ??
             record.stoppedAt ??
             new Date().toISOString(),
-          points: points.get(name)?.count ?? 0,
+          snapshots: snapshots.get(name)?.count ?? 0,
         });
       }
     }
@@ -162,8 +164,8 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
       rows,
       workspace,
       runtimeVersion: RUNTIME_VERSION,
-      pointTags: Object.fromEntries(
-        [...points.entries()].map(([name, p]) => [name, p.tags]),
+      snapshotTags: Object.fromEntries(
+        [...snapshots.entries()].map(([name, p]) => [name, p.tags]),
       ),
     };
   } catch (e) {

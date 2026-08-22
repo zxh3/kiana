@@ -10,7 +10,7 @@
  * `sandboxes.list()` filtered by the `kitchen` tag, the spec (image, cpu,
  * memory, gpu, volumes, created-at) lives in tags, and the per-sandbox pane
  * secret is derived — HMAC(tokenSecret, name) — so nothing needs storing
- * anywhere. State persists as restore points (see snapshots.ts), so a
+ * anywhere. State persists as snapshots (see snapshots.ts), so a
  * sandbox's filesystem outlives the sandbox without any volume plumbing.
  */
 
@@ -32,18 +32,18 @@ import {
   runtimePorts,
 } from "$lib/server/runtime";
 import {
-  imageForPoint,
-  listRestorePoints,
+  imageForSnapshot,
+  listSnapshots,
   type SnapshotContext,
-  saveRestorePoint,
+  saveSnapshot,
 } from "$lib/server/snapshots";
 import {
   type OpPhase,
-  type RestorePoint,
   type RetentionDays,
   type SandboxInfo,
   type SandboxSpec,
   type SessionInfo,
+  type Snapshot,
   sessionModes,
   type VolumeMount,
 } from "$lib/types";
@@ -81,7 +81,7 @@ export function hasServerCredentials(): boolean {
 
 /**
  * Everything Modal-side lives in the environment configured in Settings —
- * apps, sandboxes, volumes and restore-point images alike. The client carries
+ * apps, sandboxes, volumes and snapshot images alike. The client carries
  * it as its default, and calls that accept an environment are given it
  * explicitly so containment is visible at each call site rather than implied.
  */
@@ -256,18 +256,18 @@ async function withRetry<T>(
 }
 
 export interface LaunchOptions {
-  /** Boot from this restore point instead of a freshly built image. */
-  fromPoint?: string;
+  /** Boot from this snapshot instead of a freshly built image. */
+  fromSnapshot?: string;
   /** Lineage recorded on a fork, for the UI to show. */
   forkedFrom?: string;
-  /** Ignore any restore points and build a new machine. */
+  /** Ignore any snapshots and build a new machine. */
   fresh?: boolean;
 }
 
 /**
- * A restore point whose image Modal no longer has.
+ * A snapshot whose image Modal no longer has.
  *
- * Modal has no unpublish, so a deleted point's tag keeps listing and even
+ * Modal has no unpublish, so a deleted snapshot's tag keeps listing and even
  * resolves; the truth only arrives at `SandboxCreate`. An expired image says
  * so distinctly, which is worth telling apart from a deletion.
  */
@@ -276,13 +276,13 @@ function isMissingImage(e: unknown): boolean {
   return /NOT_FOUND: Image|has expired/i.test(msg);
 }
 
-/** Thrown when every restore point a sandbox has is gone. */
-export class NoUsableRestorePointError extends Error {
+/** Thrown when every snapshot a sandbox has is gone. */
+export class NoUsableSnapshotError extends Error {
   constructor(name: string, image: string) {
     super(
-      `None of ${name}'s restore points can be used any more — they were deleted or have expired. Start fresh to launch it as a new machine from ${image}; its saved state is gone either way.`,
+      `None of ${name}'s snapshots can be used any more — they were deleted or have expired. Start fresh to launch it as a new machine from ${image}; its saved state is gone either way.`,
     );
-    this.name = "NoUsableRestorePointError";
+    this.name = "NoUsableSnapshotError";
   }
 }
 
@@ -301,7 +301,7 @@ export async function launchSandbox(
     const ctx = contextOf(creds, client);
 
     // Volumes are the user's own choice now, never a runtime mechanism. Their
-    // contents stay out of restore points, which is exactly why someone would
+    // contents stay out of snapshots, which is exactly why someone would
     // mount one. Resolved once: every attempt below mounts the same ones.
     const volumes: Record<string, Volume> = {};
     if (spec.volumes.length > 0) {
@@ -355,34 +355,34 @@ export async function launchSandbox(
       );
     };
 
-    // An explicitly chosen point is not something to silently substitute: the
+    // An explicitly chosen snapshot is not something to silently substitute: the
     // caller asked for that state, so a missing image is an error.
-    if (options.fromPoint) {
+    if (options.fromSnapshot) {
       onPhase("resolving");
-      return await create(await imageForPoint(ctx, options.fromPoint));
+      return await create(await imageForSnapshot(ctx, options.fromSnapshot));
     }
 
     if (options.fresh) return await buildFresh();
 
-    // Starting an existing sandbox means booting its newest restore point —
-    // the whole machine as it was, in one create call. Points whose image has
+    // Starting an existing sandbox means booting its newest snapshot —
+    // the whole machine as it was, in one create call. Snapshots whose image has
     // been deleted or has expired are skipped rather than fatal, because their
     // tags outlive them and would otherwise make the sandbox unstartable.
     onPhase("resolving");
-    const points = await listRestorePoints(ctx, spec.name);
-    for (const point of points) {
+    const snapshots = await listSnapshots(ctx, spec.name);
+    for (const snapshot of snapshots) {
       try {
-        return await create(await imageForPoint(ctx, point.tag));
+        return await create(await imageForSnapshot(ctx, snapshot.tag));
       } catch (e) {
         if (!isMissingImage(e)) throw e;
       }
     }
 
-    // No point ever existed: a brand new sandbox, so build its runtime. But if
-    // points existed and none worked, the saved state is gone — say so instead
+    // No snapshot ever existed: a brand new sandbox, so build its runtime. But if
+    // snapshots existed and none worked, the saved state is gone — say so instead
     // of quietly handing back an empty machine under a familiar name.
-    if (points.length > 0) {
-      throw new NoUsableRestorePointError(spec.name, spec.image);
+    if (snapshots.length > 0) {
+      throw new NoUsableSnapshotError(spec.name, spec.image);
     }
     return await buildFresh();
   } finally {
@@ -391,7 +391,7 @@ export async function launchSandbox(
 }
 
 /**
- * Save a restore point of a running sandbox and leave it running.
+ * Save a snapshot of a running sandbox and leave it running.
  *
  * The sandbox has to be alive for a snapshot, which makes this the only way to
  * capture work *before* something ends the sandbox for you.
@@ -401,12 +401,12 @@ export async function saveRunningSandbox(
   sandboxId: string,
   options: { retentionDays: RetentionDays; label?: string },
   onPhase: (phase: OpPhase) => void = () => {},
-): Promise<RestorePoint> {
+): Promise<Snapshot> {
   const client = clientFor(creds);
   try {
     const sandbox = await client.sandboxes.fromId(sandboxId);
     const name = (await sandbox.getTags())["kitchen-name"] ?? sandboxId;
-    return await saveRestorePoint(
+    return await saveSnapshot(
       contextOf(creds, client),
       sandbox,
       name,
@@ -419,7 +419,7 @@ export async function saveRunningSandbox(
 }
 
 /**
- * Stop a sandbox, saving a restore point first unless the caller discards it.
+ * Stop a sandbox, saving a snapshot first unless the caller discards it.
  * The snapshot has to happen while the sandbox is alive, so a failure here
  * aborts the stop — losing state silently would be worse than staying up.
  */
@@ -432,7 +432,7 @@ export async function stopSandbox(
     label?: string;
   },
   onPhase: (phase: OpPhase) => void = () => {},
-): Promise<{ point: RestorePoint | null }> {
+): Promise<{ snapshot: Snapshot | null }> {
   const client = clientFor(creds);
   try {
     let sandbox: Sandbox;
@@ -440,15 +440,15 @@ export async function stopSandbox(
       sandbox = await client.sandboxes.fromId(sandboxId);
     } catch (e) {
       if (e instanceof NotFoundError || e instanceof InvalidError) {
-        return { point: null }; // already gone
+        return { snapshot: null }; // already gone
       }
       throw e;
     }
 
-    let point: RestorePoint | null = null;
+    let snapshot: Snapshot | null = null;
     if (options.save) {
       const name = (await sandbox.getTags())["kitchen-name"] ?? sandboxId;
-      point = await saveRestorePoint(
+      snapshot = await saveSnapshot(
         contextOf(creds, client),
         sandbox,
         name,
@@ -459,10 +459,10 @@ export async function stopSandbox(
 
     onPhase("stopping");
     await sandbox.terminate();
-    return { point };
+    return { snapshot };
   } catch (e) {
     if (e instanceof NotFoundError || e instanceof InvalidError) {
-      return { point: null };
+      return { snapshot: null };
     }
     throw e;
   } finally {
@@ -526,16 +526,16 @@ export async function getSession(
 /** One line for the UI when a Modal call fails: cause first, then the fix. */
 export function modalErrorMessage(e: unknown): string {
   // Our own diagnosis, not Modal's — pass it through unprefixed.
-  if (e instanceof NoUsableRestorePointError) return e.message;
+  if (e instanceof NoUsableSnapshotError) return e.message;
   if (e instanceof AlreadyExistsError) {
     return "A sandbox with that name is already running — pick another name.";
   }
   const detail = e instanceof Error ? e.message : String(e);
   if (/has expired/.test(detail)) {
-    return "That restore point has expired. Start from an earlier point, or start fresh from the base image.";
+    return "That snapshot has expired. Start from an earlier snapshot, or start fresh from the base image.";
   }
   if (/NOT_FOUND: Image/.test(detail)) {
-    return "That restore point is no longer available — it was deleted.";
+    return "That snapshot is no longer available — it was deleted.";
   }
   return `Modal returned an error: ${detail}`;
 }

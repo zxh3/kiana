@@ -9,11 +9,11 @@ import { retentionFrom } from "$lib/server/validate";
 import type { RequestHandler } from "./$types";
 
 /**
- * Save a restore point of a *running* sandbox, without stopping it.
+ * Save a snapshot of a *running* sandbox, without stopping it.
  *
  * This is the mid-session save: the whole reason it exists is that a sandbox
  * killed unattended (a crash, or the 24h lifetime) only keeps what its last
- * point holds. Streamed, because the snapshot itself takes seconds.
+ * snapshot holds. Streamed, because the snapshot itself takes seconds.
  */
 export const POST: RequestHandler = async ({ request, params, url }) => {
   const creds = credentialsFrom(request);
@@ -23,7 +23,7 @@ export const POST: RequestHandler = async ({ request, params, url }) => {
   return ndjsonStream(
     "snapshotting",
     async ({ phase }) => {
-      const point = await saveRunningSandbox(
+      const snapshot = await saveRunningSandbox(
         creds,
         params.id,
         {
@@ -32,7 +32,7 @@ export const POST: RequestHandler = async ({ request, params, url }) => {
         },
         phase,
       );
-      return { point };
+      return { snapshot };
     },
     modalErrorMessage,
   );

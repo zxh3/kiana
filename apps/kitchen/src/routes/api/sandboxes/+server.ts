@@ -21,9 +21,9 @@ export const GET: RequestHandler = async ({ request }) => {
 
 /**
  * Start a sandbox — new, resumed, or forked. All three are the same operation:
- * create from an image, where the image is either freshly built or a restore
- * point. `fromPoint` names one explicitly; without it an existing sandbox
- * resumes its newest point. A fork is simply `fromPoint` under a new name.
+ * create from an image, where the image is either freshly built or a
+ * snapshot. `fromSnapshot` names one explicitly; without it an existing sandbox
+ * resumes its newest. A fork is simply `fromSnapshot` under a new name.
  *
  * Answers with an NDJSON progress stream; see server/stream.ts.
  */
@@ -34,8 +34,8 @@ export const POST: RequestHandler = async ({ request }) => {
   const result = validateSpec(body);
   if (!result.ok) return json({ error: result.error }, { status: 400 });
 
-  const fromPoint =
-    typeof body?.fromPoint === "string" ? body.fromPoint : undefined;
+  const fromSnapshot =
+    typeof body?.fromSnapshot === "string" ? body.fromSnapshot : undefined;
   const forkedFrom =
     typeof body?.forkedFrom === "string" ? body.forkedFrom : undefined;
   const fresh = body?.fresh === true;
@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ request }) => {
     "resolving",
     async ({ phase }) => {
       const { sandboxId } = await launchSandbox(creds, result.spec, phase, {
-        fromPoint,
+        fromSnapshot,
         forkedFrom,
         fresh,
       });

@@ -75,29 +75,29 @@ export interface SessionInfo {
 }
 
 /**
- * A restore point: one published snapshot image of a sandbox's filesystem.
- * `auto` points expire on the workspace retention policy; `keep` points are
+ * A snapshot: one published snapshot image of a sandbox's filesystem.
+ * `auto` snapshots expire on the workspace retention policy; `keep` snapshots are
  * held until deleted. Modal cannot report an image's TTL, so the retention is
  * encoded in the tag and `expiresAt` is derived from `createdAt`.
  */
-export interface RestorePoint {
+export interface Snapshot {
   /** Full published tag, e.g. `kitchen-snap-api-work:keep.r2.20260822t1430.pre-refactor`. */
   tag: string;
   sandbox: string;
   kind: "auto" | "keep";
-  /** User label for kept points; empty for automatic ones. */
+  /** User label for kept snapshots; empty for automatic ones. */
   label: string;
-  /** Runtime version the point was taken on. */
+  /** Runtime version the snapshot was taken on. */
   runtime: number;
   /**
-   * When the machine state was captured — the field points are ordered by.
-   * Keeping a point republishes the same state, so this is deliberately not
+   * When the machine state was captured — the field snapshots are ordered by.
+   * Keeping a snapshot republishes the same state, so this is deliberately not
    * the publish time.
    */
   createdAt: string;
   /** When this tag's image was created; what Modal measures the TTL from. */
   publishedAt: string;
-  /** Null when the point is kept indefinitely. */
+  /** Null when the snapshot is kept indefinitely. */
   expiresAt: string | null;
   imageId: string;
 }
@@ -122,24 +122,24 @@ export const opPhases = [
 export type OpPhase = (typeof opPhases)[number];
 
 export const opPhaseLabels: Record<OpPhase, string> = {
-  resolving: "finding restore point",
+  resolving: "finding snapshot",
   image: "building image",
   volumes: "attaching volumes",
   creating: "starting machine",
   waiting: "waiting for the name to free",
   snapshotting: "saving machine state",
-  publishing: "saving restore point",
+  publishing: "saving snapshot",
   stopping: "stopping machine",
 };
 
 export type OpEvent =
   | { phase: OpPhase }
   | { sandboxId: string }
-  | { point: RestorePoint }
+  | { snapshot: Snapshot }
   | { done: true }
   | { error: string };
 
-/** Retention choices for automatic restore points. Null keeps them forever. */
+/** Retention choices for automatic snapshots. Null keeps them forever. */
 export const retentionOptions = [
   { days: 7, label: "7 days" },
   { days: 30, label: "30 days" },

@@ -53,7 +53,7 @@ function disconnect() {
   environment = "";
 }
 
-// Retention applies to *new* automatic restore points: a snapshot's lifetime is
+// Retention applies to *new* automatic snapshots: a snapshot's lifetime is
 // fixed when it is taken, so changing this never shortens or extends one that
 // already exists.
 let retentionDays = $state<RetentionDays>(loadSettings().retentionDays);
@@ -162,8 +162,8 @@ function setRetention(days: RetentionDays) {
 				</span>
 				<span class="text-muted text-[11px] leading-[1.6]">
 					{active.source === 'server'
-						? 'Credentials come from this deployment, not from your browser. Sandboxes, volumes and restore points all live in the environment above. Entering a token below would use your own Modal account in this browser instead.'
-						: 'Credentials from this browser. Sandboxes, volumes and restore points all live in the environment above.'}
+						? 'Credentials come from this deployment, not from your browser. Sandboxes, volumes and snapshots all live in the environment above. Entering a token below would use your own Modal account in this browser instead.'
+						: 'Credentials from this browser. Sandboxes, volumes and snapshots all live in the environment above.'}
 				</span>
 			</div>
 		{/if}
@@ -175,7 +175,7 @@ function setRetention(days: RetentionDays) {
 		</p>
 
 		<div class="flex flex-col gap-[9px] border-t border-white/8 pt-5">
-			<span class="text-label text-[11.5px] font-medium">Keep automatic restore points for</span>
+			<span class="text-label text-[11.5px] font-medium">Keep automatic snapshots for</span>
 			<div class="flex gap-[7px]">
 				{#each retentionOptions as option (option.label)}
 					<button
@@ -191,10 +191,10 @@ function setRetention(days: RetentionDays) {
 				{/each}
 			</div>
 			<p class="text-muted text-[11px] leading-[1.6] text-pretty">
-				Stopping a sandbox saves the whole machine as a restore point. Automatic ones expire
+				Stopping a sandbox saves the whole machine as a snapshot. Automatic ones expire
 				after this long; the ones you <span class="text-secondary">Keep</span> are held until
-				you delete them. This applies to new points — a point's lifetime is fixed when it is
-				saved, so changing this never shortens one you already have.
+				you delete them. This applies to new snapshots — a snapshot's lifetime is fixed when
+				it is saved, so changing this never shortens one you already have.
 			</p>
 		</div>
 	</form>

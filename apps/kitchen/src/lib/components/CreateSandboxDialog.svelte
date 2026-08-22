@@ -37,7 +37,7 @@ let volumes = $state<{ name: string; mount: string }[]>([
 let error = $state<string | null>(null);
 
 // Open with a name already filled in: naming a sandbox is meaningful (it is
-// the identity its restore points hang off) but rarely worth stopping for.
+// the identity its snapshots hang off) but rarely worth stopping for.
 $effect(() => {
   if (open && !name) name = suggestName(takenNames);
 });
@@ -150,7 +150,7 @@ function specProblem(spec: SandboxSpec): string | null {
 						<span class="text-muted text-[11px] leading-[1.5]">
 							Suggested — type your own if you like. The name identifies the machine: a
 							sandbox created with a previous name resumes that machine from its newest
-							restore point.
+							snapshot.
 						</span>
 					</label>
 
@@ -271,8 +271,8 @@ function specProblem(spec: SandboxSpec): string | null {
 						<span class="text-label text-[11.5px] font-medium">Volume mounts</span>
 						<span class="text-muted text-[11px] leading-[1.5]">
 							Optional. The machine itself — packages, config, /workspace — is saved as a
-							restore point when you stop it. Mount a volume for data you want saved
-							continuously, shared live between sandboxes, or kept out of restore points.
+							snapshot when you stop it. Mount a volume for data you want saved
+							continuously, shared live between sandboxes, or kept out of snapshots.
 						</span>
 						{#each volumes as volume, i (i)}
 							<div class="flex items-center gap-2">

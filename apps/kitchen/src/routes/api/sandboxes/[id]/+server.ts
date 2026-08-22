@@ -27,9 +27,9 @@ export const GET: RequestHandler = async ({ request, params }) => {
 };
 
 /**
- * Stop a sandbox, saving a restore point on the way out. `?save=0` discards
+ * Stop a sandbox, saving a snapshot on the way out. `?save=0` discards
  * the machine state instead — the escape hatch for a sandbox someone has
- * broken and would rather not carry forward. A label makes the point
+ * broken and would rather not carry forward. A label makes the snapshot
  * permanent.
  *
  * Streams progress: the snapshot is the slow part (seconds to tens of

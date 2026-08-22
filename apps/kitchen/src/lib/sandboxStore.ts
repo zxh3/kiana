@@ -2,7 +2,7 @@
  * Browser-side memory of sandboxes, keyed by workspace then name.
  *
  * This holds only what Modal cannot answer for us. Modal lists running
- * sandboxes, and restore points say what each sandbox can go back to and when
+ * sandboxes, and snapshots say what each sandbox can go back to and when
  * its state was last captured — but a *stopped* sandbox's shape (cpu, memory,
  * gpu, image, mounts) lives nowhere server-side: sandbox tags die with the
  * sandbox, and an image tag cannot carry an image reference or a mount path.

@@ -1,10 +1,10 @@
 /**
  * Workspace-level preferences. Only one so far: how long automatic restore
- * points live.
+ * snapshots live.
  *
  * A snapshot's TTL is fixed when it is taken and can never be read back or
- * changed, so this is a policy for *new* points, not a retroactive setting —
- * which is why each point records the retention it was created with.
+ * changed, so this is a policy for *new* snapshots, not a retroactive setting —
+ * which is why each snapshot records the retention it was created with.
  */
 
 import { defaultRetentionDays, type RetentionDays } from "$lib/types";

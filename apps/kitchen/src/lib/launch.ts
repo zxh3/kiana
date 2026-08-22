@@ -27,10 +27,10 @@ import {
 import type {
   OpEvent,
   OpPhase,
-  RestorePoint,
   RetentionDays,
   SandboxInfo,
   SandboxSpec,
+  Snapshot,
 } from "$lib/types";
 
 /** How long to keep looking for the sandbox after a stream dies. */
@@ -109,7 +109,7 @@ export async function driveStream(
         if ("phase" in event) onPhase(event.phase);
         else if ("error" in event) verdict = { ok: false, error: event.error };
         // Anything else is the terminal success payload — a sandbox id, a
-        // saved point, or a bare done.
+        // saved snapshot, or a bare done.
         else verdict = { ok: true };
       }
     }
@@ -134,11 +134,11 @@ export async function driveStream(
  * is known; callers that want to stay responsive should not await it.
  */
 export interface LaunchOptions {
-  /** Boot this restore point rather than the sandbox's newest. */
-  fromPoint?: string;
+  /** Boot this snapshot rather than the sandbox's newest. */
+  fromSnapshot?: string;
   /** Lineage to record when this launch is a fork. */
   forkedFrom?: string;
-  /** Ignore restore points and build a new machine. */
+  /** Ignore snapshots and build a new machine. */
   fresh?: boolean;
 }
 
@@ -172,7 +172,7 @@ export async function launch(
           body: JSON.stringify({
             ...spec,
             gpu: spec.gpu ?? "none",
-            fromPoint: options.fromPoint,
+            fromSnapshot: options.fromSnapshot,
             forkedFrom: options.forkedFrom,
             fresh: options.fresh,
           }),
@@ -222,10 +222,10 @@ export async function launch(
 }
 
 /**
- * Stop a sandbox, saving a restore point on the way out.
+ * Stop a sandbox, saving a snapshot on the way out.
  *
  * Like `launch`, this is fire-and-forget: the snapshot is the slow part, and
- * the row shows its phases. A label makes the resulting point permanent;
+ * the row shows its phases. A label makes the resulting snapshot permanent;
  * `save: false` discards the machine state instead.
  */
 export async function stop(
@@ -267,16 +267,16 @@ export async function stop(
 }
 
 /**
- * Save a restore point of a running sandbox, leaving it running.
+ * Save a snapshot of a running sandbox, leaving it running.
  *
  * The counterpart to Stop-and-save: same snapshot, no shutdown. Resolves with
- * the point so a caller can show what it captured.
+ * the snapshot so a caller can show what it captured.
  */
-export async function savePoint(
+export async function saveSnapshotNow(
   sandboxId: string,
   options: { retentionDays: RetentionDays; label?: string },
   onPhase: (phase: OpPhase) => void = () => {},
-): Promise<{ ok: true; point: RestorePoint } | { ok: false; error: string }> {
+): Promise<{ ok: true; snapshot: Snapshot } | { ok: false; error: string }> {
   const query = new URLSearchParams({
     retentionDays:
       options.retentionDays === null
@@ -285,19 +285,20 @@ export async function savePoint(
   });
   if (options.label) query.set("label", options.label);
 
-  let saved: RestorePoint | null = null;
+  let saved: Snapshot | null = null;
   const result = await driveStream(
     () =>
-      fetch(`/api/sandboxes/${sandboxId}/restore-point?${query}`, {
+      fetch(`/api/sandboxes/${sandboxId}/snapshot?${query}`, {
         method: "POST",
         headers: credentialHeaders(),
       }),
     onPhase,
     (event) => {
-      if ("point" in event) saved = event.point;
+      if ("snapshot" in event) saved = event.snapshot;
     },
   );
   if (!result.ok) return { ok: false, error: result.error };
-  if (!saved) return { ok: false, error: "The save finished without a point." };
-  return { ok: true, point: saved };
+  if (!saved)
+    return { ok: false, error: "The save finished without a snapshot." };
+  return { ok: true, snapshot: saved };
 }

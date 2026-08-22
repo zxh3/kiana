@@ -1,7 +1,7 @@
 /**
  * A suggested name for a new sandbox.
  *
- * Naming a sandbox matters — it is the identity its restore points hang off —
+ * Naming a sandbox matters — it is the identity its snapshots hang off —
  * but most of the time nobody wants to think of one, and an empty required
  * field is a speed bump. So the create drawer opens with a readable suggestion
  * that can be replaced or reshuffled.

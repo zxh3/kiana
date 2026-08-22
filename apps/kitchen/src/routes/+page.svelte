@@ -5,18 +5,18 @@ import { api } from "$lib/api";
 import CreateSandboxDialog from "$lib/components/CreateSandboxDialog.svelte";
 import ForkDialog from "$lib/components/ForkDialog.svelte";
 import Logo from "$lib/components/Logo.svelte";
-import RestorePointsDrawer from "$lib/components/RestorePointsDrawer.svelte";
+import SnapshotsDrawer from "$lib/components/SnapshotsDrawer.svelte";
 import StatusDot from "$lib/components/StatusDot.svelte";
 import { formatAgo, formatResources, formatUptime } from "$lib/format";
 import { type LaunchOptions, launch, stop } from "$lib/launch";
-import { hidePoint } from "$lib/restorePoints";
 import { clearError, forgetSandbox } from "$lib/sandboxStore";
 import { loadSettings } from "$lib/settings";
+import { hideSnapshot } from "$lib/snapshots";
 import {
   type OpPhase,
   opPhaseLabels,
-  type RestorePoint,
   type SandboxSpec,
+  type Snapshot,
   sessionModes,
 } from "$lib/types";
 import type { PageData } from "./$types";
@@ -34,10 +34,10 @@ let now = $state(Date.now());
 // fallback after a reload.
 let livePhase = $state<Record<string, OpPhase>>({});
 
-// Restore points and forking, both driven from a row.
-let pointsFor = $state<string | null>(null);
-let pointsOpen = $state(false);
-let forkPoint = $state<RestorePoint | null>(null);
+// Snapshots and forking, both driven from a row.
+let snapshotsFor = $state<string | null>(null);
+let snapshotsOpen = $state(false);
+let forkSnapshot = $state<Snapshot | null>(null);
 let forkSpec = $state<SandboxSpec | null>(null);
 let forkOpen = $state(false);
 
@@ -94,17 +94,17 @@ function startLaunch(spec: SandboxSpec, options: LaunchOptions = {}) {
       },
       onError: (message) => {
         delete livePhase[spec.name];
-        // Points Modal no longer has still list, so a row would keep
+        // Snapshots Modal no longer has still list, so a row would keep
         // advertising them and every button on them would fail. Forget them
-        // locally instead: one named point, or all of them when a start proved
+        // locally instead: one named snapshot, or all of them when a start proved
         // that none survive.
         if (
-          options.fromPoint &&
+          options.fromSnapshot &&
           /no longer available|has expired/i.test(message)
         ) {
-          hidePoint(data.workspace, options.fromPoint);
+          hideSnapshot(data.workspace, options.fromSnapshot);
         } else if (/can be used any more/.test(message)) {
-          forgetPointsOf(spec.name);
+          forgetSnapshotsOf(spec.name);
         }
         actionError = message;
         void invalidate("app:sandboxes");
@@ -146,24 +146,24 @@ function stopSandbox(sandboxId: string, name: string, save = true) {
   void invalidate("app:sandboxes");
 }
 
-function openPoints(name: string) {
-  pointsFor = name;
-  pointsOpen = true;
+function openSnapshots(name: string) {
+  snapshotsFor = name;
+  snapshotsOpen = true;
 }
 
 /**
- * Rewind a running sandbox to an earlier point: stop it (saving first unless
- * told not to), then start it again from that point. Two operations, so the
+ * Rewind a running sandbox to an earlier snapshot: stop it (saving first unless
+ * told not to), then start it again from that snapshot. Two operations, so the
  * row narrates both — and the second only runs if the first got the sandbox
  * down, since Modal will not free the name otherwise.
  */
-async function restoreTo(point: RestorePoint, saveFirst: boolean) {
+async function restoreTo(snapshot: Snapshot, saveFirst: boolean) {
   const row = data.rows.find(
-    (r) => r.kind === "running" && r.sb.name === point.sandbox,
+    (r) => r.kind === "running" && r.sb.name === snapshot.sandbox,
   );
   if (row?.kind !== "running") return;
   actionError = null;
-  livePhase[point.sandbox] = saveFirst ? "snapshotting" : "stopping";
+  livePhase[snapshot.sandbox] = saveFirst ? "snapshotting" : "stopping";
   await stop(
     data.workspace,
     row.sb.sandboxId,
@@ -171,46 +171,47 @@ async function restoreTo(point: RestorePoint, saveFirst: boolean) {
     { save: saveFirst, retentionDays: loadSettings().retentionDays },
     {
       onPhase: (phase) => {
-        livePhase[point.sandbox] = phase;
+        livePhase[snapshot.sandbox] = phase;
       },
     },
   );
   await invalidate("app:sandboxes");
-  startLaunch(row.sb, { fromPoint: point.tag });
+  startLaunch(row.sb, { fromSnapshot: snapshot.tag });
 }
 
-function openFork(point: RestorePoint) {
+function openFork(snapshot: Snapshot) {
   const row = data.rows.find(
-    (r) => (r.kind === "running" ? r.sb.name : r.spec.name) === point.sandbox,
+    (r) =>
+      (r.kind === "running" ? r.sb.name : r.spec.name) === snapshot.sandbox,
   );
   forkSpec = row ? (row.kind === "running" ? row.sb : row.spec) : null;
-  forkPoint = point;
+  forkSnapshot = snapshot;
   forkOpen = true;
 }
 
 async function forget(name: string) {
   forgetSandbox(data.workspace, name);
-  // The rows are browser-local, but the restore points are not — dropping the
+  // The rows are browser-local, but the snapshots are not — dropping the
   // row without them would leak storage nothing can reach.
   try {
-    await api(`/api/restore-points?sandbox=${encodeURIComponent(name)}`, {
+    await api(`/api/snapshots?sandbox=${encodeURIComponent(name)}`, {
       method: "DELETE",
     });
   } catch {
     // the row is already gone from this browser; surfacing this would only
-    // confuse, and the points expire on their own
+    // confuse, and the snapshots expire on their own
   }
   await invalidate("app:sandboxes");
 }
 
 /**
- * Stop listing a sandbox's points once a start has proved none of them work.
+ * Stop listing a sandbox's snapshots once a start has proved none of them work.
  * Every tag, including the twins the drawer collapses — otherwise a hidden
  * keep would let its auto twin resurface.
  */
-function forgetPointsOf(name: string) {
-  for (const tag of data.pointTags[name] ?? []) {
-    hidePoint(data.workspace, tag);
+function forgetSnapshotsOf(name: string) {
+  for (const tag of data.snapshotTags[name] ?? []) {
+    hideSnapshot(data.workspace, tag);
   }
 }
 
@@ -331,14 +332,14 @@ const modeIcons: Record<string, string> = {
 						<span class="truncate font-mono text-[13.5px] leading-none font-semibold">
 							{spec.name}
 						</span>
-						{#if row.points > 0}
+						{#if row.snapshots > 0}
 							<button
 								type="button"
-								onclick={() => openPoints(spec.name)}
-								title="{row.points} restore point{row.points > 1 ? 's' : ''} — browse, restore an earlier one, or fork"
+								onclick={() => openSnapshots(spec.name)}
+								title="{row.snapshots} snapshot{row.snapshots > 1 ? 's' : ''} — browse, restore an earlier one, or fork"
 								class="text-secondary hover:text-control flex-none cursor-pointer rounded-[5px] border border-white/10 px-[6px] py-[3px] font-mono text-[10px] leading-none hover:bg-white/5"
 							>
-								{row.points} point{row.points > 1 ? 's' : ''}
+								{row.snapshots} snapshot{row.snapshots > 1 ? 's' : ''}
 							</button>
 						{/if}
 						{#if sb && sb.volumes.length > 0}
@@ -367,7 +368,7 @@ const modeIcons: Record<string, string> = {
 											</span>
 										{/each}
 										<span class="text-muted text-[10.5px] leading-[1.5]">
-											Saved continuously and kept out of restore points.
+											Saved continuously and kept out of snapshots.
 										</span>
 									</Popover.Content>
 								</Popover.Portal>
@@ -473,12 +474,12 @@ const modeIcons: Record<string, string> = {
 								>
 									<DropdownMenu.Item
 										class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
-										onSelect={() => openPoints(sb.name)}
+										onSelect={() => openSnapshots(sb.name)}
 									>
-										Restore points…
+										Snapshots…
 									</DropdownMenu.Item>
 									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
-										Rewind this sandbox to an earlier point, or fork one into a new sandbox.
+										Rewind this sandbox to an earlier snapshot, or fork one into a new sandbox.
 									</div>
 									<DropdownMenu.Item
 										class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
@@ -487,7 +488,7 @@ const modeIcons: Record<string, string> = {
 										Stop and save
 									</DropdownMenu.Item>
 									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
-										Saves the whole machine as a restore point, then stops it. Starting it
+										Saves the whole machine as a snapshot, then stops it. Starting it
 										again picks up exactly here.
 									</div>
 									<DropdownMenu.Item
@@ -497,7 +498,7 @@ const modeIcons: Record<string, string> = {
 										Discard changes and stop
 									</DropdownMenu.Item>
 									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
-										Stops without saving. The last restore point stays as it was.
+										Stops without saving. The last snapshot stays as it was.
 									</div>
 								</DropdownMenu.Content>
 							</DropdownMenu.Portal>
@@ -510,7 +511,7 @@ const modeIcons: Record<string, string> = {
 						</span>
 					{:else}
 						{#if row.kind === 'failed' && /any more/.test(row.error)}
-							<!-- Every point is gone: retrying cannot help, so offer the only
+							<!-- Every snapshot is gone: retrying cannot help, so offer the only
 							     thing that can, and name it honestly. -->
 							<button
 								type="button"
@@ -544,12 +545,12 @@ const modeIcons: Record<string, string> = {
 								>
 									<DropdownMenu.Item
 										class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
-										onSelect={() => openPoints(spec.name)}
+										onSelect={() => openSnapshots(spec.name)}
 									>
-										Restore points…
+										Snapshots…
 									</DropdownMenu.Item>
 									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
-										Start from an earlier point instead of the newest, or fork one.
+										Start from an earlier snapshot instead of the newest, or fork one.
 									</div>
 									{#if row.kind === 'failed'}
 										<DropdownMenu.Item
@@ -566,7 +567,7 @@ const modeIcons: Record<string, string> = {
 										Forget
 									</DropdownMenu.Item>
 									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
-										Drops the row and deletes this sandbox's restore points.
+										Drops the row and deletes this sandbox's snapshots.
 									</div>
 								</DropdownMenu.Content>
 							</DropdownMenu.Portal>
@@ -578,22 +579,22 @@ const modeIcons: Record<string, string> = {
 	{/if}
 </div>
 
-<RestorePointsDrawer
-	bind:open={pointsOpen}
-	sandbox={pointsFor ?? ''}
-	running={data.rows.some((row) => row.kind === 'running' && row.sb.name === pointsFor)}
-	spec={pointsFor
+<SnapshotsDrawer
+	bind:open={snapshotsOpen}
+	sandbox={snapshotsFor ?? ''}
+	running={data.rows.some((row) => row.kind === 'running' && row.sb.name === snapshotsFor)}
+	spec={snapshotsFor
 		? (data.rows
 				.map((row) => (row.kind === 'running' ? row.sb : row.spec))
-				.find((candidate) => candidate.name === pointsFor) ?? null)
+				.find((candidate) => candidate.name === snapshotsFor) ?? null)
 		: null}
 	workspace={data.workspace}
 	runtimeVersion={data.runtimeVersion}
-	onstart={(point) => {
+	onstart={(snapshot) => {
 		const spec = data.rows
 			.map((row) => (row.kind === 'running' ? row.sb : row.spec))
-			.find((candidate) => candidate.name === point.sandbox);
-		if (spec) startLaunch(spec, { fromPoint: point.tag });
+			.find((candidate) => candidate.name === snapshot.sandbox);
+		if (spec) startLaunch(spec, { fromSnapshot: snapshot.tag });
 	}}
 	onfork={openFork}
 	onrestore={restoreTo}
@@ -601,11 +602,11 @@ const modeIcons: Record<string, string> = {
 
 <ForkDialog
 	bind:open={forkOpen}
-	point={forkPoint}
+	snapshot={forkSnapshot}
 	spec={forkSpec}
 	takenNames={data.rows.map((row) => (row.kind === 'running' ? row.sb.name : row.spec.name))}
-	onfork={(spec, point) =>
-		startLaunch(spec, { fromPoint: point.tag, forkedFrom: point.tag })}
+	onfork={(spec, snapshot) =>
+		startLaunch(spec, { fromSnapshot: snapshot.tag, forkedFrom: snapshot.tag })}
 />
 
 <CreateSandboxDialog
