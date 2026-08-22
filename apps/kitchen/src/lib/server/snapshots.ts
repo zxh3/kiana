@@ -18,7 +18,11 @@
 import { type Image, ModalClient, type Sandbox } from "modal";
 import { APP_NAME, type ModalCredentials } from "$lib/server/modal";
 import { RUNTIME_VERSION } from "$lib/server/runtime";
-import type { RetentionDays, Snapshot } from "$lib/types";
+import {
+  defaultRetentionDays,
+  type RetentionDays,
+  type Snapshot,
+} from "$lib/types";
 
 /**
  * Everything here is scoped to one Modal environment — the one configured in
@@ -48,6 +52,22 @@ export function snapshotContext(creds: ModalCredentials): SnapshotContext {
 }
 
 const TAG_PREFIX = "kitchen-snap-";
+/**
+ * Deleting a snapshot cannot remove its tag — Modal has no unpublish — but
+ * republishing *replaces* what a tag points at. So a deleted snapshot's tag is
+ * pointed at one shared marker image, which every browser can recognise. That
+ * is what makes a deletion visible to everyone instead of only to the browser
+ * that did it.
+ */
+const TOMBSTONE_TAG = "kitchen-deleted:v1";
+/**
+ * The retention policy, stored the same way: a tag whose *name* carries the
+ * value. A workspace-level setting has to be shared — two browsers disagreeing
+ * about how long new snapshots live would be a genuine inconsistency — and
+ * published tags are the only server-side store this app has. Tags cannot be
+ * removed, so each write adds a stamped one and the newest wins.
+ */
+const RETENTION_PREFIX = "kitchen-config:retention-";
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Snapshotting a large filesystem outlasts the SDK's 55s default. */
 const SNAPSHOT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -164,6 +184,7 @@ export async function listSnapshots(
   ctx: SnapshotContext,
   sandbox: string,
 ): Promise<Snapshot[]> {
+  const deleted = await tombstoneId(ctx);
   const snapshots: Snapshot[] = [];
   let pageToken = "";
   do {
@@ -174,6 +195,7 @@ export async function listSnapshots(
       pageToken,
     });
     for (const item of page.items) {
+      if (item.imageId === deleted) continue;
       const snapshot = parseTag(
         item.tag,
         item.imageId,
@@ -204,9 +226,8 @@ export interface SnapshotSummary {
 
 export async function snapshotSummary(
   ctx: SnapshotContext,
-): Promise<
-  { sandbox: string; snapshots: { tag: string; createdAt: string }[] }[]
-> {
+): Promise<{ sandbox: string; snapshots: SnapshotSummary[] }[]> {
+  const deleted = await tombstoneId(ctx);
   const snapshots: Snapshot[] = [];
   let pageToken = "";
   do {
@@ -217,6 +238,7 @@ export async function snapshotSummary(
       pageToken,
     });
     for (const item of page.items) {
+      if (item.imageId === deleted) continue;
       const snapshot = parseTag(
         item.tag,
         item.imageId,
@@ -227,9 +249,8 @@ export async function snapshotSummary(
     pageToken = page.nextPageToken;
   } while (pageToken);
 
-  // Tags come back rather than a count, because only the browser knows which
-  // snapshots it has deleted — Modal has no unpublish, so a deleted snapshot's tag
-  // is still listed here.
+  // Tags rather than a count, so the caller can collapse kept twins with the
+  // same rule the drawer uses.
   const now = Date.now();
   const summary = new Map<string, SnapshotSummary[]>();
   for (const snapshot of snapshots) {
@@ -325,6 +346,77 @@ export async function keepSnapshot(
   return result;
 }
 
+/**
+ * The marker image deleted snapshots point at. Tiny, content-irrelevant, and
+ * built once per environment (Modal caches it), so this is cheap to call.
+ */
+async function tombstone(ctx: SnapshotContext): Promise<Image> {
+  try {
+    return await ctx.client.images.fromName(TOMBSTONE_TAG, {
+      environment: ctx.environment,
+    });
+  } catch {
+    const app = await ctx.client.apps.fromName(APP_NAME, {
+      createIfMissing: true,
+      environment: ctx.environment,
+    });
+    const image = await ctx.client.images
+      .fromRegistry("alpine:3.20")
+      .build(app);
+    await image.publish(TOMBSTONE_TAG, { environment: ctx.environment });
+    return image;
+  }
+}
+
+/** Id of the marker image, or null when nothing has ever been deleted. */
+async function tombstoneId(ctx: SnapshotContext): Promise<string | null> {
+  try {
+    const image = await ctx.client.images.fromName(TOMBSTONE_TAG, {
+      environment: ctx.environment,
+    });
+    return image.imageId;
+  } catch {
+    return null;
+  }
+}
+
+/** The retention new automatic snapshots get. Defaults when never set. */
+export async function readRetention(
+  ctx: SnapshotContext,
+): Promise<RetentionDays> {
+  try {
+    const page = await ctx.client.cpClient.imageListTags({
+      environmentName: ctx.environment ?? "",
+      tagPrefix: RETENTION_PREFIX,
+      maxObjects: 100,
+      pageToken: "",
+    });
+    let newest: { value: RetentionDays; at: number } | null = null;
+    for (const item of page.items) {
+      const match = /retention-(forever|\d+)d?\.(\d+)$/.exec(item.tag);
+      if (!match) continue;
+      const at = Number(match[2]);
+      if (newest && at <= newest.at) continue;
+      const days = match[1] === "forever" ? null : Number(match[1]);
+      newest = { value: days as RetentionDays, at };
+    }
+    return newest ? newest.value : defaultRetentionDays;
+  } catch {
+    return defaultRetentionDays;
+  }
+}
+
+export async function writeRetention(
+  ctx: SnapshotContext,
+  days: RetentionDays,
+): Promise<void> {
+  const marker = await tombstone(ctx);
+  const value = days === null ? "forever" : `${days}d`;
+  await marker.publish(`${RETENTION_PREFIX}${value}.${Date.now()}`, {
+    environment: ctx.environment,
+  });
+}
+
 /** Resolve a snapshot's tag to an image, ready to launch from. */
 export async function imageForSnapshot(
   ctx: SnapshotContext,
@@ -340,7 +432,14 @@ export async function deleteSnapshot(
   ctx: SnapshotContext,
   snapshot: Snapshot,
 ): Promise<void> {
-  await ctx.client.images.delete(snapshot.imageId);
+  // Point the tag at the marker first: if the delete fails afterwards the
+  // snapshot is merely orphaned, whereas the reverse order could leave a tag
+  // that still looks alive but resolves to nothing.
+  const marker = await tombstone(ctx);
+  await marker.publish(snapshot.tag, { environment: ctx.environment });
+  await ctx.client.images.delete(snapshot.imageId).catch(() => {
+    // already gone, or shared with a kept copy — the marker is what matters
+  });
 }
 
 /** Every snapshot of a sandbox, deleted — used by Forget. */
@@ -350,7 +449,7 @@ export async function deleteAllSnapshots(
 ): Promise<number> {
   const snapshots = await listSnapshots(ctx, sandbox);
   const results = await Promise.allSettled(
-    snapshots.map((p) => ctx.client.images.delete(p.imageId)),
+    snapshots.map((snapshot) => deleteSnapshot(ctx, snapshot)),
   );
   return results.filter((r) => r.status === "fulfilled").length;
 }

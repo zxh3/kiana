@@ -3,9 +3,10 @@ import { goto } from "$app/navigation";
 import { page } from "$app/state";
 import { ApiError, api } from "$lib/api";
 import { clearCredentials, loadCredentials, saveCredentials } from "$lib/creds";
-import { loadSettings, saveSettings } from "$lib/settings";
+
 import {
   type ConnectionInfo,
+  defaultRetentionDays,
   type RetentionDays,
   retentionOptions,
 } from "$lib/types";
@@ -56,11 +57,40 @@ function disconnect() {
 // Retention applies to *new* automatic snapshots: a snapshot's lifetime is
 // fixed when it is taken, so changing this never shortens or extends one that
 // already exists.
-let retentionDays = $state<RetentionDays>(loadSettings().retentionDays);
+// The retention policy lives in the workspace, not the browser: two people
+// should not be able to disagree about how long new snapshots last.
+let retentionDays = $state<RetentionDays | null | undefined>(undefined);
+let savingRetention = $state(false);
 
-function setRetention(days: RetentionDays) {
+$effect(() => {
+  void (async () => {
+    try {
+      const settings = await api<{ retentionDays: RetentionDays }>(
+        "/api/settings",
+      );
+      retentionDays = settings.retentionDays;
+    } catch {
+      retentionDays = defaultRetentionDays;
+    }
+  })();
+});
+
+async function setRetention(days: RetentionDays) {
+  const previous = retentionDays;
   retentionDays = days;
-  saveSettings({ retentionDays: days });
+  savingRetention = true;
+  try {
+    await api("/api/settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ retentionDays: days }),
+    });
+  } catch (e) {
+    retentionDays = previous;
+    error = e instanceof ApiError ? e.message : String(e);
+  } finally {
+    savingRetention = false;
+  }
 }
 </script>
 
@@ -181,7 +211,8 @@ function setRetention(days: RetentionDays) {
 					<button
 						type="button"
 						onclick={() => setRetention(option.days)}
-						class="flex-1 cursor-pointer rounded-md border py-[9px] text-center font-mono text-xs
+						disabled={savingRetention || retentionDays === undefined}
+						class="flex-1 cursor-pointer rounded-md border py-[9px] text-center font-mono text-xs disabled:opacity-60
 							{retentionDays === option.days
 							? 'border-accent bg-accent/12 text-accent-bright font-semibold'
 							: 'text-data border-white/10 hover:border-white/20'}"
@@ -193,8 +224,9 @@ function setRetention(days: RetentionDays) {
 			<p class="text-muted text-[11px] leading-[1.6] text-pretty">
 				Stopping a sandbox saves the whole machine as a snapshot. Automatic ones expire
 				after this long; the ones you <span class="text-secondary">Keep</span> are held until
-				you delete them. This applies to new snapshots — a snapshot's lifetime is fixed when
-				it is saved, so changing this never shortens one you already have.
+				you delete them. This is a workspace setting — everyone using these credentials
+				gets it — and it applies to new snapshots, since a snapshot's lifetime is fixed
+				when it is saved.
 			</p>
 		</div>
 	</form>

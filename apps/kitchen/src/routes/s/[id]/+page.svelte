@@ -2,11 +2,12 @@
 import { DropdownMenu } from "bits-ui";
 import { goto, invalidate, replaceState } from "$app/navigation";
 import { page } from "$app/state";
+import { api } from "$lib/api";
 import SnapshotsDrawer from "$lib/components/SnapshotsDrawer.svelte";
 import { formatResources, formatUptime } from "$lib/format";
 import { launch, saveSnapshotNow, stop } from "$lib/launch";
 import { RUNTIME_VERSION } from "$lib/runtimeVersion";
-import { loadSettings } from "$lib/settings";
+import { visibleSnapshots } from "$lib/snapshots";
 import {
   modePorts,
   type OpPhase,
@@ -36,6 +37,8 @@ let actionError = $state<string | null>(null);
 let snapshotsOpen = $state(false);
 let saving = $state<OpPhase | null>(null);
 let savedAt = $state<string | null>(null);
+/** How many snapshots this sandbox has; null until the first fetch answers. */
+let snapshotCount = $state<number | null>(null);
 const workspace = $derived(page.data.connection?.workspace ?? "default");
 
 function switchMode(m: SessionMode) {
@@ -109,21 +112,37 @@ function browserOpenTab() {
   window.open(browserSrc ?? data.session?.panes.browser?.url, "_blank");
 }
 
+async function refreshCount() {
+  if (!sb) return;
+  try {
+    const { snapshots } = await api<{ snapshots: Snapshot[] }>(
+      `/api/snapshots?sandbox=${encodeURIComponent(sb.name)}`,
+    );
+    snapshotCount = visibleSnapshots(snapshots).length;
+  } catch {
+    // the count is decoration; the drawer reports real failures
+  }
+}
+
+$effect(() => {
+  if (sb) void refreshCount();
+});
+
 async function saveNow() {
   if (saving) return;
   actionError = null;
   savedAt = null;
   saving = "snapshotting";
-  const result = await saveSnapshotNow(
-    data.id,
-    { retentionDays: loadSettings().retentionDays },
-    (phase) => {
-      saving = phase;
-    },
-  );
+  const result = await saveSnapshotNow(data.id, {}, (phase: OpPhase) => {
+    saving = phase;
+  });
   saving = null;
-  if (result.ok) savedAt = result.snapshot.label || "saved";
-  else actionError = result.error;
+  if (result.ok) {
+    savedAt = result.snapshot.label || "saved";
+    await refreshCount();
+  } else {
+    actionError = result.error;
+  }
 }
 
 /** Stop from inside the session; the table is where stopped sandboxes live. */
@@ -135,8 +154,9 @@ async function stopHere(save: boolean) {
     workspace,
     data.id,
     sb.name,
-    { save, retentionDays: loadSettings().retentionDays },
-    { onPhase: (phase) => (saving = phase) },
+    sb,
+    { save },
+    { onPhase: (phase: OpPhase) => (saving = phase) },
   );
   saving = null;
   await goto("/");
@@ -154,14 +174,15 @@ async function restoreTo(snapshot: Snapshot, saveFirst: boolean) {
     workspace,
     data.id,
     sb.name,
-    { save: saveFirst, retentionDays: loadSettings().retentionDays },
-    { onPhase: (phase) => (saving = phase) },
+    sb,
+    { save: saveFirst },
+    { onPhase: (phase: OpPhase) => (saving = phase) },
   );
   saving = "creating";
   await launch(
     workspace,
     sb,
-    { onPhase: (phase) => (saving = phase) },
+    { onPhase: (phase: OpPhase) => (saving = phase) },
     { fromSnapshot: snapshot.tag },
   );
   saving = null;
@@ -253,32 +274,39 @@ const sb = $derived(data.session?.sandbox ?? null);
 				{/each}
 			</span>
 
-			<!-- Snapshots, without leaving the sandbox -->
-			<div class="flex flex-none items-center gap-[6px]">
-				{#if saving}
-					<span class="text-accent flex items-center gap-[6px] text-[11px] whitespace-nowrap">
-						<span class="bg-accent size-[5px] animate-pulse rounded-full"></span>
-						{opPhaseLabels[saving]}…
-					</span>
-				{:else if savedAt}
-					<span class="text-running-text text-[11px] whitespace-nowrap">snapshot saved</span>
-				{/if}
+			<!--
+				One control, two targets: the action people take often (save now)
+				and the list it lands in. A split button keeps saving to one click
+				while the count says whether there is anything to go back to.
+			-->
+			<div
+				class="flex flex-none items-stretch overflow-hidden rounded-[6px] border border-white/14"
+			>
 				<button
 					type="button"
 					onclick={saveNow}
 					disabled={Boolean(saving)}
 					title="Save a snapshot of this machine now, without stopping it"
-					class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[9px] py-[6px] text-[11.5px] leading-none font-medium whitespace-nowrap hover:bg-white/5 disabled:opacity-60"
+					class="text-control flex cursor-pointer items-center gap-[6px] px-[10px] py-[6px] text-[11.5px] leading-none font-medium whitespace-nowrap hover:bg-white/6 disabled:opacity-60"
 				>
-					Save snapshot
+					{#if saving}
+						<span class="bg-accent size-[5px] animate-pulse rounded-full"></span>
+						<span class="text-accent">{opPhaseLabels[saving]}…</span>
+					{:else if savedAt}
+						<span class="text-running-text">saved</span>
+					{:else}
+						Save snapshot
+					{/if}
 				</button>
 				<button
 					type="button"
 					onclick={() => (snapshotsOpen = true)}
 					title="Browse this sandbox's snapshots"
-					class="text-body cursor-pointer rounded-[5px] border border-white/12 px-[9px] py-[6px] text-[11.5px] leading-none font-medium whitespace-nowrap hover:bg-white/5"
+					aria-label="Browse snapshots"
+					class="text-body flex cursor-pointer items-center gap-[5px] border-l border-white/14 px-[9px] py-[6px] font-mono text-[11px] leading-none whitespace-nowrap hover:bg-white/6"
 				>
-					Snapshots…
+					{snapshotCount ?? '–'}
+					<span class="text-faint text-[8px]">▾</span>
 				</button>
 			</div>
 

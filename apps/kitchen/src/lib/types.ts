@@ -64,6 +64,17 @@ export interface SandboxInfo {
 
 export type SandboxSpec = Omit<SandboxInfo, "sandboxId" | "createdAt">;
 
+/** A sandbox that has finished. Modal keeps its tags, so its shape survives. */
+export interface StoppedSandbox extends SandboxInfo {
+  /** When Modal recorded the task as finished. */
+  stoppedAt: string;
+}
+
+export interface SandboxList {
+  running: SandboxInfo[];
+  stopped: StoppedSandbox[];
+}
+
 export interface PaneInfo {
   url: string;
   ready: boolean;

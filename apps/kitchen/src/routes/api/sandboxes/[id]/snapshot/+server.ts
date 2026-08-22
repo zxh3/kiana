@@ -5,7 +5,6 @@ import {
   saveRunningSandbox,
 } from "$lib/server/modal";
 import { ndjsonStream } from "$lib/server/stream";
-import { retentionFrom } from "$lib/server/validate";
 import type { RequestHandler } from "./$types";
 
 /**
@@ -26,10 +25,7 @@ export const POST: RequestHandler = async ({ request, params, url }) => {
       const snapshot = await saveRunningSandbox(
         creds,
         params.id,
-        {
-          retentionDays: retentionFrom(url.searchParams.get("retentionDays")),
-          label,
-        },
+        { label },
         phase,
       );
       return { snapshot };

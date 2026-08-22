@@ -6,7 +6,6 @@ import {
   stopSandbox,
 } from "$lib/server/modal";
 import { ndjsonStream } from "$lib/server/stream";
-import { retentionFrom } from "$lib/server/validate";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ request, params }) => {
@@ -27,8 +26,8 @@ export const GET: RequestHandler = async ({ request, params }) => {
 };
 
 /**
- * Stop a sandbox, saving a snapshot on the way out. `?save=0` discards
- * the machine state instead — the escape hatch for a sandbox someone has
+ * Stop a sandbox, saving a snapshot on the way out. `?save=0` discards the
+ * machine state instead — the escape hatch for a sandbox someone has
  * broken and would rather not carry forward. A label makes the snapshot
  * permanent.
  *
@@ -45,16 +44,7 @@ export const DELETE: RequestHandler = async ({ request, params, url }) => {
   return ndjsonStream(
     save ? "snapshotting" : "stopping",
     async ({ phase }) => {
-      await stopSandbox(
-        creds,
-        params.id,
-        {
-          save,
-          retentionDays: retentionFrom(url.searchParams.get("retentionDays")),
-          label,
-        },
-        phase,
-      );
+      await stopSandbox(creds, params.id, { save, label }, phase);
       return { done: true };
     },
     modalErrorMessage,

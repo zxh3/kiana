@@ -34,16 +34,18 @@ import {
 import {
   imageForSnapshot,
   listSnapshots,
+  readRetention,
   type SnapshotContext,
   saveSnapshot,
 } from "$lib/server/snapshots";
 import {
   type OpPhase,
-  type RetentionDays,
   type SandboxInfo,
+  type SandboxList,
   type SandboxSpec,
   type SessionInfo,
   type Snapshot,
+  type StoppedSandbox,
   sessionModes,
   type VolumeMount,
 } from "$lib/types";
@@ -202,28 +204,67 @@ function tagsToInfo(
   };
 }
 
+/**
+ * Every sandbox this app knows about, running or finished.
+ *
+ * `sandboxList` with `includeFinished` returns terminated sandboxes *with their
+ * tags* — so a stopped sandbox's shape (cpu, memory, gpu, image, mounts) and
+ * the moment it stopped are Modal's facts, not something a browser has to
+ * remember. That is what lets two browsers with the same credentials see the
+ * same list.
+ *
+ * One name is reused across runs, so only the newest record per name survives:
+ * that is the sandbox as it last existed.
+ */
 export async function listSandboxes(
   creds: ModalCredentials,
-): Promise<SandboxInfo[]> {
+): Promise<SandboxList> {
   const client = clientFor(creds);
   try {
     const app = await client.apps.fromName(APP_NAME, {
       createIfMissing: true,
       environment: envOf(creds),
     });
-    const running: Sandbox[] = [];
-    for await (const sb of client.sandboxes.list({
+    const res = await client.cpClient.sandboxList({
       appId: app.appId,
-      tags: { kitchen: "1" },
-    })) {
-      running.push(sb);
+      beforeTimestamp: 0,
+      environmentName: envOf(creds) ?? "",
+      includeFinished: true,
+      tags: [{ tagName: "kitchen", tagValue: "1" }],
+    });
+
+    const newest = new Map<
+      string,
+      { info: SandboxInfo; finishedAt: string | null; createdAtMs: number }
+    >();
+    for (const sb of res.sandboxes) {
+      const tags = Object.fromEntries(
+        sb.tags.map((t) => [t.tagName, t.tagValue]),
+      );
+      const info = tagsToInfo(sb.id, tags);
+      if (!info) continue;
+      const finished = sb.taskInfo?.finishedAt;
+      const record = {
+        info,
+        finishedAt: finished ? new Date(finished * 1000).toISOString() : null,
+        createdAtMs: sb.createdAt * 1000,
+      };
+      const existing = newest.get(info.name);
+      if (!existing || record.createdAtMs > existing.createdAtMs) {
+        newest.set(info.name, record);
+      }
     }
-    const infos = await Promise.all(
-      running.map(async (sb) => tagsToInfo(sb.sandboxId, await sb.getTags())),
-    );
-    return infos
-      .filter((info) => info !== null)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    const running: SandboxInfo[] = [];
+    const stopped: StoppedSandbox[] = [];
+    for (const record of newest.values()) {
+      if (record.finishedAt === null) running.push(record.info);
+      else stopped.push({ ...record.info, stoppedAt: record.finishedAt });
+    }
+    return {
+      running: running.sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+      stopped: stopped.sort((a, b) => b.stoppedAt.localeCompare(a.stoppedAt)),
+    };
   } finally {
     client.close();
   }
@@ -399,18 +440,19 @@ export async function launchSandbox(
 export async function saveRunningSandbox(
   creds: ModalCredentials,
   sandboxId: string,
-  options: { retentionDays: RetentionDays; label?: string },
+  options: { label?: string },
   onPhase: (phase: OpPhase) => void = () => {},
 ): Promise<Snapshot> {
   const client = clientFor(creds);
   try {
+    const ctx = contextOf(creds, client);
     const sandbox = await client.sandboxes.fromId(sandboxId);
     const name = (await sandbox.getTags())["kitchen-name"] ?? sandboxId;
     return await saveSnapshot(
-      contextOf(creds, client),
+      ctx,
       sandbox,
       name,
-      options,
+      { ...options, retentionDays: await readRetention(ctx) },
       onPhase,
     );
   } finally {
@@ -426,11 +468,7 @@ export async function saveRunningSandbox(
 export async function stopSandbox(
   creds: ModalCredentials,
   sandboxId: string,
-  options: {
-    save: boolean;
-    retentionDays: RetentionDays;
-    label?: string;
-  },
+  options: { save: boolean; label?: string },
   onPhase: (phase: OpPhase) => void = () => {},
 ): Promise<{ snapshot: Snapshot | null }> {
   const client = clientFor(creds);
@@ -447,12 +485,13 @@ export async function stopSandbox(
 
     let snapshot: Snapshot | null = null;
     if (options.save) {
+      const ctx = contextOf(creds, client);
       const name = (await sandbox.getTags())["kitchen-name"] ?? sandboxId;
       snapshot = await saveSnapshot(
-        contextOf(creds, client),
+        ctx,
         sandbox,
         name,
-        { retentionDays: options.retentionDays, label: options.label },
+        { retentionDays: await readRetention(ctx), label: options.label },
         onPhase,
       );
     }

@@ -17,17 +17,15 @@
 import { api } from "$lib/api";
 import { credentialHeaders } from "$lib/creds";
 import {
+  clearPending,
   markCreating,
   markFailed,
-  markLaunched,
-  markStopped,
   markStopping,
   setPhase,
-} from "$lib/sandboxStore";
+} from "$lib/pending";
 import type {
   OpEvent,
   OpPhase,
-  RetentionDays,
   SandboxInfo,
   SandboxSpec,
   Snapshot,
@@ -50,10 +48,8 @@ export interface LaunchHandlers {
 
 async function isRunning(name: string): Promise<boolean> {
   try {
-    const { sandboxes } = await api<{ sandboxes: SandboxInfo[] }>(
-      "/api/sandboxes",
-    );
-    return sandboxes.some((sb) => sb.name === name);
+    const { running } = await api<{ running: SandboxInfo[] }>("/api/sandboxes");
+    return running.some((sb) => sb.name === name);
   } catch {
     return false;
   }
@@ -180,7 +176,7 @@ export async function launch(
       phase,
     );
     if (result.ok) {
-      markLaunched(workspace, spec.name);
+      clearPending(workspace, spec.name);
       handlers.onDone?.();
       return;
     }
@@ -209,7 +205,7 @@ export async function launch(
     for (let i = 0; i < RECOVER_ATTEMPTS; i++) {
       await sleep(RECOVER_INTERVAL_MS);
       if (await isRunning(spec.name)) {
-        markLaunched(workspace, spec.name);
+        clearPending(workspace, spec.name);
         handlers.onDone?.();
         return;
       }
@@ -232,19 +228,14 @@ export async function stop(
   workspace: string,
   sandboxId: string,
   name: string,
-  options: { save: boolean; retentionDays: RetentionDays; label?: string },
+  spec: SandboxSpec,
+  options: { save: boolean; label?: string },
   handlers: LaunchHandlers = {},
 ): Promise<void> {
-  markStopping(workspace, name);
+  markStopping(workspace, name, spec);
   handlers.onPhase?.(options.save ? "snapshotting" : "stopping");
 
-  const query = new URLSearchParams({
-    save: options.save ? "1" : "0",
-    retentionDays:
-      options.retentionDays === null
-        ? "forever"
-        : String(options.retentionDays),
-  });
+  const query = new URLSearchParams({ save: options.save ? "1" : "0" });
   if (options.label) query.set("label", options.label);
 
   const result = await driveStream(
@@ -259,9 +250,9 @@ export async function stop(
     },
   );
 
-  // Either way the sandbox is on its way out; the list reconciler settles the
-  // row. A failed snapshot leaves it running, which the next poll reveals.
-  markStopped(workspace, name);
+  // Either way the sandbox is on its way out, and Modal's list settles the row
+  // from here. A failed snapshot leaves it running, which the next poll shows.
+  clearPending(workspace, name);
   if (result.ok) handlers.onDone?.();
   else handlers.onError?.(result.error);
 }
@@ -274,15 +265,10 @@ export async function stop(
  */
 export async function saveSnapshotNow(
   sandboxId: string,
-  options: { retentionDays: RetentionDays; label?: string },
+  options: { label?: string } = {},
   onPhase: (phase: OpPhase) => void = () => {},
 ): Promise<{ ok: true; snapshot: Snapshot } | { ok: false; error: string }> {
-  const query = new URLSearchParams({
-    retentionDays:
-      options.retentionDays === null
-        ? "forever"
-        : String(options.retentionDays),
-  });
+  const query = new URLSearchParams();
   if (options.label) query.set("label", options.label);
 
   let saved: Snapshot | null = null;

@@ -1,7 +1,7 @@
 <script lang="ts">
 import { DropdownMenu, Popover } from "bits-ui";
 import { goto, invalidate } from "$app/navigation";
-import { api } from "$lib/api";
+import { ApiError, api } from "$lib/api";
 import CreateSandboxDialog from "$lib/components/CreateSandboxDialog.svelte";
 import ForkDialog from "$lib/components/ForkDialog.svelte";
 import Logo from "$lib/components/Logo.svelte";
@@ -9,9 +9,7 @@ import SnapshotsDrawer from "$lib/components/SnapshotsDrawer.svelte";
 import StatusDot from "$lib/components/StatusDot.svelte";
 import { formatAgo, formatResources, formatUptime } from "$lib/format";
 import { type LaunchOptions, launch, stop } from "$lib/launch";
-import { clearError, forgetSandbox } from "$lib/sandboxStore";
-import { loadSettings } from "$lib/settings";
-import { hideSnapshot } from "$lib/snapshots";
+import { clearPending } from "$lib/pending";
 import {
   type OpPhase,
   opPhaseLabels,
@@ -85,27 +83,15 @@ function startLaunch(spec: SandboxSpec, options: LaunchOptions = {}) {
     data.workspace,
     spec,
     {
-      onPhase: (phase) => {
+      onPhase: (phase: OpPhase) => {
         livePhase[spec.name] = phase;
       },
       onDone: () => {
         delete livePhase[spec.name];
         void invalidate("app:sandboxes");
       },
-      onError: (message) => {
+      onError: (message: string) => {
         delete livePhase[spec.name];
-        // Snapshots Modal no longer has still list, so a row would keep
-        // advertising them and every button on them would fail. Forget them
-        // locally instead: one named snapshot, or all of them when a start proved
-        // that none survive.
-        if (
-          options.fromSnapshot &&
-          /no longer available|has expired/i.test(message)
-        ) {
-          hideSnapshot(data.workspace, options.fromSnapshot);
-        } else if (/can be used any more/.test(message)) {
-          forgetSnapshotsOf(spec.name);
-        }
         actionError = message;
         void invalidate("app:sandboxes");
       },
@@ -120,23 +106,29 @@ function startLaunch(spec: SandboxSpec, options: LaunchOptions = {}) {
  * is the slow part — so this is fire-and-forget too, with the phases showing
  * on the row.
  */
-function stopSandbox(sandboxId: string, name: string, save = true) {
+function stopSandbox(
+  sandboxId: string,
+  name: string,
+  spec: SandboxSpec,
+  save = true,
+) {
   actionError = null;
   livePhase[name] = save ? "snapshotting" : "stopping";
   void stop(
     data.workspace,
     sandboxId,
     name,
-    { save, retentionDays: loadSettings().retentionDays },
+    spec,
+    { save },
     {
-      onPhase: (phase) => {
+      onPhase: (phase: OpPhase) => {
         livePhase[name] = phase;
       },
       onDone: () => {
         delete livePhase[name];
         void invalidate("app:sandboxes");
       },
-      onError: (message) => {
+      onError: (message: string) => {
         delete livePhase[name];
         actionError = message;
         void invalidate("app:sandboxes");
@@ -168,9 +160,10 @@ async function restoreTo(snapshot: Snapshot, saveFirst: boolean) {
     data.workspace,
     row.sb.sandboxId,
     row.sb.name,
-    { save: saveFirst, retentionDays: loadSettings().retentionDays },
+    row.sb,
+    { save: saveFirst },
     {
-      onPhase: (phase) => {
+      onPhase: (phase: OpPhase) => {
         livePhase[snapshot.sandbox] = phase;
       },
     },
@@ -189,34 +182,26 @@ function openFork(snapshot: Snapshot) {
   forkOpen = true;
 }
 
+/**
+ * Forget deletes the sandbox's snapshots. With nothing to go back to the row
+ * drops out of the list on its own — there is no browser-local record to
+ * clear, and every other browser sees the same thing.
+ */
 async function forget(name: string) {
-  forgetSandbox(data.workspace, name);
-  // The rows are browser-local, but the snapshots are not — dropping the
-  // row without them would leak storage nothing can reach.
+  actionError = null;
+  clearPending(data.workspace, name);
   try {
     await api(`/api/snapshots?sandbox=${encodeURIComponent(name)}`, {
       method: "DELETE",
     });
-  } catch {
-    // the row is already gone from this browser; surfacing this would only
-    // confuse, and the snapshots expire on their own
+  } catch (e) {
+    actionError = e instanceof ApiError ? e.message : String(e);
   }
   await invalidate("app:sandboxes");
 }
 
-/**
- * Stop listing a sandbox's snapshots once a start has proved none of them work.
- * Every tag, including the twins the drawer collapses — otherwise a hidden
- * keep would let its auto twin resurface.
- */
-function forgetSnapshotsOf(name: string) {
-  for (const tag of data.snapshotTags[name] ?? []) {
-    hideSnapshot(data.workspace, tag);
-  }
-}
-
 async function dismissError(name: string) {
-  clearError(data.workspace, name);
+  clearPending(data.workspace, name);
   await invalidate("app:sandboxes");
 }
 
@@ -483,7 +468,7 @@ const modeIcons: Record<string, string> = {
 									</div>
 									<DropdownMenu.Item
 										class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
-										onSelect={() => stopSandbox(sb.sandboxId, sb.name)}
+										onSelect={() => stopSandbox(sb.sandboxId, sb.name, sb)}
 									>
 										Stop and save
 									</DropdownMenu.Item>
@@ -493,7 +478,7 @@ const modeIcons: Record<string, string> = {
 									</div>
 									<DropdownMenu.Item
 										class="text-failed-text data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
-										onSelect={() => stopSandbox(sb.sandboxId, sb.name, false)}
+										onSelect={() => stopSandbox(sb.sandboxId, sb.name, sb, false)}
 									>
 										Discard changes and stop
 									</DropdownMenu.Item>

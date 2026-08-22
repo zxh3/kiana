@@ -2,12 +2,7 @@
 import { Dialog } from "bits-ui";
 import { ApiError, api } from "$lib/api";
 import { formatAgo } from "$lib/format";
-import {
-  hiddenSnapshots,
-  hideSnapshot,
-  pruneHiddenSnapshots,
-  visibleSnapshots,
-} from "$lib/snapshots";
+import { visibleSnapshots } from "$lib/snapshots";
 import type { SandboxSpec, Snapshot } from "$lib/types";
 
 let {
@@ -59,16 +54,10 @@ $effect(() => {
 async function refresh() {
   error = null;
   try {
-    const hidden = hiddenSnapshots(workspace);
     const result = await api<{ snapshots: Snapshot[] }>(
       `/api/snapshots?sandbox=${encodeURIComponent(sandbox)}`,
     );
-    pruneHiddenSnapshots(
-      workspace,
-      sandbox,
-      result.snapshots.map((p) => p.tag),
-    );
-    snapshots = visibleSnapshots(result.snapshots, hidden);
+    snapshots = visibleSnapshots(result.snapshots);
     now = Date.now();
   } catch (e) {
     error = e instanceof ApiError ? e.message : String(e);
@@ -102,9 +91,6 @@ async function remove(snapshot: Snapshot) {
     await api(`/api/snapshots?tag=${encodeURIComponent(snapshot.tag)}`, {
       method: "DELETE",
     });
-    // Modal has no unpublish, so the tag would keep listing — remember locally
-    // that this one is gone.
-    hideSnapshot(workspace, snapshot.tag);
     await refresh();
   } catch (e) {
     error = e instanceof ApiError ? e.message : String(e);
