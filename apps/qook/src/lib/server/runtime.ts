@@ -19,7 +19,11 @@
  * the cookie. No long-lived secret sits in a URL.
  */
 
-const TTYD_VERSION = "1.7.7";
+// ttyd's last release (1.7.7, 2024) predates xterm.js's clipboard addon, so
+// OSC 52 copies — how herdr's copy-on-select reaches the browser clipboard —
+// were silently dropped. Master bundles the addon and commits a prebuilt web
+// UI (src/html.h), so it builds from source with cmake alone. Pinned commit.
+const TTYD_COMMIT = "2922cb89f518bae4d0fcf4d757a7419638fc71fc";
 const CODE_SERVER_VERSION = "4.133.0";
 const CADDY_VERSION = "2.11.4";
 
@@ -38,7 +42,7 @@ export const reservedMountPaths = [STATE_MOUNT, WORKSPACE_DIR];
 
 export const runtimeCommands = [
   "RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl ca-certificates git && rm -rf /var/lib/apt/lists/*",
-  `RUN curl -fsSL https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64 -o /usr/local/bin/ttyd && chmod +x /usr/local/bin/ttyd`,
+  `RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends build-essential cmake libjson-c-dev libwebsockets-dev && curl -fsSL https://github.com/tsl0922/ttyd/archive/${TTYD_COMMIT}.tar.gz | tar -xz -C /tmp && cmake -S /tmp/ttyd-${TTYD_COMMIT} -B /tmp/ttyd-build && make -C /tmp/ttyd-build -j"$(nproc)" install && rm -rf /tmp/ttyd-${TTYD_COMMIT} /tmp/ttyd-build /var/lib/apt/lists/*`,
   `RUN curl -fsSL https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_amd64.tar.gz | tar -xz -C /usr/local/bin caddy`,
   `RUN curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --version=${CODE_SERVER_VERSION}`,
   "RUN curl -fsSL https://herdr.dev/install.sh | sh",
