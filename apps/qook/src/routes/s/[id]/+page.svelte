@@ -28,10 +28,21 @@ function switchMode(m: SessionMode) {
 }
 
 let now = $state(Date.now());
+// A pane that is still booting gets a per-second clock, so the wait is
+// visibly progressing rather than an indefinite spinner.
+const paneReady = $derived(data.session?.panes[mode]?.ready ?? true);
 $effect(() => {
-  const t = setInterval(() => (now = Date.now()), 30_000);
+  const t = setInterval(() => (now = Date.now()), paneReady ? 30_000 : 1000);
   return () => clearInterval(t);
 });
+
+// Seconds spent waiting for the current pane, reset whenever it starts booting.
+let waitStart = $state(Date.now());
+$effect(() => {
+  if (!paneReady) waitStart = Date.now();
+});
+const waited = $derived(paneReady ? 0 : Math.round((now - waitStart) / 1000));
+const waitedLabel = $derived(waited > 2 ? `${waited}s` : "");
 
 // The sandbox can end on its own — re-check every 30s while visible.
 $effect(() => {
@@ -267,9 +278,18 @@ const sb = $derived(data.session?.sandbox ?? null);
 			<div class="flex flex-1 flex-col items-center justify-center gap-3">
 				<span class="flex items-center gap-[9px]">
 					<span class="bg-accent size-[6px] animate-pulse rounded-full"></span>
-					<span class="text-body font-mono text-[12.5px]">starting {mode}…</span>
+					<span class="text-body font-mono text-[12.5px]">
+						starting {mode}… {waitedLabel}
+					</span>
 				</span>
-				<p class="text-muted text-[11.5px]">The sandbox is booting its services.</p>
+				<p class="text-muted max-w-[380px] text-center text-[11.5px] leading-[1.6]">
+					{#if waited < 45}
+						The sandbox is booting its services.
+					{:else}
+						Still no answer on port {modePorts[mode]}. Services usually answer within
+						half a minute — if this persists, terminate the sandbox and start it again.
+					{/if}
+				</p>
 			</div>
 		{/if}
 	{/if}

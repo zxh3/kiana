@@ -31,6 +31,7 @@ import {
   STATE_MOUNT,
 } from "$lib/server/runtime";
 import {
+  type LaunchPhase,
   type SandboxInfo,
   type SandboxSpec,
   type SessionInfo,
@@ -198,9 +199,36 @@ export async function listSandboxes(
   }
 }
 
+/**
+ * Long image builds ride a single gRPC stream that intermediaries sometimes
+ * cut (UNAVAILABLE / ECONNRESET). Completed layers are cached server-side, so
+ * a retry resumes near where the stream died instead of rebuilding.
+ */
+function isTransient(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /UNAVAILABLE|ECONNRESET|ETIMEDOUT|EPIPE|socket hang up|DEADLINE_EXCEEDED|INTERNAL/i.test(
+    msg,
+  );
+}
+
+async function withRetry<T>(
+  attempts: number,
+  fn: () => Promise<T>,
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (attempt >= attempts || !isTransient(e)) throw e;
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
+  }
+}
+
 export async function launchSandbox(
   creds: ModalCredentials,
   spec: SandboxSpec,
+  onPhase: (phase: LaunchPhase) => void = () => {},
 ): Promise<{ sandboxId: string }> {
   const client = clientFor(creds);
   try {
@@ -208,13 +236,17 @@ export async function launchSandbox(
     // Base image + the qook runtime layer. Modal caches image builds by
     // layer content: the first launch per base image builds (~minutes),
     // every launch after reuses it.
-    const image = await client.images
-      .fromRegistry(spec.image)
-      .dockerfileCommands(runtimeCommands)
-      .build(app);
+    onPhase("image");
+    const image = await withRetry(3, () =>
+      client.images
+        .fromRegistry(spec.image)
+        .dockerfileCommands(runtimeCommands)
+        .build(app),
+    );
 
     // One shared state volume; subPaths are keyed by NAME so that creating a
     // sandbox with a previous name resumes its /workspace and herdr state.
+    onPhase("volumes");
     const stateVolume = await client.volumes.fromName("qook-state", {
       createIfMissing: true,
     });
@@ -229,6 +261,7 @@ export async function launchSandbox(
       });
     }
 
+    onPhase("creating");
     const sandbox = await client.sandboxes.create(app, image, {
       cpu: spec.cpu,
       memoryMiB: spec.memoryGib * 1024,

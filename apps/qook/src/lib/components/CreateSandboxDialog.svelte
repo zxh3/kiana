@@ -1,6 +1,5 @@
 <script lang="ts">
 import { Dialog, Select, Slider } from "bits-ui";
-import { ApiError, api } from "$lib/api";
 import {
   builtinMounts,
   cpuOptions,
@@ -9,13 +8,22 @@ import {
   imageOptions,
   maxVolumeMounts,
   memoryRange,
+  reservedMountPaths,
+  type SandboxSpec,
 } from "$lib/types";
 
 let {
   open = $bindable(false),
   workspace,
-  oncreated,
-}: { open?: boolean; workspace: string; oncreated: () => void } = $props();
+  takenNames = [],
+  onlaunch,
+}: {
+  open?: boolean;
+  workspace: string;
+  /** Names of sandboxes currently running — Modal rejects duplicates. */
+  takenNames?: string[];
+  onlaunch: (spec: SandboxSpec) => void;
+} = $props();
 
 let name = $state("");
 let cpu = $state(8);
@@ -26,7 +34,6 @@ let image = $state<string>(imageOptions[0]);
 let volumes = $state<{ name: string; mount: string }[]>([
   { name: "", mount: "" },
 ]);
-let submitting = $state(false);
 let error = $state<string | null>(null);
 let builtinsOpen = $state(false);
 
@@ -35,33 +42,56 @@ const chip =
 const chipOff = "border-white/10 text-data hover:border-white/20";
 const chipOn = "border-accent bg-accent/12 font-semibold text-accent-bright";
 
-async function create(event: SubmitEvent) {
+// The dialog hands the spec off and closes: a launch takes minutes when the
+// image has to build, and watching that belongs in the table row, not behind a
+// modal. Local checks run here so obvious mistakes are caught before the row
+// appears; anything Modal rejects surfaces on the row itself.
+function create(event: SubmitEvent) {
   event.preventDefault();
-  submitting = true;
-  error = null;
-  try {
-    await api("/api/sandboxes", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        name: name.trim(),
-        cpu,
-        memoryGib: memory,
-        gpu,
-        gpuCount,
-        image,
-        volumes,
-      }),
-    });
-    open = false;
-    name = "";
-    volumes = [{ name: "", mount: "" }];
-    oncreated();
-  } catch (e) {
-    error = e instanceof ApiError ? e.message : String(e);
-  } finally {
-    submitting = false;
+  const spec = {
+    name: name.trim(),
+    cpu,
+    memoryGib: memory,
+    gpu: gpu === "none" ? null : gpu,
+    gpuCount,
+    image,
+    volumes: volumes.filter((v) => v.name.trim() || v.mount.trim()),
+  };
+  const problem = specProblem(spec);
+  if (problem) {
+    error = problem;
+    return;
   }
+  error = null;
+  open = false;
+  name = "";
+  volumes = [{ name: "", mount: "" }];
+  onlaunch(spec);
+}
+
+function specProblem(spec: SandboxSpec): string | null {
+  if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(spec.name)) {
+    return "Name must be lowercase letters, digits and dashes (up to 32 characters), starting with a letter or digit.";
+  }
+  if (takenNames.includes(spec.name)) {
+    return `${spec.name} is already running — enter it from the table, or pick another name.`;
+  }
+  for (const { name: volume, mount } of spec.volumes) {
+    if (!volume.trim() || !mount.trim()) {
+      return "Every volume row needs both a volume name and a mount path — remove the empty row or fill it in.";
+    }
+    if (!mount.startsWith("/")) {
+      return `Mount path "${mount}" must be absolute (start with /).`;
+    }
+    if (reservedMountPaths.includes(mount)) {
+      return `${mount} is reserved by the runtime — pick another mount path.`;
+    }
+  }
+  const mounts = spec.volumes.map((v) => v.mount);
+  if (new Set(mounts).size !== mounts.length) {
+    return "Two volumes are mounted at the same path.";
+  }
+  return null;
 }
 </script>
 
@@ -329,10 +359,9 @@ async function create(event: SubmitEvent) {
 					</Dialog.Close>
 					<button
 						type="submit"
-						disabled={submitting}
-						class="bg-accent text-canvas cursor-pointer rounded-[7px] px-[18px] py-[10px] text-[12.5px] font-semibold disabled:opacity-60"
+						class="bg-accent text-canvas cursor-pointer rounded-[7px] px-[18px] py-[10px] text-[12.5px] font-semibold"
 					>
-						{submitting ? "Creating…" : "Create"}
+						Create
 					</button>
 				</div>
 			</form>

@@ -137,10 +137,11 @@ Everything they merely read is sans. Nothing on screen sits below 10px.
 ### 3.2 State model (no database)
 
 - **Sandbox memory** — `qook-sandboxes:<workspace>` in localStorage: spec +
-  createdAt + stoppedAt per name, reconciled against Modal's running list on
-  every load (running sandboxes are re-recorded; missing ones get stamped
-  stopped). This is UX memory only — losing it loses nothing but the stopped
-  rows; volume state is untouched.
+  createdAt + stoppedAt + in-flight `op` + last `error` per name, reconciled
+  against Modal's running list on every load (running sandboxes are
+  re-recorded and settle a pending launch; missing ones get stamped stopped).
+  This is UX memory only — losing it loses nothing but the stopped rows;
+  volume state is untouched.
 - **Credentials** — `{tokenId, tokenSecret, environment, workspace}` in the
   browser's localStorage, attached to every API call as `x-modal-*` headers.
   Server-side `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` / `MODAL_ENVIRONMENT`
@@ -172,6 +173,38 @@ Everything they merely read is sans. Nothing on screen sits below 10px.
 Pages are client-rendered; loads run in the browser and call the API with
 credential headers. 401 anywhere redirects to `/connect`.
 
+### 3.3a Launching (slow operations, honest UI)
+
+A launch takes anywhere from ~2 seconds (cached image) to a few minutes (first
+build of a base image compiles the runtime). Nothing in the UI blocks on it:
+
+- `POST /api/sandboxes` answers with an **NDJSON stream** of `LaunchEvent`s —
+  `{phase}` as work happens (`image` → `volumes` → `creating`), then either
+  `{sandboxId}` or `{error}`. Status is 200 either way: the headers are long
+  gone by the time a launch can fail, so the verdict lives in the body. The
+  current phase repeats every 10s so intermediaries don't drop an idle
+  connection.
+- The create drawer validates locally, **closes immediately**, and hands the
+  spec to `$lib/launch.ts`. The table row is where progress lives: phase
+  label, ticking elapsed time, and a "first build ~2 min" hint.
+- The row is recorded as `creating` in localStorage *before* the request, so a
+  reload — or closing the tab entirely — still shows a launch in progress, and
+  Modal's list resolves it.
+- **A dropped stream is not a failure.** Long image builds do get cut
+  (`UNAVAILABLE` / `ECONNRESET`); the sandbox often comes up anyway. The client
+  polls the list for the name for two minutes before reporting anything, and
+  `launchSandbox` itself retries transient stream errors — completed layers are
+  cached, so a retry resumes rather than rebuilds.
+- Failures land **on the row** (with Retry / Dismiss), not in a modal that has
+  already closed. Retrying is always safe: the name is the state identity, so a
+  second attempt resumes the same `/workspace`.
+- Terminate is optimistic in the same way: the row says `Stopping…` at once and
+  settles when Modal stops listing it. Start reuses the launch path, including
+  the few seconds where Modal still holds a just-terminated name
+  (`waiting for the name to free`).
+- While any operation is pending the list polls every 4s instead of 30s, so
+  rows settle on their own without the user reaching for refresh.
+
 ### 3.4 Modal boundary (stateless)
 
 All Modal calls live in `src/lib/server/modal.ts`, one short-lived
@@ -182,7 +215,8 @@ All Modal calls live in `src/lib/server/modal.ts`, one short-lived
   `getTags()` per sandbox → the full table row. Only running sandboxes exist.
 - `launchSandbox` — runtime image (see 3.5) + state-volume subPath + user
   volumes + boot command + spec tags. GPU in Modal syntax (`A10G:2`),
-  lifetime 24h (Modal's max; SDK default is 5 minutes).
+  lifetime 24h (Modal's max; SDK default is 5 minutes). Reports phases through
+  an `onPhase` callback and retries transient build-stream errors.
 - `getSession` — `fromId` + `poll()` (gone sandboxes 404) + `tunnels()` +
   per-pane readiness probes.
 - `terminateSandbox` — `fromId(id).terminate()`; NotFound/Invalid count as
@@ -193,7 +227,10 @@ All Modal calls live in `src/lib/server/modal.ts`, one short-lived
 `src/lib/server/runtime.ts` defines the runtime in two halves:
 
 **Image layer.** Every base image gets the same pinned layer via
-`dockerfileCommands`: ttyd 1.7.7 (web terminal), code-server 4.133.0, Caddy
+`dockerfileCommands`: ttyd (web terminal, built from a pinned master commit —
+its last release predates xterm.js's clipboard addon, so OSC 52 copies were
+parsed and dropped, which is the only way a copy inside herdr can reach the
+browser clipboard), code-server 4.133.0, Caddy
 2.11.4 (auth proxy), herdr (herdr.dev — terminal workspace manager for
 agents), zsh + oh-my-zsh (default shell, `git` + `zsh-autosuggestions`
 plugins, async git prompt disabled so branch info is synchronous, theme:
@@ -215,7 +252,7 @@ sandbox failed.
 | Public port | Service | Pane |
 |---|---|---|
 | 7681 | ttyd → `zsh` (oh-my-zsh: git + zsh-autosuggestions) in /workspace | zsh |
-| 7683 | ttyd → `herdr` (full TUI; mouse works through xterm) | herdr |
+| 7683 | ttyd → `herdr` (full TUI; mouse works through xterm, copy-on-select travels back as OSC 52) | herdr |
 | 8443 | code-server on /workspace | vscode |
 
 | 8080 | whatever the user runs on sandbox port 3000 | browser |

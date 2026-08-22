@@ -32,6 +32,13 @@ export interface VolumeMount {
 }
 export const maxVolumeMounts = 8;
 
+/** Mount point of the per-sandbox state volume; everything under it persists. */
+export const STATE_MOUNT = "/qook-state";
+/** Where shells and code-server open; symlinked onto the state volume. */
+export const WORKSPACE_DIR = "/workspace";
+/** Paths the runtime owns — user volume mounts may not collide with these. */
+export const reservedMountPaths: string[] = [STATE_MOUNT, WORKSPACE_DIR];
+
 /** Public (tunneled) port per session mode. */
 export const modePorts = {
   zsh: 7681,
@@ -87,6 +94,32 @@ export interface SessionInfo {
   sandbox: SandboxInfo;
   panes: Record<SessionMode, PaneInfo>;
 }
+
+/**
+ * Launch progress. Creating a sandbox can take minutes — the first launch of
+ * a base image builds the runtime — so POST /api/sandboxes streams these as
+ * NDJSON instead of leaving the client on a blank spinner. `waiting` is the
+ * window right after a terminate, while Modal still holds the name.
+ */
+export const launchPhases = [
+  "image",
+  "volumes",
+  "creating",
+  "waiting",
+] as const;
+export type LaunchPhase = (typeof launchPhases)[number];
+
+export const launchPhaseLabels: Record<LaunchPhase, string> = {
+  image: "building image",
+  volumes: "attaching volumes",
+  creating: "starting machine",
+  waiting: "waiting for the name to free",
+};
+
+export type LaunchEvent =
+  | { phase: LaunchPhase }
+  | { sandboxId: string }
+  | { error: string };
 
 export interface ConnectionInfo {
   workspace: string;

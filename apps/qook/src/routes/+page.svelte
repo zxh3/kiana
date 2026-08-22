@@ -6,8 +6,20 @@ import CreateSandboxDialog from "$lib/components/CreateSandboxDialog.svelte";
 import Logo from "$lib/components/Logo.svelte";
 import StatusDot from "$lib/components/StatusDot.svelte";
 import { formatAgo, formatResources, formatUptime } from "$lib/format";
-import { forgetSandbox, markStopped } from "$lib/sandboxStore";
-import { builtinMounts, sessionModes } from "$lib/types";
+import { launch } from "$lib/launch";
+import {
+  clearError,
+  forgetSandbox,
+  markStopped,
+  markStopping,
+} from "$lib/sandboxStore";
+import {
+  builtinMounts,
+  type LaunchPhase,
+  launchPhaseLabels,
+  type SandboxSpec,
+  sessionModes,
+} from "$lib/types";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -18,8 +30,21 @@ let enterOpenId = $state<string | null>(null);
 let actionError = $state<string | null>(null);
 let now = $state(Date.now());
 
+// Phases arrive on the launch's own stream, ahead of any list refresh, so the
+// live phase is kept here and the persisted one (from the store) is the
+// fallback after a reload.
+let livePhase = $state<Record<string, LaunchPhase>>({});
+
+const pending = $derived(
+  data.rows.some(
+    (row) =>
+      row.kind === "creating" || (row.kind === "running" && row.stopping),
+  ),
+);
+
+// A pending row shows a ticking elapsed time; otherwise a slow tick is plenty.
 $effect(() => {
-  const t = setInterval(() => (now = Date.now()), 30_000);
+  const t = setInterval(() => (now = Date.now()), pending ? 1000 : 30_000);
   return () => clearInterval(t);
 });
 
@@ -33,59 +58,76 @@ async function refresh() {
   }
 }
 
-// Modal is the source of truth — re-check the list every 30s while visible.
+// Modal is the source of truth — poll it, fast while an operation is in
+// flight so rows settle on their own, slowly when everything is at rest.
 $effect(() => {
-  const t = setInterval(() => {
-    if (document.visibilityState === "visible") refresh();
-  }, 30_000);
+  const t = setInterval(
+    () => {
+      if (document.visibilityState === "visible") refresh();
+    },
+    pending ? 4000 : 30_000,
+  );
   return () => clearInterval(t);
 });
 
+function startLaunch(spec: SandboxSpec) {
+  actionError = null;
+  livePhase[spec.name] = "image";
+  // Deliberately not awaited: a launch outlives the click, and the row in the
+  // table is where its progress shows.
+  void launch(data.workspace, spec, {
+    onPhase: (phase) => {
+      livePhase[spec.name] = phase;
+    },
+    onDone: () => {
+      delete livePhase[spec.name];
+      void invalidate("app:sandboxes");
+    },
+    onError: () => {
+      delete livePhase[spec.name];
+      void invalidate("app:sandboxes");
+    },
+  });
+  void invalidate("app:sandboxes");
+}
+
 async function terminate(sandboxId: string, name: string) {
   actionError = null;
+  markStopping(data.workspace, name);
+  await invalidate("app:sandboxes");
   try {
     await api(`/api/sandboxes/${sandboxId}`, { method: "DELETE" });
     markStopped(data.workspace, name);
-    await invalidate("app:sandboxes");
   } catch (e) {
     actionError = e instanceof ApiError ? e.message : String(e);
+    markStopped(data.workspace, name);
   }
+  await invalidate("app:sandboxes");
 }
 
-let startingName = $state<string | null>(null);
-
-// Recreate a stopped sandbox from its remembered spec. The name frees a few
-// seconds after termination, so retry through the "already running" window.
-async function startSandbox(spec: (typeof data.stopped)[number]["spec"]) {
-  startingName = spec.name;
-  actionError = null;
-  try {
-    for (let attempt = 1; ; attempt++) {
-      try {
-        await api("/api/sandboxes", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ ...spec, gpu: spec.gpu ?? "none" }),
-        });
-        break;
-      } catch (e) {
-        const retryable =
-          e instanceof ApiError && e.message.includes("already running");
-        if (!retryable || attempt >= 5) throw e;
-        await new Promise((r) => setTimeout(r, 4000));
-      }
-    }
-    await invalidate("app:sandboxes");
-  } catch (e) {
-    actionError = e instanceof ApiError ? e.message : String(e);
-  } finally {
-    startingName = null;
-  }
+async function dismissError(name: string) {
+  clearError(data.workspace, name);
+  await invalidate("app:sandboxes");
 }
 
 async function forget(name: string) {
   forgetSandbox(data.workspace, name);
   await invalidate("app:sandboxes");
+}
+
+function phaseLabel(name: string, stored: LaunchPhase | null): string {
+  const phase = livePhase[name] ?? stored;
+  return phase ? launchPhaseLabels[phase] : "starting";
+}
+
+function elapsed(since: string): string {
+  const secs = Math.max(
+    0,
+    Math.round((now - new Date(since).getTime()) / 1000),
+  );
+  return secs < 60
+    ? `${secs}s`
+    : `${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s`;
 }
 
 const gridCols = "grid-cols-[1.6fr_0.8fr_1.1fr_0.8fr_150px]";
@@ -150,7 +192,7 @@ const modeIcons: Record<string, string> = {
 		</div>
 	{/if}
 
-	{#if data.sandboxes.length === 0 && data.stopped.length === 0}
+	{#if data.rows.length === 0}
 		<div class="flex flex-1 flex-col items-center justify-center gap-3 pb-24">
 			<p class="text-body text-[12.5px]">No running sandboxes.</p>
 			<button
@@ -171,32 +213,36 @@ const modeIcons: Record<string, string> = {
 			<div></div>
 		</div>
 
-		{#each data.sandboxes as sb (sb.sandboxId)}
-			{@const selected = enterOpenId === sb.sandboxId}
+		{#each data.rows as row (row.kind === 'running' ? row.sb.name : row.spec.name)}
+			{@const sb = row.kind === 'running' ? row.sb : null}
+			{@const spec = row.kind === 'running' ? row.sb : row.spec}
+			{@const selected = sb !== null && enterOpenId === sb.sandboxId}
 			<div
 				class="grid {gridCols} items-center gap-4 border-b border-white/6 px-[22px] py-[14px]
-					{selected ? 'bg-accent/5 shadow-[inset_2px_0_0_var(--color-accent)]' : ''}"
+					{selected ? 'bg-accent/5 shadow-[inset_2px_0_0_var(--color-accent)]' : ''}
+					{row.kind === 'stopped' ? 'opacity-72' : ''}"
 			>
 				<div class="flex min-w-0 flex-col gap-1">
 					<span class="flex min-w-0 items-center gap-[7px]">
 						<span class="truncate font-mono text-[13.5px] leading-none font-semibold">
-							{sb.name}
+							{spec.name}
 						</span>
-						<Popover.Root>
-							<Popover.Trigger
-								class="text-secondary hover:text-control flex-none cursor-pointer rounded-[5px] border border-white/10 px-[6px] py-[3px] font-mono text-[10px] leading-none hover:bg-white/5"
-								aria-label="Show volume mounts"
-							>
-								{sb.volumes.length + 1}
-								vol{sb.volumes.length + 1 > 1 ? 's' : ''}
-							</Popover.Trigger>
+						{#if sb}
+							<Popover.Root>
+								<Popover.Trigger
+									class="text-secondary hover:text-control flex-none cursor-pointer rounded-[5px] border border-white/10 px-[6px] py-[3px] font-mono text-[10px] leading-none hover:bg-white/5"
+									aria-label="Show volume mounts"
+								>
+									{sb.volumes.length + 1}
+									vol{sb.volumes.length + 1 > 1 ? 's' : ''}
+								</Popover.Trigger>
 								<Popover.Portal>
 									<Popover.Content
 										class="bg-overlay shadow-overlay z-50 flex max-w-[420px] flex-col gap-[9px] rounded-[9px] border border-white/12 p-[13px]"
 										sideOffset={6}
 										align="start"
 									>
-									<span class="section-label">VOLUME MOUNTS</span>
+										<span class="section-label">VOLUME MOUNTS</span>
 										{#each sb.volumes as volume (volume.mount)}
 											<span
 												class="text-data flex items-center gap-2 font-mono text-[11.5px] leading-none whitespace-nowrap"
@@ -221,127 +267,165 @@ const modeIcons: Record<string, string> = {
 									</Popover.Content>
 								</Popover.Portal>
 							</Popover.Root>
+						{/if}
 					</span>
-					<span class="text-faint truncate text-[11px] leading-none">{sb.image}</span>
+					{#if row.kind === 'stopped'}
+						<span class="text-faint truncate text-[11px] leading-none">
+							stopped {formatAgo(row.stoppedAt, now)} · {spec.image}
+						</span>
+					{:else if row.kind === 'failed'}
+						<span class="text-failed-text truncate text-[11px] leading-[1.4]" title={row.error}>
+							{row.error}
+						</span>
+					{:else}
+						<span class="text-faint truncate text-[11px] leading-none">{spec.image}</span>
+					{/if}
 				</div>
-				<StatusDot status="running" />
-				<div class="text-data truncate font-mono text-xs">{formatResources(sb)}</div>
-				<div class="text-data font-mono text-xs">{formatUptime(sb.createdAt, now)}</div>
+
+				<!-- Status -->
+				{#if row.kind === 'running'}
+					{#if row.stopping}
+						<span class="flex items-center gap-[7px] text-[11.5px] leading-none text-[#d9b169]">
+							<span class="size-[5px] animate-pulse rounded-full bg-[#d9b169]"></span>
+							Stopping…
+						</span>
+					{:else}
+						<StatusDot status="running" />
+					{/if}
+				{:else if row.kind === 'creating'}
+					<span class="text-accent flex items-center gap-[7px] text-[11.5px] leading-none">
+						<span class="bg-accent size-[5px] animate-pulse rounded-full"></span>
+						{phaseLabel(spec.name, row.phase)}
+					</span>
+				{:else if row.kind === 'failed'}
+					<StatusDot status="failed" />
+				{:else}
+					<StatusDot status="stopped" />
+				{/if}
+
+				<div class="text-data truncate font-mono text-xs">{formatResources(spec)}</div>
+				<div class="text-data font-mono text-xs">
+					{#if row.kind === 'running'}
+						{formatUptime(row.sb.createdAt, now)}
+					{:else if row.kind === 'creating'}
+						{elapsed(row.startedAt)}
+					{:else}
+						—
+					{/if}
+				</div>
+
+				<!-- Actions -->
 				<div class="flex items-center justify-end gap-[6px]">
-					<DropdownMenu.Root onOpenChange={(open) => (enterOpenId = open ? sb.sandboxId : null)}>
-						<DropdownMenu.Trigger
-							class="cursor-pointer rounded-[5px] px-[11px] py-[6px] text-[11.5px] leading-none
-								{selected
-								? 'bg-accent text-canvas font-semibold'
-								: 'text-ink border border-white/14 font-medium hover:bg-white/5'}"
-						>
-							Enter ▾
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Portal>
-							<DropdownMenu.Content
-								class="bg-overlay shadow-overlay z-50 w-[230px] rounded-[9px] border border-white/12 p-[5px]"
-								sideOffset={6}
-								align="end"
+					{#if row.kind === 'running' && sb}
+						<DropdownMenu.Root onOpenChange={(open) => (enterOpenId = open ? sb.sandboxId : null)}>
+							<DropdownMenu.Trigger
+								class="cursor-pointer rounded-[5px] px-[11px] py-[6px] text-[11.5px] leading-none
+									{selected
+									? 'bg-accent text-canvas font-semibold'
+									: 'text-ink border border-white/14 font-medium hover:bg-white/5'}"
 							>
-								{#each sessionModes as mode (mode)}
-									<DropdownMenu.Item
-										class="data-highlighted:bg-white/6 flex cursor-pointer items-center gap-[10px] rounded-md p-[9px]"
-										onSelect={() => goto(`/s/${sb.sandboxId}?mode=${mode}`)}
-									>
-										<span
-											class="flex size-5 items-center justify-center rounded-[5px] font-mono text-[9.5px] font-semibold
-												{mode === 'zsh' ? 'bg-accent/14 text-accent' : 'text-data bg-white/6'}"
+								Enter ▾
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Portal>
+								<DropdownMenu.Content
+									class="bg-overlay shadow-overlay z-50 w-[230px] rounded-[9px] border border-white/12 p-[5px]"
+									sideOffset={6}
+									align="end"
+								>
+									{#each sessionModes as mode (mode)}
+										<DropdownMenu.Item
+											class="data-highlighted:bg-white/6 flex cursor-pointer items-center gap-[10px] rounded-md p-[9px]"
+											onSelect={() => goto(`/s/${sb.sandboxId}?mode=${mode}`)}
 										>
-											{modeIcons[mode]}
-										</span>
-										<span class="text-control text-[12.5px]">{mode}</span>
-										{#if mode === 'zsh'}
-											<span class="text-muted ml-auto font-mono text-[10px] font-medium">↵</span>
-										{/if}
+											<span
+												class="flex size-5 items-center justify-center rounded-[5px] font-mono text-[9.5px] font-semibold
+													{mode === 'zsh' ? 'bg-accent/14 text-accent' : 'text-data bg-white/6'}"
+											>
+												{modeIcons[mode]}
+											</span>
+											<span class="text-control text-[12.5px]">{mode}</span>
+											{#if mode === 'zsh'}
+												<span class="text-muted ml-auto font-mono text-[10px] font-medium">↵</span>
+											{/if}
+										</DropdownMenu.Item>
+									{/each}
+								</DropdownMenu.Content>
+							</DropdownMenu.Portal>
+						</DropdownMenu.Root>
+
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger
+								class="text-body flex size-[26px] cursor-pointer items-center justify-center rounded-[5px] border border-white/12 text-xs hover:bg-white/5"
+								aria-label="More actions"
+							>
+								⋯
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Portal>
+								<DropdownMenu.Content
+									class="bg-overlay shadow-overlay z-50 min-w-[190px] rounded-[9px] border border-white/12 p-[5px]"
+									sideOffset={6}
+									align="end"
+								>
+									<DropdownMenu.Item
+										class="text-failed-text data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
+										onSelect={() => terminate(sb.sandboxId, sb.name)}
+									>
+										Terminate
 									</DropdownMenu.Item>
-								{/each}
-							</DropdownMenu.Content>
-						</DropdownMenu.Portal>
-					</DropdownMenu.Root>
-
-					<DropdownMenu.Root>
-						<DropdownMenu.Trigger
-							class="text-body flex size-[26px] cursor-pointer items-center justify-center rounded-[5px] border border-white/12 text-xs hover:bg-white/5"
-							aria-label="More actions"
+									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
+										Stops the machine. The row stays listed — Start restores its state.
+									</div>
+								</DropdownMenu.Content>
+							</DropdownMenu.Portal>
+						</DropdownMenu.Root>
+					{:else if row.kind === 'creating'}
+						<span class="text-muted font-mono text-[11px] whitespace-nowrap">
+							{phaseLabel(spec.name, row.phase) === launchPhaseLabels.image
+								? 'first build ~2 min'
+								: 'almost there'}
+						</span>
+					{:else}
+						<button
+							type="button"
+							onclick={() => startLaunch(spec)}
+							class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[11px] py-[6px] text-[11.5px] leading-none font-medium hover:bg-white/5"
 						>
-							⋯
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Portal>
-							<DropdownMenu.Content
-								class="bg-overlay shadow-overlay z-50 min-w-[190px] rounded-[9px] border border-white/12 p-[5px]"
-								sideOffset={6}
-								align="end"
+							{row.kind === 'failed' ? 'Retry' : 'Start'}
+						</button>
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger
+								class="text-body flex size-[26px] cursor-pointer items-center justify-center rounded-[5px] border border-white/12 text-xs hover:bg-white/5"
+								aria-label="More actions"
 							>
-								<DropdownMenu.Item
-									class="text-failed-text data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
-									onSelect={() => terminate(sb.sandboxId, sb.name)}
+								⋯
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Portal>
+								<DropdownMenu.Content
+									class="bg-overlay shadow-overlay z-50 min-w-[210px] rounded-[9px] border border-white/12 p-[5px]"
+									sideOffset={6}
+									align="end"
 								>
-									Terminate
-								</DropdownMenu.Item>
-								<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
-									Stops the machine. The row stays listed — Start restores its state.
-								</div>
-							</DropdownMenu.Content>
-						</DropdownMenu.Portal>
-					</DropdownMenu.Root>
-				</div>
-			</div>
-		{/each}
-
-		{#each data.stopped as row (row.spec.name)}
-			<div
-				class="grid {gridCols} items-center gap-4 border-b border-white/6 px-[22px] py-[14px] opacity-72"
-			>
-				<div class="flex min-w-0 flex-col gap-1">
-					<span class="truncate font-mono text-[13.5px] leading-none font-semibold">
-						{row.spec.name}
-					</span>
-					<span class="text-faint truncate text-[11px] leading-none">
-						stopped {formatAgo(row.stoppedAt, now)} · {row.spec.image}
-					</span>
-				</div>
-				<StatusDot status="stopped" />
-				<div class="text-data truncate font-mono text-xs">{formatResources(row.spec)}</div>
-				<div class="text-data font-mono text-xs">—</div>
-				<div class="flex items-center justify-end gap-[6px]">
-					<button
-						type="button"
-						onclick={() => startSandbox(row.spec)}
-						disabled={startingName !== null}
-						class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[11px] py-[6px] text-[11.5px] leading-none font-medium hover:bg-white/5 disabled:opacity-60"
-					>
-						{startingName === row.spec.name ? 'Starting…' : 'Start'}
-					</button>
-					<DropdownMenu.Root>
-						<DropdownMenu.Trigger
-							class="text-body flex size-[26px] cursor-pointer items-center justify-center rounded-[5px] border border-white/12 text-xs hover:bg-white/5"
-							aria-label="More actions"
-						>
-							⋯
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Portal>
-							<DropdownMenu.Content
-								class="bg-overlay shadow-overlay z-50 min-w-[210px] rounded-[9px] border border-white/12 p-[5px]"
-								sideOffset={6}
-								align="end"
-							>
-								<DropdownMenu.Item
-									class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
-									onSelect={() => forget(row.spec.name)}
-								>
-									Forget
-								</DropdownMenu.Item>
-								<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
-									Removes the row from this browser only. Its saved state stays on the volume.
-								</div>
-							</DropdownMenu.Content>
-						</DropdownMenu.Portal>
-					</DropdownMenu.Root>
+									{#if row.kind === 'failed'}
+										<DropdownMenu.Item
+											class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
+											onSelect={() => dismissError(spec.name)}
+										>
+											Dismiss error
+										</DropdownMenu.Item>
+									{/if}
+									<DropdownMenu.Item
+										class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
+										onSelect={() => forget(spec.name)}
+									>
+										Forget
+									</DropdownMenu.Item>
+									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
+										Removes the row from this browser only. Its saved state stays on the volume.
+									</div>
+								</DropdownMenu.Content>
+							</DropdownMenu.Portal>
+						</DropdownMenu.Root>
+					{/if}
 				</div>
 			</div>
 		{/each}
@@ -351,5 +435,8 @@ const modeIcons: Record<string, string> = {
 <CreateSandboxDialog
 	bind:open={createOpen}
 	workspace={data.connection?.workspace ?? ''}
-	oncreated={() => invalidate('app:sandboxes')}
+	takenNames={data.rows
+		.filter((row) => row.kind === 'running' || row.kind === 'creating')
+		.map((row) => (row.kind === 'running' ? row.sb.name : row.spec.name))}
+	onlaunch={startLaunch}
 />

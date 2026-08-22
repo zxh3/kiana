@@ -27,18 +27,20 @@ const TTYD_COMMIT = "2922cb89f518bae4d0fcf4d757a7419638fc71fc";
 const CODE_SERVER_VERSION = "4.133.0";
 const CADDY_VERSION = "2.11.4";
 
-import { modePorts } from "$lib/types";
+import {
+  modePorts,
+  reservedMountPaths,
+  STATE_MOUNT,
+  WORKSPACE_DIR,
+} from "$lib/types";
 
 /** Caddy proxies each public port to the service on localhost. */
 export { modePorts };
 export const runtimePorts = Object.values(modePorts);
 
-/** Mount point of the per-sandbox state volume. Everything under it survives restarts. */
-export const STATE_MOUNT = "/qook-state";
-/** The working directory shells and code-server open in; symlinked onto the state volume. */
-export const WORKSPACE_DIR = "/workspace";
-/** Paths the runtime owns; user volume mounts may not collide with these. */
-export const reservedMountPaths = [STATE_MOUNT, WORKSPACE_DIR];
+// The paths themselves live in types.ts so the create dialog can check a spec
+// against them without importing server code.
+export { reservedMountPaths, STATE_MOUNT, WORKSPACE_DIR };
 
 export const runtimeCommands = [
   "RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl ca-certificates git && rm -rf /var/lib/apt/lists/*",
