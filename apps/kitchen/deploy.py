@@ -36,11 +36,15 @@ image = (
 )
 
 
+# min_containers=1 keeps one container warm, so the console answers immediately
+# instead of paying a cold start (image pull + `node build`) on the first request
+# after idling. It also means the deployment runs — and bills — continuously.
 @app.server(
     image=image,
     port=PORT,
     unauthenticated=True,
     routing_region="us-east",
+    min_containers=1,
     scaledown_window=300,
     startup_timeout=30,
 )
