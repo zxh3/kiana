@@ -1,0 +1,354 @@
+<script lang="ts">
+import { DropdownMenu, Popover } from "bits-ui";
+import { goto, invalidate } from "$app/navigation";
+import { ApiError, api } from "$lib/api";
+import CreateSandboxDialog from "$lib/components/CreateSandboxDialog.svelte";
+import Logo from "$lib/components/Logo.svelte";
+import StatusDot from "$lib/components/StatusDot.svelte";
+import { formatAgo, formatResources, formatUptime } from "$lib/format";
+import { forgetSandbox, markStopped } from "$lib/sandboxStore";
+import { builtinMounts, sessionModes } from "$lib/types";
+import type { PageData } from "./$types";
+
+let { data }: { data: PageData } = $props();
+
+let createOpen = $state(false);
+let refreshing = $state(false);
+let enterOpenId = $state<string | null>(null);
+let actionError = $state<string | null>(null);
+let now = $state(Date.now());
+
+$effect(() => {
+  const t = setInterval(() => (now = Date.now()), 30_000);
+  return () => clearInterval(t);
+});
+
+async function refresh() {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    await invalidate("app:sandboxes");
+  } finally {
+    refreshing = false;
+  }
+}
+
+// Modal is the source of truth — re-check the list every 30s while visible.
+$effect(() => {
+  const t = setInterval(() => {
+    if (document.visibilityState === "visible") refresh();
+  }, 30_000);
+  return () => clearInterval(t);
+});
+
+async function terminate(sandboxId: string, name: string) {
+  actionError = null;
+  try {
+    await api(`/api/sandboxes/${sandboxId}`, { method: "DELETE" });
+    markStopped(data.workspace, name);
+    await invalidate("app:sandboxes");
+  } catch (e) {
+    actionError = e instanceof ApiError ? e.message : String(e);
+  }
+}
+
+let startingName = $state<string | null>(null);
+
+// Recreate a stopped sandbox from its remembered spec. The name frees a few
+// seconds after termination, so retry through the "already running" window.
+async function startSandbox(spec: (typeof data.stopped)[number]["spec"]) {
+  startingName = spec.name;
+  actionError = null;
+  try {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await api("/api/sandboxes", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...spec, gpu: spec.gpu ?? "none" }),
+        });
+        break;
+      } catch (e) {
+        const retryable =
+          e instanceof ApiError && e.message.includes("already running");
+        if (!retryable || attempt >= 5) throw e;
+        await new Promise((r) => setTimeout(r, 4000));
+      }
+    }
+    await invalidate("app:sandboxes");
+  } catch (e) {
+    actionError = e instanceof ApiError ? e.message : String(e);
+  } finally {
+    startingName = null;
+  }
+}
+
+async function forget(name: string) {
+  forgetSandbox(data.workspace, name);
+  await invalidate("app:sandboxes");
+}
+
+const gridCols = "grid-cols-[1.6fr_0.8fr_1.1fr_0.8fr_150px]";
+const modeIcons: Record<string, string> = {
+  zsh: ">_",
+  herdr: "H",
+  vscode: "{ }",
+};
+</script>
+
+<svelte:head>
+	<title>qook</title>
+</svelte:head>
+
+<div class="flex min-h-screen flex-col">
+	<!-- Top bar -->
+	<header class="flex h-[50px] flex-none items-center gap-4 border-b border-white/8 px-[22px]">
+		<a href="/"><Logo size={16} /></a>
+		<div class="flex-1"></div>
+		<span class="text-secondary flex items-center gap-[7px] font-mono text-[11.5px]">
+			<span class="bg-running size-[5px] rounded-full"></span>
+			{data.connection?.workspace}{data.connection?.environment
+				? ` / ${data.connection.environment}`
+				: ''}
+		</span>
+		<a href="/connect" class="text-secondary hover:text-control text-xs">Settings</a>
+	</header>
+
+	<!-- Page header -->
+	<div class="flex items-end justify-between px-[22px] pt-[22px] pb-4">
+		<h1 class="text-[19px] leading-[1.1] font-semibold tracking-[-0.3px]">Sandboxes</h1>
+		<div class="flex items-center gap-2">
+			<button
+				type="button"
+				onclick={refresh}
+				disabled={refreshing}
+				aria-label="Refresh"
+				title="Refresh"
+				class="text-body flex size-[30px] cursor-pointer items-center justify-center rounded-md border border-white/12 text-[13px] hover:bg-white/5 disabled:opacity-60"
+			>
+				<span class={refreshing ? 'animate-spin' : ''}>↻</span>
+			</button>
+			<button
+				type="button"
+				onclick={() => (createOpen = true)}
+				class="bg-accent text-canvas cursor-pointer rounded-md px-[14px] py-2 text-[12.5px] font-semibold"
+			>
+				+ Create sandbox
+			</button>
+		</div>
+	</div>
+
+	{#if actionError}
+		<div class="px-[22px] pb-3">
+			<div
+				class="border-failed/28 bg-failed/6 flex items-center gap-[9px] rounded-lg border px-[13px] py-[11px]"
+			>
+				<span class="bg-failed size-[6px] shrink-0 rounded-full"></span>
+				<span class="text-failed-text text-xs leading-[1.4]">{actionError}</span>
+			</div>
+		</div>
+	{/if}
+
+	{#if data.sandboxes.length === 0 && data.stopped.length === 0}
+		<div class="flex flex-1 flex-col items-center justify-center gap-3 pb-24">
+			<p class="text-body text-[12.5px]">No running sandboxes.</p>
+			<button
+				type="button"
+				onclick={() => (createOpen = true)}
+				class="text-control cursor-pointer rounded-md border border-white/12 px-[14px] py-2 text-[12.5px] font-medium hover:bg-white/5"
+			>
+				Create a sandbox
+			</button>
+		</div>
+	{:else}
+		<!-- Column headers -->
+		<div class="grid {gridCols} section-label gap-4 border-b border-white/8 px-[22px] pb-2">
+			<div>SANDBOX</div>
+			<div>STATUS</div>
+			<div>RESOURCES</div>
+			<div>UPTIME</div>
+			<div></div>
+		</div>
+
+		{#each data.sandboxes as sb (sb.sandboxId)}
+			{@const selected = enterOpenId === sb.sandboxId}
+			<div
+				class="grid {gridCols} items-center gap-4 border-b border-white/6 px-[22px] py-[14px]
+					{selected ? 'bg-accent/5 shadow-[inset_2px_0_0_var(--color-accent)]' : ''}"
+			>
+				<div class="flex min-w-0 flex-col gap-1">
+					<span class="flex min-w-0 items-center gap-[7px]">
+						<span class="truncate font-mono text-[13.5px] leading-none font-semibold">
+							{sb.name}
+						</span>
+						<Popover.Root>
+							<Popover.Trigger
+								class="text-secondary hover:text-control flex-none cursor-pointer rounded-[5px] border border-white/10 px-[6px] py-[3px] font-mono text-[10px] leading-none hover:bg-white/5"
+								aria-label="Show volume mounts"
+							>
+								{sb.volumes.length + 1}
+								vol{sb.volumes.length + 1 > 1 ? 's' : ''}
+							</Popover.Trigger>
+								<Popover.Portal>
+									<Popover.Content
+										class="bg-overlay shadow-overlay z-50 flex max-w-[420px] flex-col gap-[9px] rounded-[9px] border border-white/12 p-[13px]"
+										sideOffset={6}
+										align="start"
+									>
+									<span class="section-label">VOLUME MOUNTS</span>
+										{#each sb.volumes as volume (volume.mount)}
+											<span
+												class="text-data flex items-center gap-2 font-mono text-[11.5px] leading-none whitespace-nowrap"
+											>
+												{volume.name}
+												<span class="text-muted">→</span>
+												<span class="text-control">{volume.mount}</span>
+											</span>
+										{/each}
+										<span class="section-label pt-[4px]">
+											BUILT-IN · qook-state/sandboxes/{sb.name}/
+										</span>
+										{#each builtinMounts as m (m.sub)}
+											<span
+												class="text-data flex items-center gap-2 font-mono text-[11px] leading-none whitespace-nowrap"
+											>
+												{m.sub}
+												<span class="text-muted">→</span>
+												<span class="text-control">{m.target}</span>
+											</span>
+										{/each}
+									</Popover.Content>
+								</Popover.Portal>
+							</Popover.Root>
+					</span>
+					<span class="text-faint truncate text-[11px] leading-none">{sb.image}</span>
+				</div>
+				<StatusDot status="running" />
+				<div class="text-data truncate font-mono text-xs">{formatResources(sb)}</div>
+				<div class="text-data font-mono text-xs">{formatUptime(sb.createdAt, now)}</div>
+				<div class="flex items-center justify-end gap-[6px]">
+					<DropdownMenu.Root onOpenChange={(open) => (enterOpenId = open ? sb.sandboxId : null)}>
+						<DropdownMenu.Trigger
+							class="cursor-pointer rounded-[5px] px-[11px] py-[6px] text-[11.5px] leading-none
+								{selected
+								? 'bg-accent text-canvas font-semibold'
+								: 'text-ink border border-white/14 font-medium hover:bg-white/5'}"
+						>
+							Enter ▾
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Portal>
+							<DropdownMenu.Content
+								class="bg-overlay shadow-overlay z-50 w-[230px] rounded-[9px] border border-white/12 p-[5px]"
+								sideOffset={6}
+								align="end"
+							>
+								{#each sessionModes as mode (mode)}
+									<DropdownMenu.Item
+										class="data-highlighted:bg-white/6 flex cursor-pointer items-center gap-[10px] rounded-md p-[9px]"
+										onSelect={() => goto(`/s/${sb.sandboxId}?mode=${mode}`)}
+									>
+										<span
+											class="flex size-5 items-center justify-center rounded-[5px] font-mono text-[9.5px] font-semibold
+												{mode === 'zsh' ? 'bg-accent/14 text-accent' : 'text-data bg-white/6'}"
+										>
+											{modeIcons[mode]}
+										</span>
+										<span class="text-control text-[12.5px]">{mode}</span>
+										{#if mode === 'zsh'}
+											<span class="text-muted ml-auto font-mono text-[10px] font-medium">↵</span>
+										{/if}
+									</DropdownMenu.Item>
+								{/each}
+							</DropdownMenu.Content>
+						</DropdownMenu.Portal>
+					</DropdownMenu.Root>
+
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger
+							class="text-body flex size-[26px] cursor-pointer items-center justify-center rounded-[5px] border border-white/12 text-xs hover:bg-white/5"
+							aria-label="More actions"
+						>
+							⋯
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Portal>
+							<DropdownMenu.Content
+								class="bg-overlay shadow-overlay z-50 min-w-[190px] rounded-[9px] border border-white/12 p-[5px]"
+								sideOffset={6}
+								align="end"
+							>
+								<DropdownMenu.Item
+									class="text-failed-text data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
+									onSelect={() => terminate(sb.sandboxId, sb.name)}
+								>
+									Terminate
+								</DropdownMenu.Item>
+								<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
+									Stops the machine. The row stays listed — Start restores its state.
+								</div>
+							</DropdownMenu.Content>
+						</DropdownMenu.Portal>
+					</DropdownMenu.Root>
+				</div>
+			</div>
+		{/each}
+
+		{#each data.stopped as row (row.spec.name)}
+			<div
+				class="grid {gridCols} items-center gap-4 border-b border-white/6 px-[22px] py-[14px] opacity-72"
+			>
+				<div class="flex min-w-0 flex-col gap-1">
+					<span class="truncate font-mono text-[13.5px] leading-none font-semibold">
+						{row.spec.name}
+					</span>
+					<span class="text-faint truncate text-[11px] leading-none">
+						stopped {formatAgo(row.stoppedAt, now)} · {row.spec.image}
+					</span>
+				</div>
+				<StatusDot status="stopped" />
+				<div class="text-data truncate font-mono text-xs">{formatResources(row.spec)}</div>
+				<div class="text-data font-mono text-xs">—</div>
+				<div class="flex items-center justify-end gap-[6px]">
+					<button
+						type="button"
+						onclick={() => startSandbox(row.spec)}
+						disabled={startingName !== null}
+						class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[11px] py-[6px] text-[11.5px] leading-none font-medium hover:bg-white/5 disabled:opacity-60"
+					>
+						{startingName === row.spec.name ? 'Starting…' : 'Start'}
+					</button>
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger
+							class="text-body flex size-[26px] cursor-pointer items-center justify-center rounded-[5px] border border-white/12 text-xs hover:bg-white/5"
+							aria-label="More actions"
+						>
+							⋯
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Portal>
+							<DropdownMenu.Content
+								class="bg-overlay shadow-overlay z-50 min-w-[210px] rounded-[9px] border border-white/12 p-[5px]"
+								sideOffset={6}
+								align="end"
+							>
+								<DropdownMenu.Item
+									class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
+									onSelect={() => forget(row.spec.name)}
+								>
+									Forget
+								</DropdownMenu.Item>
+								<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
+									Removes the row from this browser only. Its saved state stays on the volume.
+								</div>
+							</DropdownMenu.Content>
+						</DropdownMenu.Portal>
+					</DropdownMenu.Root>
+				</div>
+			</div>
+		{/each}
+	{/if}
+</div>
+
+<CreateSandboxDialog
+	bind:open={createOpen}
+	workspace={data.connection?.workspace ?? ''}
+	oncreated={() => invalidate('app:sandboxes')}
+/>
