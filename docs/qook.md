@@ -196,9 +196,8 @@ All Modal calls live in `src/lib/server/modal.ts`, one short-lived
 `dockerfileCommands`: ttyd 1.7.7 (web terminal), code-server 4.133.0, Caddy
 2.11.4 (auth proxy), herdr (herdr.dev — terminal workspace manager for
 agents), zsh + oh-my-zsh (default shell, `git` + `zsh-autosuggestions`
-plugins, async git prompt disabled so branch info is synchronous, no theme —
-the qook prompt is written at boot in zsh syntax with muted git info:
-`qook@<name>:%~ (branch*)$`), Node 22, and three preinstalled agent
+plugins, async git prompt disabled so branch info is synchronous, theme:
+`robbyrussell` — `➜ dir git:(branch) ✗`), Node 22, and three preinstalled agent
 CLIs herdr detects out of the
 box: **Claude Code** (`@anthropic-ai/claude-code`), **Codex**
 (`@openai/codex`) and **pi** (`@earendil-works/pi-coding-agent`). Modal's
@@ -310,7 +309,10 @@ No database, no docker-compose: `npm run dev` is the whole stack.
 modal deploy apps/qook/deploy.py
 ```
 
-Live at `https://<workspace>--qook-qookserver.us-east.modal.direct` —
+Live at `https://<workspace>--qook-qookserver.us-east.modal.direct` (deploy
+into a specific Modal environment with `modal deploy --env <name>`; e.g. the
+modal-labs/xiaohua-dev instance lives at
+`modal-labs-xiaohua-dev--qook-qookserver.us-east.modal.direct`) —
 scale-to-zero, `unauthenticated=True` (the app has its own credential model;
 API calls without Modal credentials get 401). Point qook.dev at it via the
 Modal dashboard's custom-domain settings. The control plane thus runs next to

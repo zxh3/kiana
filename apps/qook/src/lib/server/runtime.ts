@@ -56,7 +56,7 @@ export const runtimeCommands = [
   "RUN apt-get update && apt-get install -y --no-install-recommends zsh && rm -rf /var/lib/apt/lists/* && chsh -s /usr/bin/zsh root",
   'RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended',
   "RUN git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions /root/.oh-my-zsh/custom/plugins/zsh-autosuggestions",
-  `RUN printf '%s\\n' 'export ZSH="$HOME/.oh-my-zsh"' 'ZSH_THEME=""' 'ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=241"' 'plugins=(git zsh-autosuggestions)' 'zstyle ":omz:alpha:lib:git" async-prompt no' 'source $ZSH/oh-my-zsh.sh' '[ -f /etc/qook-zshrc ] && source /etc/qook-zshrc' > /root/.zshrc`,
+  `RUN printf '%s\\n' 'export ZSH="$HOME/.oh-my-zsh"' 'ZSH_THEME="robbyrussell"' 'ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=241"' 'plugins=(git zsh-autosuggestions)' 'zstyle ":omz:alpha:lib:git" async-prompt no' 'source $ZSH/oh-my-zsh.sh' '[ -f /etc/qook-zshrc ] && source /etc/qook-zshrc' > /root/.zshrc`,
 ];
 
 // NOTE: written to avoid \`${\` entirely — JS template interpolation would
@@ -179,12 +179,6 @@ export HISTFILE=/qook-state/zsh_history
 export HISTSIZE=10000
 export SAVEHIST=10000
 setopt share_history
-setopt PROMPT_SUBST
-ZSH_THEME_GIT_PROMPT_PREFIX=" %F{241}("
-ZSH_THEME_GIT_PROMPT_SUFFIX=")%f"
-ZSH_THEME_GIT_PROMPT_DIRTY="*"
-ZSH_THEME_GIT_PROMPT_CLEAN=""
-PROMPT='%F{191}qook@$QOOK_SANDBOX_NAME%f:%F{110}%~%f\$(git_prompt_info)$ '
 if [ -z "\$QOOK_MOTD_SHOWN" ]; then
 	export QOOK_MOTD_SHOWN=1
 	printf '\e[90m/workspace, agent logins and installed toolchains persist across restarts of $QOOK_SANDBOX_NAME.\neverything else resets on terminate. type \e[0mqook\e[90m for details.\e[0m\n'
