@@ -1,4 +1,5 @@
 {
+  	"recommendations": ["svelte.svelte-vscode"],
   "[css][javascript][javascriptreact][json][jsonc][typescript][typescriptreact]": {
     "editor.defaultFormatter": "biomejs.biome",
     "editor.formatOnSave": true

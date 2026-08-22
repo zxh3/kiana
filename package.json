@@ -17,5 +17,10 @@
     "@biomejs/biome": "2.5.8",
     "turbo": "^2.10.10"
   },
-  "packageManager": "npm@11.5.1"
+  "packageManager": "npm@11.5.1",
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": true,
+    "workerd@1.20260811.1": true
+  }
 }
