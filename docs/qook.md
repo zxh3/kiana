@@ -19,8 +19,8 @@ Four screens, nothing else.
 | # | Screen | Purpose |
 |---|--------|---------|
 | 1 | **Connect** (`/connect`) | Paste a Modal token (ID + secret) and an optional Modal environment. Credentials live only in the browser's localStorage — stated in-line — and Disconnect clears them. Skipped entirely when the server carries `MODAL_*` env vars (deployment mode). |
-| 2 | **Sandboxes** (`/`) | Running sandboxes come from Modal (the only server-side truth); **stopped rows come from the browser**: every sandbox's spec is remembered in localStorage (`qook-sandboxes:<workspace>`), so terminated sandboxes stay listed as dim Stopped rows with a Start button that recreates them from the remembered spec — and name-keyed volume state makes that a resume. Start auto-retries through the few seconds it takes Modal to free the name. Stopped rows also offer Forget (drops the browser record; volume state stays until the name is reused). Browser-local: another browser won't see your stopped rows. One primary action: `+ Create sandbox`. Rows have `Enter ▾` (zsh / herdr / vscode), an always-present volumes chip (counting the built-in workspace mount, so ≥ `1 vol`) whose popover lists user mounts followed by a `BUILT-IN · qook-state/sandboxes/<name>/` section enumerating all ten persisted paths (workspace, herdr config/share/state, code-server User/extensions, claude/codex/pi state, bash history), and an overflow menu with Terminate. A ↻ button re-polls; a visible tab re-polls every 30s. |
-| 3 | **Create sandbox** (drawer over `/`) | Name, CPU chips, memory slider, GPU chips + GPU count chips (`A10G:2`), base image, volume mounts (repeatable, up to 8). The built-in state mount appears as the first row — disabled, labeled `built-in`, showing its real volume path (`qook-state/sandboxes/<name>/workspace → /workspace`) and live-updating as the name is typed; an expander beneath lists every other path persisted on the mount (herdr, code-server, agent state, shell history — the `builtinMounts` list in `types.ts`, kept in sync with the boot script). Reusing a previous name resumes its /workspace. |
+| 2 | **Sandboxes** (`/`) | Running sandboxes come from Modal (the only server-side truth); **stopped rows come from the browser**: every sandbox's spec is remembered in localStorage (`qook-sandboxes:<workspace>`), so terminated sandboxes stay listed as dim Stopped rows with a Start button that recreates them from the remembered spec — and name-keyed volume state makes that a resume. Start auto-retries through the few seconds it takes Modal to free the name. Stopped rows also offer Forget (drops the browser record; volume state stays until the name is reused). Browser-local: another browser won't see your stopped rows. One primary action: `+ Create sandbox`. Rows have `Enter ▾` (zsh / herdr / vscode / browser), an always-present volumes chip (counting the built-in workspace mount, so ≥ `1 vol`) whose popover lists user mounts followed by a `BUILT-IN · qook-state/sandboxes/<name>/` section enumerating all ten persisted paths (workspace, herdr config/share/state, code-server User/extensions, claude/codex/pi state, bash history), and an overflow menu with Terminate. A ↻ button re-polls; a visible tab re-polls every 30s. |
+| 3 | **Create sandbox** (drawer over `/`) | Name, CPU chips, memory slider, GPU chips (Modal's full range: T4 → B300) + GPU count chips (`A10G:2`), base image, volume mounts (repeatable, up to 8). The built-in state mount appears as the first row — disabled, labeled `built-in`, showing its real volume path (`qook-state/sandboxes/<name>/workspace → /workspace`) and live-updating as the name is typed; an expander beneath lists every other path persisted on the mount (herdr, code-server, agent state, shell history — the `builtinMounts` list in `types.ts`, kept in sync with the boot script). Reusing a previous name resumes its /workspace. |
 | 4 | **Session** (`/s/[sandboxId]?mode=bash\|herdr\|vscode`) | One 46px session bar; panes below, edge to edge. Mode switching is client-state only — panes stay mounted. Terminate lives in the overflow menu; a gone sandbox shows a "no longer running" notice. |
 
 Flow: connect token → sandbox list → create → enter. Terminate ends the
@@ -188,7 +188,7 @@ All Modal calls live in `src/lib/server/modal.ts`, one short-lived
 - `terminateSandbox` — `fromId(id).terminate()`; NotFound/Invalid count as
   already gone.
 
-### 3.5 Session runtime (zsh / herdr / vscode)
+### 3.5 Session runtime (zsh / herdr / vscode / browser)
 
 `src/lib/server/runtime.ts` defines the runtime in two halves:
 
@@ -196,8 +196,9 @@ All Modal calls live in `src/lib/server/modal.ts`, one short-lived
 `dockerfileCommands`: ttyd 1.7.7 (web terminal), code-server 4.133.0, Caddy
 2.11.4 (auth proxy), herdr (herdr.dev — terminal workspace manager for
 agents), zsh + oh-my-zsh (default shell, `git` + `zsh-autosuggestions`
-plugins, no theme — the qook prompt is written at boot in zsh syntax:
-`%F{191}qook@<name>%f:%F{110}%~%f$`), Node 22, and three preinstalled agent
+plugins, async git prompt disabled so branch info is synchronous, no theme —
+the qook prompt is written at boot in zsh syntax with muted git info:
+`qook@<name>:%~ (branch*)$`), Node 22, and three preinstalled agent
 CLIs herdr detects out of the
 box: **Claude Code** (`@anthropic-ai/claude-code`), **Codex**
 (`@openai/codex`) and **pi** (`@earendil-works/pi-coding-agent`). Modal's
@@ -218,7 +219,12 @@ sandbox failed.
 | 7683 | ttyd → `herdr` (full TUI; mouse works through xterm) | herdr |
 | 8443 | code-server on /workspace | vscode |
 
-Caddy owns the public ports; the services bind to localhost only.
+| 8080 | whatever the user runs on sandbox port 3000 | browser |
+
+Caddy owns the public ports; the services bind to localhost only. The
+**browser** pane proxies to sandbox port 3000 behind the same cookie auth —
+run any dev server on 3000 and it appears in the tab; until then Caddy
+serves a friendly "nothing is listening on port 3000" message.
 
 **Auth.** Pane iframes load `https://<tunnel>/qook-auth?token=<secret>`;
 Caddy answers 302 + an `HttpOnly; Secure; SameSite=None` cookie, and every

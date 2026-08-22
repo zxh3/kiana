@@ -166,7 +166,7 @@ async function create(event: SubmitEvent) {
 								</span>
 							{/if}
 						</div>
-						<div class="flex gap-[7px]">
+						<div class="grid grid-cols-4 gap-[7px]">
 							{#each gpuOptions as option (option)}
 								<button
 									type="button"

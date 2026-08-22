@@ -1,10 +1,22 @@
 export type SandboxStatus = "running" | "stopped" | "failed";
 
-export const sessionModes = ["zsh", "herdr", "vscode"] as const;
+export const sessionModes = ["zsh", "herdr", "vscode", "browser"] as const;
 export type SessionMode = (typeof sessionModes)[number];
 
 export const cpuOptions = [2, 4, 8, 16, 32] as const;
-export const gpuOptions = ["none", "A10G", "A100", "H100"] as const;
+export const gpuOptions = [
+  "none",
+  "T4",
+  "L4",
+  "A10G",
+  "L40S",
+  "A100",
+  "A100-80GB",
+  "H100",
+  "H200",
+  "B200",
+  "B300",
+] as const;
 export const gpuCountOptions = [1, 2, 4, 8] as const;
 export const imageOptions = [
   "ubuntu:24.04",
@@ -21,7 +33,12 @@ export interface VolumeMount {
 export const maxVolumeMounts = 8;
 
 /** Public (tunneled) port per session mode. */
-export const modePorts = { zsh: 7681, herdr: 7683, vscode: 8443 } as const;
+export const modePorts = {
+  zsh: 7681,
+  herdr: 7683,
+  vscode: 8443,
+  browser: 8080,
+} as const;
 
 /**
  * Everything the runtime persists on the state volume, relative to
