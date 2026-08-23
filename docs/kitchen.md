@@ -342,6 +342,25 @@ mount lazily on first visit and then stay mounted (hidden with
 terminal's WebSocket or spawns a fresh shell. The URL stays deep-linkable via
 `replaceState(?mode=…)`.
 
+### 3.5b Browsers
+
+Panes are iframes on the sandbox's own tunnel host, so the cookie Caddy sets at
+`/kitchen-auth` is a **third-party cookie**. Safari blocks those by default
+("Prevent cross-site tracking"), so the redirected request arrives without it
+and the pane answers `kitchen: authentication required`. Chrome and Edge still
+allow `SameSite=None; Secure` third-party cookies, which is why they work.
+
+Every pane therefore has an **open-in-a-new-tab** control: as a top-level page
+the same cookie is first-party and works everywhere. Safari users also get a
+one-line explanation in the session bar rather than a bare 403 inside a frame.
+Opening a pane in a tab does not "fix" the iframe afterwards — Safari would
+additionally need the Storage Access API, which ttyd's own page does not call.
+
+The durable fix is to proxy panes through the console's own origin, which would
+also remove the cookie scheme entirely. It needs WebSocket proxying in the Node
+server (terminals and code-server depend on it), so it is deliberately not done
+yet.
+
 ### 3.6 Environment
 
 ```

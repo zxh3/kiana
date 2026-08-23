@@ -32,6 +32,17 @@ let now = $state(Date.now());
 // fallback after a reload.
 let livePhase = $state<Record<string, OpPhase>>({});
 
+/**
+ * Rows with a click already in flight.
+ *
+ * Starting or stopping a sandbox takes a network round-trip before the table
+ * reloads and the row changes shape, so without this the button sits there
+ * looking untouched — and invites a second click that would race the first.
+ */
+let busy = $state<Record<string, string>>({});
+/** The sandbox whose session we are navigating to, if any. */
+let entering = $state<string | null>(null);
+
 // Snapshots and forking, both driven from a row.
 let snapshotsFor = $state<string | null>(null);
 let snapshotsOpen = $state(false);
@@ -76,6 +87,7 @@ $effect(() => {
 
 function startLaunch(spec: SandboxSpec, options: LaunchOptions = {}) {
   actionError = null;
+  busy[spec.name] = "Starting…";
   livePhase[spec.name] = "resolving";
   // Deliberately not awaited: a launch outlives the click, and the row in the
   // table is where its progress shows.
@@ -88,10 +100,12 @@ function startLaunch(spec: SandboxSpec, options: LaunchOptions = {}) {
       },
       onDone: () => {
         delete livePhase[spec.name];
+        delete busy[spec.name];
         void invalidate("app:sandboxes");
       },
       onError: (message: string) => {
         delete livePhase[spec.name];
+        delete busy[spec.name];
         actionError = message;
         void invalidate("app:sandboxes");
       },
@@ -113,6 +127,7 @@ function stopSandbox(
   save = true,
 ) {
   actionError = null;
+  busy[name] = save ? "Saving…" : "Stopping…";
   livePhase[name] = save ? "snapshotting" : "stopping";
   void stop(
     data.workspace,
@@ -126,10 +141,12 @@ function stopSandbox(
       },
       onDone: () => {
         delete livePhase[name];
+        delete busy[name];
         void invalidate("app:sandboxes");
       },
       onError: (message: string) => {
         delete livePhase[name];
+        delete busy[name];
         actionError = message;
         void invalidate("app:sandboxes");
       },
@@ -380,7 +397,7 @@ const modeIcons: Record<string, string> = {
 
 				<!-- Status -->
 				{#if row.kind === 'running'}
-					{#if row.stopping}
+					{#if row.stopping || busy[spec.name]}
 						<span class="flex items-center gap-[7px] text-[11.5px] leading-none text-[#d9b169]">
 							<span class="size-[5px] animate-pulse rounded-full bg-[#d9b169]"></span>
 							Stopping…
@@ -415,12 +432,14 @@ const modeIcons: Record<string, string> = {
 					{#if row.kind === 'running' && sb}
 						<DropdownMenu.Root onOpenChange={(open) => (enterOpenId = open ? sb.sandboxId : null)}>
 							<DropdownMenu.Trigger
-								class="cursor-pointer rounded-[5px] px-[11px] py-[6px] text-[11.5px] leading-none
+								disabled={entering === sb.name}
+								aria-busy={entering === sb.name}
+								class="cursor-pointer rounded-[5px] px-[11px] py-[6px] text-[11.5px] leading-none disabled:opacity-60
 									{selected
 									? 'bg-accent text-canvas font-semibold'
 									: 'text-ink border border-white/14 font-medium hover:bg-white/5'}"
 							>
-								Enter ▾
+								{entering === sb.name ? 'Opening…' : 'Enter ▾'}
 							</DropdownMenu.Trigger>
 							<DropdownMenu.Portal>
 								<DropdownMenu.Content
@@ -431,7 +450,11 @@ const modeIcons: Record<string, string> = {
 									{#each sessionModes as mode (mode)}
 										<DropdownMenu.Item
 											class="data-highlighted:bg-white/6 flex cursor-pointer items-center gap-[10px] rounded-md p-[9px]"
-											onSelect={() => goto(`/s/${sb.sandboxId}?mode=${mode}`)}
+											onSelect={async () => {
+											entering = sb.name;
+											await goto(`/s/${sb.sandboxId}?mode=${mode}`);
+											entering = null;
+										}}
 										>
 											<span
 												class="flex size-5 items-center justify-center rounded-[5px] font-mono text-[9.5px] font-semibold
@@ -516,18 +539,22 @@ const modeIcons: Record<string, string> = {
 							<button
 								type="button"
 								onclick={() => startLaunch(spec, { fresh: true })}
+								disabled={Boolean(busy[spec.name])}
+								aria-busy={Boolean(busy[spec.name])}
 								title="Launch {spec.name} as a new machine from {spec.image}. Its saved state is already gone."
-								class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[11px] py-[6px] text-[11.5px] leading-none font-medium hover:bg-white/5"
+								class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[11px] py-[6px] text-[11.5px] leading-none font-medium hover:bg-white/5 disabled:opacity-60"
 							>
-								Start fresh
+								{busy[spec.name] ?? 'Start fresh'}
 							</button>
 						{:else}
 							<button
 								type="button"
 								onclick={() => startLaunch(spec)}
-								class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[11px] py-[6px] text-[11.5px] leading-none font-medium hover:bg-white/5"
+								disabled={Boolean(busy[spec.name])}
+								aria-busy={Boolean(busy[spec.name])}
+								class="text-control cursor-pointer rounded-[5px] border border-white/14 px-[11px] py-[6px] text-[11.5px] leading-none font-medium hover:bg-white/5 disabled:opacity-60"
 							>
-								{row.kind === 'failed' ? 'Retry' : 'Start'}
+								{busy[spec.name] ?? (row.kind === 'failed' ? 'Retry' : 'Start')}
 							</button>
 						{/if}
 						<DropdownMenu.Root>

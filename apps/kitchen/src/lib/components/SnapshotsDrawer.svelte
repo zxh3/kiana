@@ -32,6 +32,8 @@ let {
 let snapshots = $state<Snapshot[] | null>(null);
 let error = $state<string | null>(null);
 let busy = $state<string | null>(null);
+/** A snapshot whose Start or Fork click has been handed off. */
+let handing = $state<string | null>(null);
 /** Tag whose "keep" name input is open, plus the name being typed. */
 let keeping = $state<string | null>(null);
 let keepName = $state("");
@@ -289,12 +291,19 @@ const action =
 										<button
 											type="button"
 											onclick={() => {
+												handing = snapshot.tag;
 												open = false;
 												onstart(snapshot);
 											}}
+											disabled={handing === snapshot.tag}
+											aria-busy={handing === snapshot.tag}
 											class="text-control {action}"
 										>
-											{i === 0 ? 'Start' : 'Start from here'}
+											{handing === snapshot.tag
+												? 'Starting…'
+												: i === 0
+													? 'Start'
+													: 'Start from here'}
 										</button>
 									{/if}
 									{#if spec}

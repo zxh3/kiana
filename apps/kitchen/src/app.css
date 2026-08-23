@@ -58,3 +58,60 @@ body {
 @utility caret-blink {
   animation: caret-blink 1.1s step-end infinite;
 }
+
+/*
+ * Press feedback, applied once for every control in the app.
+ *
+ * Several actions here wait on the network — entering a sandbox loads its
+ * session, starting one talks to Modal — and without this a click looks
+ * ignored for the half-second before anything changes. This is the cheapest
+ * honest signal: the control reacts to the finger, whatever the work costs.
+ */
+button:not(:disabled),
+[role="menuitem"],
+a {
+  transition:
+    opacity 90ms ease,
+    transform 90ms ease,
+    background-color 90ms ease;
+}
+
+button:not(:disabled):active,
+[role="menuitem"]:active,
+a:active {
+  transform: scale(0.985);
+  opacity: 0.8;
+}
+
+/* A control waiting on something should say so rather than invite a re-click */
+button:disabled,
+[aria-busy="true"] {
+  cursor: progress;
+}
+
+/* Navigation progress: a page that has to load says so within the frame */
+@keyframes route-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@utility route-progress {
+  animation: route-progress 1.6s cubic-bezier(0.16, 0.8, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active,
+  [role="menuitem"]:active,
+  a:active {
+    transform: none;
+  }
+
+  .route-progress {
+    animation: none;
+    transform: translateX(0);
+  }
+}

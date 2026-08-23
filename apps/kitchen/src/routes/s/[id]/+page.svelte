@@ -39,6 +39,30 @@ let saving = $state<OpPhase | null>(null);
 let savedAt = $state<string | null>(null);
 /** How many snapshots this sandbox has; null until the first fetch answers. */
 let snapshotCount = $state<number | null>(null);
+
+/**
+ * Safari refuses the pane cookie.
+ *
+ * Each pane is an iframe on the sandbox's own tunnel host, so the cookie Caddy
+ * sets during /kitchen-auth is a third-party cookie. Safari blocks those by
+ * default (Prevent cross-site tracking), the redirected request arrives without
+ * it, and the pane answers "kitchen: authentication required". Chrome still
+ * allows SameSite=None third-party cookies, which is why it works there.
+ *
+ * Opening the pane as a top-level tab makes the same cookie first-party, so it
+ * works — that is the honest workaround until panes are proxied same-origin.
+ */
+const safari =
+  typeof navigator !== "undefined" &&
+  /^((?!chrome|chromium|android|crios|fxios|edg).)*safari/i.test(
+    navigator.userAgent,
+  );
+let cookieNoteDismissed = $state(false);
+
+function openPaneTab() {
+  const url = data.session?.panes[mode]?.url;
+  if (url) window.open(url, "_blank");
+}
 const workspace = $derived(page.data.connection?.workspace ?? "default");
 
 function switchMode(m: SessionMode) {
@@ -229,7 +253,7 @@ const sb = $derived(data.session?.sandbox ?? null);
 		>
 			<a
 				href="/"
-				class="text-body flex size-[26px] items-center justify-center rounded-md border border-white/12 text-xs hover:bg-white/5"
+				class="text-body flex size-[26px] flex-none items-center justify-center rounded-md border border-white/12 text-xs hover:bg-white/5"
 				aria-label="Back to sandboxes"
 			>
 				←
@@ -273,6 +297,16 @@ const sb = $derived(data.session?.sandbox ?? null);
 					</span>
 				{/each}
 			</span>
+
+			<button
+				type="button"
+				onclick={openPaneTab}
+				aria-label="Open this pane in a new tab"
+				title="Open this pane in a new tab (the only way panes work in Safari)"
+				class="text-body flex size-[26px] flex-none cursor-pointer items-center justify-center rounded-md border border-white/12 text-xs hover:bg-white/5"
+			>
+				↗
+			</button>
 
 			<!--
 				One control, two targets: the action people take often (save now)
@@ -347,6 +381,38 @@ const sb = $derived(data.session?.sandbox ?? null);
 				</DropdownMenu.Portal>
 			</DropdownMenu.Root>
 		</header>
+
+		{#if safari && !cookieNoteDismissed}
+			<div class="px-4 pt-3">
+				<div
+					class="flex items-start gap-[9px] rounded-lg border border-white/12 bg-white/3 px-[13px] py-[11px]"
+				>
+					<span class="bg-stopped mt-[5px] size-[6px] shrink-0 rounded-full"></span>
+					<span class="text-body text-xs leading-[1.6]">
+						Safari blocks the cookie a pane needs, because the pane is an iframe on the
+						sandbox's own host and Safari refuses third-party cookies by default. Panes will
+						say <span class="font-mono">authentication required</span> here. Use
+						<button
+							type="button"
+							onclick={openPaneTab}
+							class="text-accent cursor-pointer underline decoration-dotted"
+						>
+							↗ open in a new tab
+						</button>
+						— as a top-level page the same cookie is first-party and works. Chrome and Edge
+						run panes inline without this.
+					</span>
+					<button
+						type="button"
+						onclick={() => (cookieNoteDismissed = true)}
+						aria-label="Dismiss"
+						class="text-faint hover:text-control ml-auto flex size-[20px] flex-none cursor-pointer items-center justify-center rounded text-[11px]"
+					>
+						✕
+					</button>
+				</div>
+			</div>
+		{/if}
 
 		{#if actionError}
 			<div class="px-4 pt-3">
