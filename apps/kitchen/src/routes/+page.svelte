@@ -20,7 +20,6 @@ import {
   opPhaseLabels,
   type SandboxSpec,
   type Snapshot,
-  sessionModes,
 } from "$lib/types";
 import type { PageData } from "./$types";
 
@@ -28,7 +27,6 @@ let { data }: { data: PageData } = $props();
 
 let createOpen = $state(false);
 let refreshing = $state(false);
-let enterOpenId = $state<string | null>(null);
 let actionError = $state<string | null>(null);
 let now = $state(Date.now());
 
@@ -272,12 +270,6 @@ function elapsed(since: string): string {
 }
 
 const gridCols = "grid-cols-[1.6fr_0.8fr_1.1fr_0.8fr_150px]";
-const modeIcons: Record<string, string> = {
-  zsh: ">_",
-  herdr: "H",
-  vscode: "{ }",
-  browser: "://",
-};
 </script>
 
 <svelte:head>
@@ -400,10 +392,8 @@ const modeIcons: Record<string, string> = {
 		{#each data.rows as row (row.kind === 'running' ? row.sb.name : row.spec.name)}
 			{@const sb = row.kind === 'running' ? row.sb : null}
 			{@const spec = row.kind === 'running' ? row.sb : row.spec}
-			{@const selected = sb !== null && enterOpenId === sb.sandboxId}
 			<div
 				class="grid {gridCols} items-center gap-4 border-b border-white/6 px-[22px] py-[14px]
-					{selected ? 'bg-accent/5 shadow-[inset_2px_0_0_var(--color-accent)]' : ''}
 					{row.kind === 'stopped' ? 'opacity-72' : ''}"
 			>
 				<div class="flex min-w-0 flex-col gap-1">
@@ -502,47 +492,26 @@ const modeIcons: Record<string, string> = {
 				<!-- Actions -->
 				<div class="flex items-center justify-end gap-[6px]">
 					{#if row.kind === 'running' && sb}
-						<DropdownMenu.Root onOpenChange={(open) => (enterOpenId = open ? sb.sandboxId : null)}>
-							<DropdownMenu.Trigger
-								disabled={entering === sb.name}
-								aria-busy={entering === sb.name}
-								class="cursor-pointer rounded-[5px] px-[11px] py-[6px] text-[11.5px] leading-none disabled:opacity-60
-									{selected
-									? 'bg-accent text-canvas font-semibold'
-									: 'text-ink border border-white/14 font-medium hover:bg-white/5'}"
-							>
-								{entering === sb.name ? 'Opening…' : 'Enter ▾'}
-							</DropdownMenu.Trigger>
-							<DropdownMenu.Portal>
-								<DropdownMenu.Content
-									class="bg-overlay shadow-overlay z-50 w-[230px] rounded-[9px] border border-white/12 p-[5px]"
-									sideOffset={6}
-									align="end"
-								>
-									{#each sessionModes as mode (mode)}
-										<DropdownMenu.Item
-											class="data-highlighted:bg-white/6 flex cursor-pointer items-center gap-[10px] rounded-md p-[9px]"
-											onSelect={async () => {
-											entering = sb.name;
-											await goto(`/s/${sb.sandboxId}?mode=${mode}`);
-											entering = null;
-										}}
-										>
-											<span
-												class="flex size-5 items-center justify-center rounded-[5px] font-mono text-[9.5px] font-semibold
-													{mode === 'zsh' ? 'bg-accent/14 text-accent' : 'text-data bg-white/6'}"
-											>
-												{modeIcons[mode]}
-											</span>
-											<span class="text-control text-[12.5px]">{mode}</span>
-											{#if mode === 'zsh'}
-												<span class="text-muted ml-auto font-mono text-[10px] font-medium">↵</span>
-											{/if}
-										</DropdownMenu.Item>
-									{/each}
-								</DropdownMenu.Content>
-							</DropdownMenu.Portal>
-						</DropdownMenu.Root>
+						<!--
+							One click, and it lands in zsh. A sandbox has four panes, but
+							picking one is a decision that belongs *inside* the session,
+							where the switcher is — not a menu in the way of getting there.
+						-->
+						<button
+							type="button"
+							disabled={entering === sb.name}
+							aria-busy={entering === sb.name}
+							onclick={async () => {
+								entering = sb.name;
+								await goto(`/s/${sb.sandboxId}?mode=zsh`);
+								entering = null;
+							}}
+							title="Open this sandbox — starts in zsh, switch panes inside"
+							class="text-ink cursor-pointer rounded-[5px] border border-white/14 px-[11px] py-[6px]
+								text-[11.5px] leading-none font-medium hover:bg-white/5 disabled:opacity-60"
+						>
+							{entering === sb.name ? 'Opening…' : 'Enter'}
+						</button>
 
 						<DropdownMenu.Root>
 							<DropdownMenu.Trigger

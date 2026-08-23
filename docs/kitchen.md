@@ -103,6 +103,10 @@ Everything they merely read is sans. Nothing on screen sits below 10px.
 - **Fields** — resting: `white/.10` border on `white/.02`; focused: 45%-alpha
   accent border, accent caret. Chip groups (CPU, GPU) select with accent
   border + 12% accent fill.
+- **Entering a sandbox is one click.** `Enter` opens the zsh pane; it does not
+  ask which of the four. Choosing a pane is a decision that belongs inside the
+  session, where the switcher is — a menu in front of the door made the common
+  case two clicks to save the rare case one.
 - **Session bar** — one 46px row carries the whole session: back, name, live
   state, specs on the left; a segmented switcher for the three modes
   middle-right (accent only on the active mode's glyph — it marks which door
@@ -116,13 +120,16 @@ Everything they merely read is sans. Nothing on screen sits below 10px.
   "Cancel" launched a sandbox. Fixed by making them `type="button"`; only the
   one real action is a submit.
 
-### 2.4a The chef
+### 2.4a The chef, and the mark
 
-One painting (a cat in chef's whites, `static/chef.jpg`) and the favicon cropped
-from its face. It appears in exactly one place in the app: the empty state of
-the sandboxes table, where there is nothing else to show. A screen with
-sandboxes on it is data first — decoration there would be noise, and the rule
-"only where the app has nothing to say" keeps it from spreading.
+One painting (a cat in chef's whites, `static/chef.jpg`), in exactly one place:
+the empty state of the sandboxes table, where there is nothing else to show. A
+screen with sandboxes on it is data first — decoration there would be noise,
+and the rule "only where the app has nothing to say" keeps it from spreading.
+
+The favicon is not the painting. It is the logo mark — one accent-coloured
+rounded square (`static/favicon.svg`) — because at 16px a painting is mud,
+while a solid accent tile is recognisable in a strip of thirty tabs.
 
 ### 2.5 Voice
 
