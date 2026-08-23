@@ -1,8 +1,17 @@
 <script lang="ts">
 import { navigating } from "$app/state";
+import ShortcutsPanel from "$lib/components/ShortcutsPanel.svelte";
+import { bindHotkeys, HELP_KEY } from "$lib/hotkeys";
 import "../app.css";
 
 let { children } = $props();
+
+let shortcutsOpen = $state(false);
+
+// One global binding: everything else belongs to the screen that owns it.
+$effect(() =>
+  bindHotkeys([[HELP_KEY, () => (shortcutsOpen = !shortcutsOpen)]]),
+);
 
 // Entering a sandbox loads its session (tunnels plus a readiness probe per
 // pane), which is most of a second before SvelteKit renders anything. Without
@@ -21,3 +30,5 @@ const routing = $derived(Boolean(navigating.to));
 {/if}
 
 {@render children()}
+
+<ShortcutsPanel bind:open={shortcutsOpen} />

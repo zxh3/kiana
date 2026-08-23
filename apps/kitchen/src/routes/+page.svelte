@@ -8,6 +8,7 @@ import Logo from "$lib/components/Logo.svelte";
 import SnapshotsDrawer from "$lib/components/SnapshotsDrawer.svelte";
 import StatusDot from "$lib/components/StatusDot.svelte";
 import { formatAgo, formatResources, formatUptime } from "$lib/format";
+import { bindHotkeys } from "$lib/hotkeys";
 import { type LaunchOptions, launch, stop } from "$lib/launch";
 import { clearPending } from "$lib/pending";
 import {
@@ -62,6 +63,14 @@ $effect(() => {
   const t = setInterval(() => (now = Date.now()), pending ? 1000 : 30_000);
   return () => clearInterval(t);
 });
+
+// The two things worth doing without reaching for the mouse.
+$effect(() =>
+  bindHotkeys([
+    ["C", () => (createOpen = true)],
+    ["R", () => void refresh()],
+  ]),
+);
 
 async function refresh() {
   if (refreshing) return;

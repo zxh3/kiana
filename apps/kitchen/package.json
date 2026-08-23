@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/hotkeys": "^0.8.0",
     "bits-ui": "^2.19.0",
     "modal": "^0.9.0",
     "tailwindcss": "^4.3.3",

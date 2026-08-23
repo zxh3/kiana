@@ -100,6 +100,14 @@ mkdir -p /workspace
 # name marker for the in-sandbox kitchen command
 printf '%s' "$KITCHEN_SANDBOX_NAME" > /etc/kitchen-name
 
+# herdr installs its agent integrations into each agent's OWN config directory,
+# and each agent only creates that directory the first time it runs. On a fresh
+# machine the binaries are all present but the directories are not, so herdr
+# reports "install claude code first" about an agent that is already installed.
+# Creating them is enough for its installer to proceed. In the boot script
+# rather than the image so machines restored from older snapshots get it too.
+mkdir -p /root/.claude /root/.codex /root/.pi/agent/extensions
+
 # herdr: replay recent pane contents after restarts. Seeded once only — the
 # config lives in the machine now, so user edits stick.
 mkdir -p /root/.config/herdr

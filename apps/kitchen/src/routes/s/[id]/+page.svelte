@@ -5,6 +5,7 @@ import { page } from "$app/state";
 import { api } from "$lib/api";
 import SnapshotsDrawer from "$lib/components/SnapshotsDrawer.svelte";
 import { formatResources, formatUptime } from "$lib/format";
+import { bindHotkeys } from "$lib/hotkeys";
 import { launch, saveSnapshotNow, stop } from "$lib/launch";
 import { RUNTIME_VERSION } from "$lib/runtimeVersion";
 import { visibleSnapshots } from "$lib/snapshots";
@@ -84,6 +85,19 @@ function switchMode(m: SessionMode) {
   mode = m;
   replaceState(`?mode=${m}`, {});
 }
+
+// Digits switch panes: Mod+1..4 would be the convention, but browsers keep
+// that for their own tabs. These only arrive when focus is outside the pane.
+$effect(() =>
+  bindHotkeys([
+    ["1", () => switchMode("zsh")],
+    ["2", () => switchMode("herdr")],
+    ["3", () => switchMode("vscode")],
+    ["4", () => switchMode("browser")],
+    ["S", () => void saveNow()],
+    ["B", () => void goto("/")],
+  ]),
+);
 
 let now = $state(Date.now());
 // A pane that is still booting gets a per-second clock, so the wait is
@@ -259,7 +273,7 @@ const sb = $derived(data.session?.sandbox ?? null);
 	{:else}
 		<!-- Session bar: one 46px row carries the whole session -->
 		<header
-			class="flex h-[46px] flex-none items-center gap-[14px] overflow-x-auto border-b border-white/8 px-4"
+			class="flex h-[46px] flex-none items-center gap-3 overflow-x-auto border-b border-white/8 px-4"
 		>
 			<a
 				href="/"
@@ -280,33 +294,34 @@ const sb = $derived(data.session?.sandbox ?? null);
 			<span class="text-muted font-mono text-[11px] whitespace-nowrap">{formatResources(sb)}</span>
 			<div class="flex-1"></div>
 
-			<!-- Mode switcher (client-side: panes stay mounted across switches) -->
-			<div class="flex items-center gap-[2px] rounded-[7px] border border-white/10 p-[3px]">
+			<!--
+				Mode switcher (client-side: panes stay mounted across switches).
+				Readiness lives on the pane's own button — a row of bare port
+				numbers asked people to know which port meant which pane, and the
+				port is not the thing anyone is looking for. The number is still
+				there on hover for whoever wants it.
+			-->
+			<div class="flex flex-none items-center gap-[2px] rounded-[7px] border border-white/10 p-[3px]">
 				{#each sessionModes as m (m)}
+					{@const ready = data.session.panes[m].ready}
 					<button
 						type="button"
 						onclick={() => switchMode(m)}
-						class="flex cursor-pointer items-center gap-[7px] rounded-[5px] px-[11px] py-[6px] font-mono text-[11.5px] leading-none
+						title="{m} · port {modePorts[m]} · {ready ? 'ready' : 'starting'}"
+						class="flex cursor-pointer items-center gap-[6px] rounded-[5px] px-[10px] py-[6px] font-mono text-[11.5px] leading-none
 							{mode === m ? 'text-ink bg-white/7 font-medium' : 'text-body hover:text-control'}"
 					>
-						{#if m === 'zsh'}
-							<span class={mode === 'zsh' ? 'text-accent' : 'text-muted'}>&gt;_</span>
-						{/if}
+						<span
+							class="size-[5px] flex-none rounded-full {ready
+								? 'bg-running'
+								: 'bg-stopped animate-pulse'}"
+						></span>
 						{m}
 					</button>
 				{/each}
 			</div>
 
-			<!-- Forwarded ports -->
-			<span
-				class="text-secondary flex items-center gap-[9px] font-mono text-[11px] whitespace-nowrap"
-			>
-				{#each sessionModes as m (m)}
-					<span class="flex items-center gap-[5px]">
-						<span class="{data.session.panes[m].ready ? 'text-running' : 'text-stopped'} text-[8px]">●</span>{modePorts[m]}
-					</span>
-				{/each}
-			</span>
+			<div class="flex-1"></div>
 
 			<button
 				type="button"
@@ -398,30 +413,31 @@ const sb = $derived(data.session?.sandbox ?? null);
 		</header>
 
 		{#if safari && !cookieNoteDismissed}
-			<div class="px-4 pt-3">
+			<div class="flex-none px-4 pt-3">
 				<div
-					class="flex items-start gap-[9px] rounded-lg border border-white/12 bg-white/3 px-[13px] py-[11px]"
+					class="flex items-start gap-3 rounded-lg border border-white/12 bg-white/3 px-4 py-3"
 				>
-					<span class="bg-stopped mt-[5px] size-[6px] shrink-0 rounded-full"></span>
-					<span class="text-body text-xs leading-[1.6]">
-						Safari blocks the cookie a pane needs, because the pane is an iframe on the
-						sandbox's own host and Safari refuses third-party cookies by default. Panes will
-						say <span class="font-mono">authentication required</span> here. Use
+					<span class="bg-stopped mt-[6px] size-[6px] flex-none rounded-full"></span>
+					<div class="flex min-w-0 flex-col gap-2">
+						<span class="text-body text-xs leading-[1.65]">
+							Safari refuses the cookie a pane needs: the pane is an iframe on the sandbox's
+							own host, and Safari blocks third-party cookies by default. Panes will say
+							<span class="font-mono">authentication required</span> here — Chrome and Edge
+							run them inline.
+						</span>
 						<button
 							type="button"
 							onclick={openPaneTab}
-							class="text-accent cursor-pointer underline decoration-dotted"
+							class="text-accent border-accent/40 w-fit cursor-pointer rounded-[5px] border px-[10px] py-[5px] text-[11.5px] leading-none font-medium hover:bg-white/5"
 						>
-							↗ open in a new tab
+							↗ Open this pane in a new tab
 						</button>
-						— as a top-level page the same cookie is first-party and works. Chrome and Edge
-						run panes inline without this.
-					</span>
+					</div>
 					<button
 						type="button"
 						onclick={() => (cookieNoteDismissed = true)}
 						aria-label="Dismiss"
-						class="text-faint hover:text-control ml-auto flex size-[20px] flex-none cursor-pointer items-center justify-center rounded text-[11px]"
+						class="text-faint hover:text-control ml-auto flex size-[22px] flex-none cursor-pointer items-center justify-center rounded text-[11px]"
 					>
 						✕
 					</button>

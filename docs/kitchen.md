@@ -342,7 +342,33 @@ mount lazily on first visit and then stay mounted (hidden with
 terminal's WebSocket or spawns a fresh shell. The URL stays deep-linkable via
 `replaceState(?mode=…)`.
 
+### 3.5a Keyboard
+
+`@tanstack/hotkeys`' core manager (framework-agnostic, no React) handles the
+parts that are easy to get wrong: platform-aware `Mod`, and not firing
+single-letter shortcuts while someone is typing. `$lib/hotkeys.ts` holds the
+one list of shortcuts, which both the registrations and the `?` panel read —
+so a shortcut cannot exist undocumented.
+
+| Key | Action |
+|---|---|
+| `?` | shortcuts panel (anywhere) |
+| `c` / `r` | create sandbox / refresh (list) |
+| `1`–`4` | zsh / herdr / vscode / browser pane |
+| `s` / `b` | save a snapshot / back to the list |
+
+Two constraints shaped the choice. `Mod+1..4` is the conventional way to
+switch tabs, but browsers keep that combination for their own tabs, so plain
+digits it is. And **nothing reaches the console while focus is inside a pane** —
+a pane is a cross-origin iframe and its keystrokes belong to it. The panel says
+so rather than leaving people to wonder.
+
 ### 3.5b Panes and browsers
+
+Pane readiness lives on each pane's own button in the switcher. It used to be a
+row of bare port numbers, which asked the reader to know that 8443 meant vscode
+— the port is not what anyone is looking for, so it moved to the button's
+tooltip.
 
 A pane that is *ready* is not a pane that is *painted* — code-server takes a
 second or two — so each pane shows `loading <mode>…` until its iframe reports
