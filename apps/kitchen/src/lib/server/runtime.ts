@@ -118,6 +118,16 @@ export SHELL=/usr/bin/zsh
 # Unix sockets are fine on the sandbox's own filesystem now, but /tmp keeps
 # the socket out of snapshots, where a stale socket file is meaningless.
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
+# Modal's runtime hides terminal foreground process groups from /proc
+# (tty_nr/tpgid read 0 even for a TUI agent on a pty), so herdr's native
+# foreground-process detection finds nothing and no agent — pi, claude,
+# codex — is ever recognized or shown in the sidebar. child-groups makes
+# the herdr server infer a pane's foreground job from its shell's child
+# process groups instead; herdr documents it for exactly this restricted-
+# runtime case. Only the server reads it, and it needs it in its inherited
+# env, so it goes everywhere the boot env is seeded (also profile.d/zshenv
+# below, keeping the exports in sync with HERDR_SOCKET_PATH).
+export HERDR_PROCESS_DETECTION=child-groups
 
 mkdir -p /workspace
 # name marker for the in-sandbox kitchen command
@@ -143,6 +153,7 @@ cat > /etc/profile.d/kitchen.sh <<PROFILE
 export PS1='\[\e[38;5;191m\]kitchen@'$KITCHEN_SANDBOX_NAME'\[\e[0m\]:\[\e[38;5;110m\]\w\[\e[0m\]$ '
 export PATH="$KITCHEN_TOOL_PATH:\$PATH"
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
+export HERDR_PROCESS_DETECTION=child-groups # see boot script note
 case \$- in *i*)
 	if [ -z "\$KITCHEN_MOTD_SHOWN" ]; then
 		export KITCHEN_MOTD_SHOWN=1
@@ -193,6 +204,7 @@ cat > /etc/zsh/zshenv <<ZSHENV
 typeset -U path PATH
 export PATH="$KITCHEN_TOOL_PATH:\$PATH"
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
+export HERDR_PROCESS_DETECTION=child-groups # see boot script note
 export SHELL=/usr/bin/zsh
 ZSHENV
 
