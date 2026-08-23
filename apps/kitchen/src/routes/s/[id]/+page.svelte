@@ -7,7 +7,9 @@ import SnapshotsDrawer from "$lib/components/SnapshotsDrawer.svelte";
 import { formatResources, formatUptime } from "$lib/format";
 import { bindHotkeys } from "$lib/hotkeys";
 import { launch, saveSnapshotNow, stop } from "$lib/launch";
+import { sandboxUrl } from "$lib/modalLinks";
 import { RUNTIME_VERSION } from "$lib/runtimeVersion";
+import { shortcutsPanel } from "$lib/shortcutsPanel.svelte";
 import { visibleSnapshots } from "$lib/snapshots";
 import {
   modePorts,
@@ -79,6 +81,27 @@ function openPaneTab() {
   if (url) window.open(url, "_blank");
 }
 const workspace = $derived(page.data.connection?.workspace ?? "default");
+const connection = $derived(page.data.connection ?? null);
+
+/**
+ * Whether a pane currently holds the keyboard.
+ *
+ * A pane is a cross-origin iframe: while it has focus the parent document
+ * receives no key events at all, so none of the console's shortcuts can fire.
+ * Nothing can change that — but the console can stop pretending otherwise and
+ * say where the keyboard went. Clicking anything in the bar takes it back.
+ */
+let paneHasFocus = $state(false);
+$effect(() => {
+  const check = () =>
+    (paneHasFocus = document.activeElement?.tagName === "IFRAME");
+  const t = setInterval(check, 700);
+  window.addEventListener("focusin", check);
+  return () => {
+    clearInterval(t);
+    window.removeEventListener("focusin", check);
+  };
+});
 
 function switchMode(m: SessionMode) {
   visited[m] = true;
@@ -308,8 +331,10 @@ const sb = $derived(data.session?.sandbox ?? null);
 						type="button"
 						onclick={() => switchMode(m)}
 						title="{m} · port {modePorts[m]} · {ready ? 'ready' : 'starting'}"
-						class="flex cursor-pointer items-center gap-[6px] rounded-[5px] px-[10px] py-[6px] font-mono text-[11.5px] leading-none
-							{mode === m ? 'text-ink bg-white/7 font-medium' : 'text-body hover:text-control'}"
+						class="flex cursor-pointer items-center gap-[6px] rounded-[5px] px-[11px] py-[6px] font-mono text-[11.5px] leading-none font-medium
+							{mode === m
+							? 'text-ink bg-white/8'
+							: 'text-body hover:text-control hover:bg-white/4'}"
 					>
 						<span
 							class="size-[5px] flex-none rounded-full {ready
@@ -322,6 +347,21 @@ const sb = $derived(data.session?.sandbox ?? null);
 			</div>
 
 			<div class="flex-1"></div>
+
+			<button
+				type="button"
+				onclick={() => (shortcutsPanel.open = true)}
+				title={paneHasFocus
+					? 'The pane has the keyboard, so shortcuts are asleep — clicking here wakes them'
+					: 'Keyboard shortcuts (?)'}
+				aria-label="Keyboard shortcuts"
+				class="flex size-[26px] flex-none cursor-pointer items-center justify-center rounded-md border font-mono text-[11px]
+					{paneHasFocus
+					? 'text-faint border-white/8'
+					: 'text-secondary hover:text-control border-white/12 hover:bg-white/5'}"
+			>
+				?
+			</button>
 
 			<button
 				type="button"
@@ -387,6 +427,22 @@ const sb = $derived(data.session?.sandbox ?? null);
 						sideOffset={6}
 						align="end"
 					>
+						{#if connection}
+							{@const link = sandboxUrl(
+								connection.workspace,
+								connection.environment,
+								data.id,
+							)}
+							<DropdownMenu.Item
+								class="text-control data-highlighted:bg-white/6 flex cursor-pointer items-center gap-[7px] rounded-md px-[9px] py-[9px] text-[12.5px]"
+								onSelect={() => window.open(link, '_blank')}
+							>
+								View in Modal <span class="text-faint text-[9px]">↗</span>
+							</DropdownMenu.Item>
+							<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
+								Logs, the container, and what it is costing.
+							</div>
+						{/if}
 						<DropdownMenu.Item
 							class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
 							onSelect={() => stopHere(true)}

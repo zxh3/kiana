@@ -357,11 +357,26 @@ so a shortcut cannot exist undocumented.
 | `1`–`4` | zsh / herdr / vscode / browser pane |
 | `s` / `b` | save a snapshot / back to the list |
 
+There is a visible `?` button in both top bars, because discovering `?` by
+guessing is not discovery.
+
 Two constraints shaped the choice. `Mod+1..4` is the conventional way to
 switch tabs, but browsers keep that combination for their own tabs, so plain
 digits it is. And **nothing reaches the console while focus is inside a pane** —
-a pane is a cross-origin iframe and its keystrokes belong to it. The panel says
-so rather than leaving people to wonder.
+a pane is a cross-origin iframe and its keystrokes belong to it. Nothing can
+intercept them without breaking typing in the pane, so instead the console
+stops pretending: the `?` button dims while a pane holds the keyboard (polled
+from `document.activeElement`), its tooltip says clicking it takes the keyboard
+back, and every shortcut also has a button. Keys are a shortcut, never the only
+route.
+
+### 3.5c Links back to Modal
+
+The console shows state; Modal shows logs, containers, and cost. The workspace
+label in the top bar links to `modal.com/apps/<workspace>/<environment>`, and
+each sandbox has **View in Modal** in its row and session menus, deep-linking
+to its entry in the app's sandbox tab. Deep links assume the app is deployed in
+that environment, which it is wherever the console runs on Modal.
 
 ### 3.5b Panes and browsers
 

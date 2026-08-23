@@ -10,7 +10,9 @@ import StatusDot from "$lib/components/StatusDot.svelte";
 import { formatAgo, formatResources, formatUptime } from "$lib/format";
 import { bindHotkeys } from "$lib/hotkeys";
 import { type LaunchOptions, launch, stop } from "$lib/launch";
+import { sandboxUrl, workspaceUrl } from "$lib/modalLinks";
 import { clearPending } from "$lib/pending";
+import { shortcutsPanel } from "$lib/shortcutsPanel.svelte";
 import {
   type OpPhase,
   opPhaseLabels,
@@ -271,12 +273,30 @@ const modeIcons: Record<string, string> = {
 	<header class="flex h-[50px] flex-none items-center gap-4 border-b border-white/8 px-[22px]">
 		<a href="/"><Logo size={16} /></a>
 		<div class="flex-1"></div>
-		<span class="text-secondary flex items-center gap-[7px] font-mono text-[11.5px]">
-			<span class="bg-running size-[5px] rounded-full"></span>
-			{data.connection?.workspace}{data.connection?.environment
-				? ` / ${data.connection.environment}`
-				: ''}
-		</span>
+		{#if data.connection}
+			<a
+				href={workspaceUrl(data.connection.workspace, data.connection.environment)}
+				target="_blank"
+				rel="noreferrer"
+				title="Open this workspace in Modal"
+				class="text-secondary hover:text-control flex items-center gap-[7px] font-mono text-[11.5px]"
+			>
+				<span class="bg-running size-[5px] rounded-full"></span>
+				{data.connection.workspace}{data.connection.environment
+					? ` / ${data.connection.environment}`
+					: ''}
+				<span class="text-faint text-[9px]">↗</span>
+			</a>
+		{/if}
+		<button
+			type="button"
+			onclick={() => (shortcutsPanel.open = true)}
+			title="Keyboard shortcuts (?)"
+			aria-label="Keyboard shortcuts"
+			class="text-secondary hover:text-control flex size-[22px] cursor-pointer items-center justify-center rounded border border-white/12 font-mono text-[11px]"
+		>
+			?
+		</button>
 		<a href="/connect" class="text-secondary hover:text-control text-xs">Settings</a>
 	</header>
 
@@ -502,6 +522,23 @@ const modeIcons: Record<string, string> = {
 									>
 										Snapshots…
 									</DropdownMenu.Item>
+									{#if data.connection}
+										{@const connection = data.connection}
+										<DropdownMenu.Item
+											class="text-control data-highlighted:bg-white/6 flex cursor-pointer items-center gap-[7px] rounded-md px-[9px] py-[9px] text-[12.5px]"
+											onSelect={() =>
+												window.open(
+													sandboxUrl(
+														connection.workspace,
+														connection.environment,
+														sb.sandboxId,
+													),
+													'_blank',
+												)}
+										>
+											View in Modal <span class="text-faint text-[9px]">↗</span>
+										</DropdownMenu.Item>
+									{/if}
 									<div class="text-muted px-[9px] pt-[3px] pb-[7px] text-[10.5px] leading-[1.5]">
 										Rewind this sandbox to an earlier snapshot, or fork one into a new sandbox.
 									</div>

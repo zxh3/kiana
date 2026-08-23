@@ -2,15 +2,14 @@
 import { navigating } from "$app/state";
 import ShortcutsPanel from "$lib/components/ShortcutsPanel.svelte";
 import { bindHotkeys, HELP_KEY } from "$lib/hotkeys";
+import { shortcutsPanel } from "$lib/shortcutsPanel.svelte";
 import "../app.css";
 
 let { children } = $props();
 
-let shortcutsOpen = $state(false);
-
 // One global binding: everything else belongs to the screen that owns it.
 $effect(() =>
-  bindHotkeys([[HELP_KEY, () => (shortcutsOpen = !shortcutsOpen)]]),
+  bindHotkeys([[HELP_KEY, () => (shortcutsPanel.open = !shortcutsPanel.open)]]),
 );
 
 // Entering a sandbox loads its session (tunnels plus a readiness probe per
@@ -31,4 +30,4 @@ const routing = $derived(Boolean(navigating.to));
 
 {@render children()}
 
-<ShortcutsPanel bind:open={shortcutsOpen} />
+<ShortcutsPanel bind:open={shortcutsPanel.open} />

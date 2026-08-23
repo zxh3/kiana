@@ -50,11 +50,22 @@ const scopes: Shortcut["scope"][] = ["Anywhere", "Sandboxes", "In a sandbox"];
 					{/if}
 				{/each}
 
-				<p class="text-muted text-[11px] leading-[1.6]">
-					A pane is a cross-origin iframe, so while your cursor is inside the terminal or
-					editor its keystrokes belong to it — including these. Click the session bar to hand
-					focus back to the console.
-				</p>
+				<div class="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/2 px-[13px] py-[11px]">
+					<span class="text-label text-[11px] font-medium">
+						While a pane has the keyboard
+					</span>
+					<p class="text-muted text-[11px] leading-[1.6]">
+						A pane is a cross-origin iframe: once you click into the terminal or the editor,
+						every keystroke belongs to it and the console receives none of them — so these
+						shortcuts sleep. Nothing can intercept them without breaking typing in the pane.
+					</p>
+					<p class="text-body text-[11px] leading-[1.6]">
+						Click anything in the session bar to take the keyboard back — the
+						<span class="font-mono">?</span> button there dims while the pane holds it, so
+						you can see which mode you are in. Every shortcut also has a button, so the
+						keyboard is never the only way.
+					</p>
+				</div>
 			</div>
 		</Dialog.Content>
 	</Dialog.Portal>
