@@ -294,7 +294,18 @@ const sb = $derived(data.session?.sandbox ?? null);
 			</a>
 		</div>
 	{:else}
-		<!-- Session bar: one 46px row carries the whole session -->
+		<!--
+			Session bar: one 46px row, read left to right as
+			  which sandbox → which view of it → what it costs → what to do with it.
+
+			The pane switcher sits directly after the name because it belongs to
+			it: these are views of this sandbox. It used to be centred between two
+			flex spacers, which meant its position depended on the width of
+			everything around it — so it drifted rightward as the uptime grew from
+			"0m" to "29m" and sat somewhere different for every sandbox name.
+			Anchoring it to the name keeps it still while you use it, and the
+			mutable numbers moved right, where nothing depends on their width.
+		-->
 		<header
 			class="flex h-[46px] flex-none items-center gap-3 overflow-x-auto border-b border-white/8 px-4"
 		>
@@ -305,17 +316,16 @@ const sb = $derived(data.session?.sandbox ?? null);
 			>
 				←
 			</a>
-			<span class="font-mono text-[13px] leading-none font-semibold whitespace-nowrap">
+			<!-- flex-none: the row scrolls when it is tight, it does not squeeze
+			     the name away. max-w truncates only genuinely long names. -->
+			<span
+				class="max-w-[220px] flex-none truncate font-mono text-[13px] leading-none font-semibold"
+				title={sb.name}
+			>
 				{sb.name}
 			</span>
-			<span
-				class="flex items-center gap-[6px] text-[11px] leading-none font-medium whitespace-nowrap text-[#8fe0b2]"
-			>
-				<span class="bg-running halo-running size-[5px] rounded-full"></span>
-				Running · {formatUptime(sb.createdAt, now)}
-			</span>
-			<span class="text-muted font-mono text-[11px] whitespace-nowrap">{formatResources(sb)}</span>
-			<div class="flex-1"></div>
+
+			<span class="h-[18px] w-px flex-none bg-white/10"></span>
 
 			<!--
 				Mode switcher (client-side: panes stay mounted across switches).
@@ -347,6 +357,18 @@ const sb = $derived(data.session?.sandbox ?? null);
 			</div>
 
 			<div class="flex-1"></div>
+
+			<span
+				class="flex flex-none items-center gap-[6px] text-[11px] leading-none font-medium whitespace-nowrap text-[#8fe0b2]"
+			>
+				<span class="bg-running halo-running size-[5px] rounded-full"></span>
+				Running · {formatUptime(sb.createdAt, now)}
+			</span>
+			<span class="text-muted flex-none font-mono text-[11px] whitespace-nowrap">
+				{formatResources(sb)}
+			</span>
+
+			<span class="h-[18px] w-px flex-none bg-white/10"></span>
 
 			<button
 				type="button"

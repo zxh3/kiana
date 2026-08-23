@@ -380,6 +380,16 @@ that environment, which it is wherever the console runs on Modal.
 
 ### 3.5b Panes and browsers
 
+The session bar reads left to right as *which sandbox → which view of it →
+what it costs → what to do with it*. The pane switcher sits directly after the
+name because it belongs to it. It was briefly centred between two flex spacers,
+which made its position a function of everything around it — it drifted
+rightward as the uptime grew from `0m` to `29m`, and landed somewhere different
+for every sandbox name. Anchored to the name it holds still while in use, and
+the mutable numbers (uptime, resources) moved right where nothing depends on
+their width. The name is `flex-none` with a 220px cap: a tight window scrolls
+the row rather than squeezing the name to nothing.
+
 Pane readiness lives on each pane's own button in the switcher. It used to be a
 row of bare port numbers, which asked the reader to know that 8443 meant vscode
 — the port is not what anyone is looking for, so it moved to the button's
