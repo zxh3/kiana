@@ -10,7 +10,7 @@
  * which is what makes "Create sandbox" work from inside a sandbox as well.
  */
 import { Dialog } from "bits-ui";
-import { goto } from "$app/navigation";
+import { goto, invalidate } from "$app/navigation";
 import { api } from "$lib/api";
 import { displayKeys, HELP_KEY, PALETTE_KEY } from "$lib/hotkeys";
 import { launch } from "$lib/launch";
@@ -100,8 +100,10 @@ const entries = $derived<Entry[]>([
       run: () => {
         // The same fire-and-forget launch the table's Start does — and the
         // table is where it lands, because that row narrates the progress.
+        // The refresh is what makes the row pick the launch up: without it it
+        // sits at "Stopped" while the machine is already coming up.
         void launch(workspace, spec);
-        void goto("/");
+        void goto("/").then(() => invalidate("app:sandboxes"));
       },
     };
   }),
