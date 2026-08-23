@@ -342,13 +342,26 @@ mount lazily on first visit and then stay mounted (hidden with
 terminal's WebSocket or spawns a fresh shell. The URL stays deep-linkable via
 `replaceState(?mode=…)`.
 
-### 3.5b Browsers
+### 3.5b Panes and browsers
+
+A pane that is *ready* is not a pane that is *painted* — code-server takes a
+second or two — so each pane shows `loading <mode>…` until its iframe reports
+itself loaded, and the iframes stay mounted across mode switches so a return
+visit is instant.
+
+
 
 Panes are iframes on the sandbox's own tunnel host, so the cookie Caddy sets at
 `/kitchen-auth` is a **third-party cookie**. Safari blocks those by default
 ("Prevent cross-site tracking"), so the redirected request arrives without it
 and the pane answers `kitchen: authentication required`. Chrome and Edge still
 allow `SameSite=None; Secure` third-party cookies, which is why they work.
+
+code-server is also pinned to a dark theme with `window.autoDetectColorScheme`
+**off**: that setting defaults to on and follows the *browser's* preference,
+which silently overrode the theme and rendered the editor light inside a dark
+console. The theme id must be one the installed build contributes
+(`Dark Modern`); an id from another VS Code version is ignored.
 
 Every pane therefore has an **open-in-a-new-tab** control: as a top-level page
 the same cookie is first-party and works everywhere. Safari users also get a

@@ -59,8 +59,22 @@ const safari =
   );
 let cookieNoteDismissed = $state(false);
 
+/**
+ * Panes that have finished loading.
+ *
+ * A ready pane is not an instant pane: code-server in particular takes a
+ * second or two to paint, and until then the area is simply black. The iframe
+ * stays mounted across mode switches, so this is tracked per mode.
+ */
+let paneLoaded = $state<Record<string, boolean>>({});
+
 function openPaneTab() {
-  const url = data.session?.panes[mode]?.url;
+  // For the browser pane, keep whatever path was navigated to rather than
+  // dropping the user back at the app's root.
+  const url =
+    mode === "browser"
+      ? (browserSrc ?? data.session?.panes.browser?.url)
+      : data.session?.panes[mode]?.url;
   if (url) window.open(url, "_blank");
 }
 const workspace = $derived(page.data.connection?.workspace ?? "default");
@@ -130,10 +144,6 @@ function browserGo(event: SubmitEvent) {
   browserPath = path;
   browserSrc = origin + path;
   browserReload++;
-}
-
-function browserOpenTab() {
-  window.open(browserSrc ?? data.session?.panes.browser?.url, "_blank");
 }
 
 async function refreshCount() {
@@ -302,10 +312,15 @@ const sb = $derived(data.session?.sandbox ?? null);
 				type="button"
 				onclick={openPaneTab}
 				aria-label="Open this pane in a new tab"
-				title="Open this pane in a new tab (the only way panes work in Safari)"
-				class="text-body flex size-[26px] flex-none cursor-pointer items-center justify-center rounded-md border border-white/12 text-xs hover:bg-white/5"
+				title={safari
+					? 'Open this pane in a new tab — the only way panes work in Safari'
+					: 'Open this pane in a new tab'}
+				class="flex flex-none cursor-pointer items-center justify-center rounded-md border text-xs
+					{safari
+					? 'border-accent/40 text-accent gap-[5px] px-[9px] py-[6px] text-[11.5px] font-medium hover:bg-white/5'
+					: 'text-body size-[26px] border-white/12 hover:bg-white/5'}"
 			>
-				↗
+				↗{safari ? ' open in tab' : ''}
 			</button>
 
 			<!--
@@ -447,15 +462,6 @@ const sb = $derived(data.session?.sandbox ?? null);
 					/>
 				</form>
 				<span class="text-muted font-mono text-[10.5px] whitespace-nowrap">→ :3000</span>
-				<button
-					type="button"
-					onclick={browserOpenTab}
-					aria-label="Open in new tab"
-					title="Open in new tab"
-					class="text-body flex size-[24px] cursor-pointer items-center justify-center rounded-[5px] border border-white/10 text-[11px] hover:bg-white/5"
-				>
-					↗
-				</button>
 			</div>
 		{/if}
 		{#each sessionModes as m (m)}
@@ -467,6 +473,7 @@ const sb = $derived(data.session?.sandbox ?? null);
 						<iframe
 							src={browserSrc ?? data.session.panes.browser.url}
 							title="browser — {sb.name}"
+							onload={() => (paneLoaded[m] = true)}
 							class="min-h-0 w-full flex-1 border-0 bg-white {mode === m ? '' : 'hidden'}"
 							allow="clipboard-read; clipboard-write"
 							sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
@@ -476,12 +483,22 @@ const sb = $derived(data.session?.sandbox ?? null);
 					<iframe
 						src={data.session.panes[m].url}
 						title="{m} — {sb.name}"
+						onload={() => (paneLoaded[m] = true)}
 						class="bg-canvas min-h-0 w-full flex-1 border-0 {mode === m ? '' : 'hidden'}"
 						allow="clipboard-read; clipboard-write"
 					></iframe>
 				{/if}
 			{/if}
 		{/each}
+		{#if data.session.panes[mode].ready && !paneLoaded[mode]}
+			<!-- Sits in flow beneath the mounted iframe, which is still blank -->
+			<div class="pointer-events-none flex flex-1 items-center justify-center">
+				<span class="text-muted flex items-center gap-[9px] text-[12px]">
+					<span class="bg-accent size-[5px] animate-pulse rounded-full"></span>
+					loading {mode}…
+				</span>
+			</div>
+		{/if}
 		{#if !data.session.panes[mode].ready}
 			<div class="flex flex-1 flex-col items-center justify-center gap-3">
 				<span class="flex items-center gap-[9px]">

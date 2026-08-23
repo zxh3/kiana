@@ -39,7 +39,7 @@ const TTYD_COMMIT = "2922cb89f518bae4d0fcf4d757a7419638fc71fc";
  *
  * Mirrored in $lib/runtimeVersion.ts for the client; keep the two in step.
  */
-export const RUNTIME_VERSION = 3;
+export const RUNTIME_VERSION = 4;
 const CODE_SERVER_VERSION = "4.133.0";
 const UV_VERSION = "0.12.5";
 const CADDY_VERSION = "2.11.4";
@@ -67,8 +67,12 @@ export const runtimeCommands = [
   `RUN curl -fsSL https://astral.sh/uv/${UV_VERSION}/install.sh | sh`,
   // the installers drop binaries in /root/.local/bin, which login shells don't have on PATH
   "RUN ln -sf /root/.local/bin/herdr /root/.local/bin/code-server /root/.local/bin/uv /root/.local/bin/uvx /usr/local/bin/",
-  // code-server defaults: dark theme, no telemetry, no trust prompts
-  `RUN mkdir -p /root/.local/share/code-server/User && printf '%s' '{"workbench.colorTheme":"Default Dark Modern","security.workspace.trust.enabled":false,"telemetry.telemetryLevel":"off","workbench.startupEditor":"none"}' > /root/.local/share/code-server/User/settings.json`,
+  // code-server defaults: dark theme, no telemetry, no trust prompts.
+  // `autoDetectColorScheme` must be off — it is on by default and follows the
+  // *browser's* preference, which silently overrode the theme and rendered the
+  // pane light inside a dark console. The theme id is the one this build
+  // actually contributes ("Dark Modern"); ids from other versions are ignored.
+  `RUN mkdir -p /root/.local/share/code-server/User && printf '%s' '{"workbench.colorTheme":"Dark Modern","window.autoDetectColorScheme":false,"security.workspace.trust.enabled":false,"telemetry.telemetryLevel":"off","workbench.startupEditor":"none"}' > /root/.local/share/code-server/User/settings.json`,
   // the working directory: an ordinary directory, captured by snapshots
   // like the rest of the machine
   `RUN mkdir -p ${WORKSPACE_DIR} && printf '%s' '${RUNTIME_VERSION}' > /etc/kitchen-runtime-version`,

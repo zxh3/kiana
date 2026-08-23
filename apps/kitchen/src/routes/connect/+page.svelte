@@ -205,7 +205,20 @@ async function setRetention(days: RetentionDays) {
 		</p>
 
 		<div class="flex flex-col gap-[9px] border-t border-white/8 pt-5">
-			<span class="text-label text-[11.5px] font-medium">Keep automatic snapshots for</span>
+			<span class="text-label flex items-center gap-[7px] text-[11.5px] font-medium">
+				Keep automatic snapshots for
+				{#if retentionDays === undefined}
+					<span class="text-muted flex items-center gap-[5px] text-[10.5px] font-normal">
+						<span class="bg-accent size-[4px] animate-pulse rounded-full"></span>
+						loading
+					</span>
+				{:else if savingRetention}
+					<span class="text-muted flex items-center gap-[5px] text-[10.5px] font-normal">
+						<span class="bg-accent size-[4px] animate-pulse rounded-full"></span>
+						saving
+					</span>
+				{/if}
+			</span>
 			<div class="flex gap-[7px]">
 				{#each retentionOptions as option (option.label)}
 					<button

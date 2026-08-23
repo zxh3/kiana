@@ -172,6 +172,7 @@ async function restoreTo(snapshot: Snapshot, saveFirst: boolean) {
   );
   if (row?.kind !== "running") return;
   actionError = null;
+  busy[snapshot.sandbox] = saveFirst ? "Saving…" : "Stopping…";
   livePhase[snapshot.sandbox] = saveFirst ? "snapshotting" : "stopping";
   await stop(
     data.workspace,
@@ -186,6 +187,7 @@ async function restoreTo(snapshot: Snapshot, saveFirst: boolean) {
     },
   );
   await invalidate("app:sandboxes");
+  delete busy[snapshot.sandbox];
   startLaunch(row.sb, { fromSnapshot: snapshot.tag });
 }
 
