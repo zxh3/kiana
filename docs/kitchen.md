@@ -110,6 +110,19 @@ Everything they merely read is sans. Nothing on screen sits below 10px.
   with `+`; a single overflow menu holding Stop.
 - **Status** — Running `#5FD08A` (halo), Stopped `#6A6A72` (no halo),
   Failed `#E2725B`.
+- **Every button inside a dialog's `<form>` states its `type`.** `Dialog.Close`
+  renders a bare `<button>`, which defaults to `type="submit"` — so Cancel and
+  the header ✕ in the create and fork drawers were *submitting* the form:
+  "Cancel" launched a sandbox. Fixed by making them `type="button"`; only the
+  one real action is a submit.
+
+### 2.4a The chef
+
+One painting (a cat in chef's whites, `static/chef.jpg`) and the favicon cropped
+from its face. It appears in exactly one place in the app: the empty state of
+the sandboxes table, where there is nothing else to show. A screen with
+sandboxes on it is data first — decoration there would be noise, and the rule
+"only where the app has nothing to say" keeps it from spreading.
 
 ### 2.5 Voice
 
@@ -352,13 +365,14 @@ so a shortcut cannot exist undocumented.
 
 | Key | Action |
 |---|---|
+| `⌘K` / `Ctrl+K` | command palette (anywhere) |
 | `?` | shortcuts panel (anywhere) |
 | `c` / `r` | create sandbox / refresh (list) |
 | `1`–`4` | zsh / herdr / vscode / browser pane |
 | `s` / `b` | save a snapshot / back to the list |
 
-There is a visible `?` button in both top bars, because discovering `?` by
-guessing is not discovery.
+There is a visible `?` button in both top bars, and a `Search ⌘K` control next
+to it, because discovering a key by guessing is not discovery.
 
 Two constraints shaped the choice. `Mod+1..4` is the conventional way to
 switch tabs, but browsers keep that combination for their own tabs, so plain
@@ -369,6 +383,32 @@ stops pretending: the `?` button dims while a pane holds the keyboard (polled
 from `document.activeElement`), its tooltip says clicking it takes the keyboard
 back, and every shortcut also has a button. Keys are a shortcut, never the only
 route.
+
+### 3.5d Command palette
+
+`⌘K` (`Ctrl+K` off the Mac) opens one box that types its way to a sandbox or an
+action: every sandbox by name, then Create sandbox / Keyboard shortcuts /
+Settings. `↑↓` moves, `↵` runs, `esc` closes, and the first sandbox is selected
+on open — so `⌘K ↵` is "back into the machine I was in", and `⌘K` on an empty
+kitchen lands on Create instead.
+
+Three decisions worth keeping:
+
+- **Enter means zsh.** A sandbox has four panes; asking which one at the moment
+  of jumping would make the fast path slow. A stopped sandbox reads `start`
+  rather than `zsh`, and starting it lands on the table where the row narrates
+  the launch.
+- **The same list as the table.** The palette runs the same two fetches and the
+  same "a stopped sandbox is only worth listing if it has a snapshot" rule
+  (`visibleSnapshots`), so a sandbox can never be findable in one place and
+  missing from the other.
+- **Cross-screen actions travel by URL.** The create drawer lives on the table,
+  so the palette asks for it with `/?new=1`, consumed by a `replaceState` on
+  arrival. That is what makes Create work from inside a sandbox, and it keeps
+  the palette from owning state that belongs to a screen.
+
+Inside a sandbox the shortcut is subject to the pane-focus rule below, which is
+why the session bar carries a `⌘K` button of its own.
 
 ### 3.5c Links back to Modal
 

@@ -21,7 +21,9 @@ import { RUNTIME_VERSION } from "$lib/server/runtime";
 import {
   defaultRetentionDays,
   type RetentionDays,
+  type SandboxSnapshots,
   type Snapshot,
+  type SnapshotDigest,
 } from "$lib/types";
 
 /**
@@ -213,20 +215,13 @@ export async function listSnapshots(
 }
 
 /**
- * One row per sandbox that has snapshots, for the table: how many snapshots
- * it has and when its newest state was captured. This is server-side truth the
- * browser would otherwise have to remember — a sandbox's last-stopped time and
- * whether it has anything to go back to.
+ * One row per sandbox that has snapshots, for the table and the palette: what
+ * it can go back to, and when that state was captured. This is server-side
+ * truth the browser would otherwise have to remember.
  */
-export interface SnapshotSummary {
-  tag: string;
-  createdAt: string;
-  kind: Snapshot["kind"];
-}
-
 export async function snapshotSummary(
   ctx: SnapshotContext,
-): Promise<{ sandbox: string; snapshots: SnapshotSummary[] }[]> {
+): Promise<SandboxSnapshots[]> {
   const deleted = await tombstoneId(ctx);
   const snapshots: Snapshot[] = [];
   let pageToken = "";
@@ -252,7 +247,7 @@ export async function snapshotSummary(
   // Tags rather than a count, so the caller can collapse kept twins with the
   // same rule the drawer uses.
   const now = Date.now();
-  const summary = new Map<string, SnapshotSummary[]>();
+  const summary = new Map<string, SnapshotDigest[]>();
   for (const snapshot of snapshots) {
     if (snapshot.expiresAt && new Date(snapshot.expiresAt).getTime() <= now)
       continue;

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { DropdownMenu, Popover } from "bits-ui";
-import { goto, invalidate } from "$app/navigation";
+import { goto, invalidate, replaceState } from "$app/navigation";
+import { page } from "$app/state";
 import { ApiError, api } from "$lib/api";
 import CreateSandboxDialog from "$lib/components/CreateSandboxDialog.svelte";
 import ForkDialog from "$lib/components/ForkDialog.svelte";
@@ -8,9 +9,10 @@ import Logo from "$lib/components/Logo.svelte";
 import SnapshotsDrawer from "$lib/components/SnapshotsDrawer.svelte";
 import StatusDot from "$lib/components/StatusDot.svelte";
 import { formatAgo, formatResources, formatUptime } from "$lib/format";
-import { bindHotkeys } from "$lib/hotkeys";
+import { bindHotkeys, displayKeys, PALETTE_KEY } from "$lib/hotkeys";
 import { type LaunchOptions, launch, stop } from "$lib/launch";
 import { sandboxUrl, workspaceUrl } from "$lib/modalLinks";
+import { palette } from "$lib/palette.svelte";
 import { clearPending } from "$lib/pending";
 import { shortcutsPanel } from "$lib/shortcutsPanel.svelte";
 import {
@@ -64,6 +66,20 @@ const pending = $derived(
 $effect(() => {
   const t = setInterval(() => (now = Date.now()), pending ? 1000 : 30_000);
   return () => clearInterval(t);
+});
+
+/**
+ * `?new=1` opens the create dialog. Asking by URL is what lets the command
+ * palette offer "Create sandbox" from anywhere, including from inside a
+ * sandbox — the dialog lives here, so the request has to travel with the
+ * navigation. The parameter is consumed so a reload does not reopen it.
+ */
+$effect(() => {
+  if (!page.url.searchParams.has("new")) return;
+  createOpen = true;
+  const url = new URL(page.url);
+  url.searchParams.delete("new");
+  replaceState(url, {});
 });
 
 // The two things worth doing without reaching for the mouse.
@@ -290,6 +306,16 @@ const modeIcons: Record<string, string> = {
 		{/if}
 		<button
 			type="button"
+			onclick={() => (palette.open = true)}
+			title="Search sandboxes and actions"
+			class="text-secondary hover:text-control flex cursor-pointer items-center gap-[7px]
+				rounded-md border border-white/12 py-[4px] pr-[6px] pl-[9px] text-[11.5px] leading-none"
+		>
+			Search
+			<kbd class="text-faint font-mono text-[10px]">{displayKeys(PALETTE_KEY)}</kbd>
+		</button>
+		<button
+			type="button"
 			onclick={() => (shortcutsPanel.open = true)}
 			title="Keyboard shortcuts (?)"
 			aria-label="Keyboard shortcuts"
@@ -336,14 +362,29 @@ const modeIcons: Record<string, string> = {
 	{/if}
 
 	{#if data.rows.length === 0}
-		<div class="flex flex-1 flex-col items-center justify-center gap-3 pb-24">
-			<p class="text-body text-[12.5px]">No running sandboxes.</p>
+		<!--
+			The one screen with nothing to show. A picture is welcome here and
+			nowhere else: on a screen with sandboxes on it, data comes first.
+		-->
+		<div class="flex flex-1 flex-col items-center justify-center gap-[18px] pb-24">
+			<img
+				src="/chef.jpg"
+				alt=""
+				width="140"
+				height="140"
+				class="size-[140px] rounded-[18px] border border-white/10 object-cover shadow-[0_20px_46px_-26px_rgba(0,0,0,0.95)]"
+			/>
+			<div class="flex flex-col items-center gap-[5px]">
+				<p class="text-control text-[13.5px] leading-none font-medium">The kitchen is empty</p>
+				<p class="text-muted text-[12px] leading-none">Nothing is running here yet.</p>
+			</div>
 			<button
 				type="button"
 				onclick={() => (createOpen = true)}
-				class="text-control cursor-pointer rounded-md border border-white/12 px-[14px] py-2 text-[12.5px] font-medium hover:bg-white/5"
+				class="text-control flex cursor-pointer items-center gap-[9px] rounded-md border border-white/12 px-[14px] py-2 text-[12.5px] font-medium hover:bg-white/5"
 			>
 				Create a sandbox
+				<kbd class="text-muted rounded-[4px] border border-white/12 px-[5px] py-[2px] font-mono text-[10px] leading-none">C</kbd>
 			</button>
 		</div>
 	{:else}

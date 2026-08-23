@@ -101,6 +101,7 @@ function submit(event: SubmitEvent) {
 						</Dialog.Description>
 					</div>
 					<Dialog.Close
+						type="button"
 						class="text-body flex size-[26px] cursor-pointer items-center justify-center rounded-md border border-white/12 text-xs hover:bg-white/5"
 						aria-label="Close"
 					>
@@ -237,6 +238,7 @@ function submit(event: SubmitEvent) {
 
 				<div class="flex items-center justify-end gap-2 border-t border-white/8 px-[22px] py-[14px]">
 					<Dialog.Close
+						type="button"
 						class="text-control cursor-pointer rounded-[7px] border border-white/12 px-[14px] py-[10px] text-[12.5px] font-medium hover:bg-white/5"
 					>
 						Cancel

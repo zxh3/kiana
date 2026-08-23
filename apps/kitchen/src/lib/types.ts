@@ -114,6 +114,22 @@ export interface Snapshot {
 }
 
 /**
+ * What the summary endpoint reports per sandbox: the snapshots it has, trimmed
+ * to what a caller needs to count and order them with the same rule the drawer
+ * uses. Shared so the table and the command palette cannot drift apart.
+ */
+export interface SnapshotDigest {
+  tag: string;
+  createdAt: string;
+  kind: Snapshot["kind"];
+}
+
+export interface SandboxSnapshots {
+  sandbox: string;
+  snapshots: SnapshotDigest[];
+}
+
+/**
  * Progress for the two slow operations. Starting a sandbox can take minutes
  * (a first-time image build) and stopping one takes as long as its snapshot,
  * so both endpoints stream these as NDJSON rather than leaving the client on a

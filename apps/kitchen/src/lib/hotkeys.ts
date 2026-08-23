@@ -42,7 +42,14 @@ export interface Shortcut {
  */
 export const HELP_KEY = "Shift+/" as Hotkey;
 
+/**
+ * The palette's key. `Mod+K` is what every app with a palette uses, and it is
+ * one of the few modifier combinations browsers hand to the page.
+ */
+export const PALETTE_KEY = "Mod+K" as const;
+
 export const shortcuts: Shortcut[] = [
+  { keys: PALETTE_KEY, label: "Command palette", scope: "Anywhere" },
   { keys: HELP_KEY, label: "Keyboard shortcuts", scope: "Anywhere" },
   { keys: "C", label: "Create a sandbox", scope: "Sandboxes" },
   { keys: "R", label: "Refresh the list", scope: "Sandboxes" },

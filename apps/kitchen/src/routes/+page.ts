@@ -7,6 +7,7 @@ import { visibleSnapshots } from "$lib/snapshots";
 import type {
   OpPhase,
   SandboxInfo,
+  SandboxSnapshots,
   SandboxSpec,
   StoppedSandbox,
 } from "$lib/types";
@@ -46,16 +47,9 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
         {},
         fetch,
       ),
-      api<{
-        summary: {
-          sandbox: string;
-          snapshots: {
-            tag: string;
-            createdAt: string;
-            kind: "auto" | "keep";
-          }[];
-        }[];
-      }>("/api/snapshots", {}, fetch).catch(() => ({ summary: [] })),
+      api<{ summary: SandboxSnapshots[] }>("/api/snapshots", {}, fetch).catch(
+        () => ({ summary: [] as SandboxSnapshots[] }),
+      ),
     ]);
 
     const counts = new Map(

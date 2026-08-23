@@ -5,9 +5,10 @@ import { page } from "$app/state";
 import { api } from "$lib/api";
 import SnapshotsDrawer from "$lib/components/SnapshotsDrawer.svelte";
 import { formatResources, formatUptime } from "$lib/format";
-import { bindHotkeys } from "$lib/hotkeys";
+import { bindHotkeys, displayKeys, PALETTE_KEY } from "$lib/hotkeys";
 import { launch, saveSnapshotNow, stop } from "$lib/launch";
 import { sandboxUrl } from "$lib/modalLinks";
+import { palette } from "$lib/palette.svelte";
 import { RUNTIME_VERSION } from "$lib/runtimeVersion";
 import { shortcutsPanel } from "$lib/shortcutsPanel.svelte";
 import { visibleSnapshots } from "$lib/snapshots";
@@ -369,6 +370,18 @@ const sb = $derived(data.session?.sandbox ?? null);
 			</span>
 
 			<span class="h-[18px] w-px flex-none bg-white/10"></span>
+
+			<button
+				type="button"
+				onclick={() => (palette.open = true)}
+				title="Search sandboxes and actions ({displayKeys(PALETTE_KEY)})"
+				aria-label="Command palette"
+				class="text-secondary hover:text-control flex flex-none cursor-pointer items-center
+					justify-center rounded-md border border-white/12 px-[7px] py-[6px] font-mono
+					text-[10.5px] leading-none hover:bg-white/5"
+			>
+				{displayKeys(PALETTE_KEY)}
+			</button>
 
 			<button
 				type="button"
