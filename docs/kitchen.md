@@ -259,7 +259,11 @@ CLIs herdr detects out of the
 box: **Claude Code** (`@anthropic-ai/claude-code`), **Codex**
 (`@openai/codex`) and **pi** (`@earendil-works/pi-coding-agent`), plus **uv**
 (pinned; `uv` and `uvx` on PATH) so a Python project needs no setup and uv can
-fetch its own interpreters. Modal's
+fetch its own interpreters, and **gh** 2.98.0 (the binary only — the release
+tarball is 15MB of man pages) for private clones, PRs and CI from inside the
+sandbox. Nothing is authenticated at build time: `gh auth login` runs the
+device flow in the terminal, and what it writes to `/root/.config/gh` is part
+of the machine, so the snapshot keeps the login. Modal's
 layer cache freezes whatever versions npm resolved on first build — bump the
 comment marker in the npm layer to force a refresh. Modal caches image builds by layer content: the first launch per base
 image builds (~30s–3min), every launch after reuses it. Builds are lazy — no

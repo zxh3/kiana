@@ -39,10 +39,11 @@ const TTYD_COMMIT = "2922cb89f518bae4d0fcf4d757a7419638fc71fc";
  *
  * Mirrored in $lib/runtimeVersion.ts for the client; keep the two in step.
  */
-export const RUNTIME_VERSION = 4;
+export const RUNTIME_VERSION = 5;
 const CODE_SERVER_VERSION = "4.133.0";
 const UV_VERSION = "0.12.5";
 const CADDY_VERSION = "2.11.4";
+const GH_VERSION = "2.98.0";
 
 import { modePorts, WORKSPACE_DIR } from "$lib/types";
 
@@ -65,6 +66,12 @@ export const runtimeCommands = [
   // uv: python packaging and standalone python builds, so a python project
   // needs no setup beyond `uv sync`. Pinned like everything else here.
   `RUN curl -fsSL https://astral.sh/uv/${UV_VERSION}/install.sh | sh`,
+  // gh: cloning private repos, opening PRs, reading CI from inside the
+  // sandbox. Only the binary — the release tarball is 15MB of man pages.
+  // Nothing is authenticated at build time; `gh auth login` uses the device
+  // flow (a code and a URL in the terminal), and the credentials it writes to
+  // /root/.config/gh are part of the machine, so a snapshot keeps the login.
+  `RUN curl -fsSL https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz | tar -xz -C /usr/local/bin --strip-components=2 gh_${GH_VERSION}_linux_amd64/bin/gh`,
   // the installers drop binaries in /root/.local/bin, which login shells don't have on PATH
   "RUN ln -sf /root/.local/bin/herdr /root/.local/bin/code-server /root/.local/bin/uv /root/.local/bin/uvx /usr/local/bin/",
   // code-server defaults: dark theme, no telemetry, no trust prompts.
@@ -139,7 +146,7 @@ printf 'machine; starting %s again restores it:\n\n' "$NAME"
 printf '  /workspace                      your files\n'
 printf '  apt / pip / npm -g installs     wherever they normally land\n'
 printf '  uv / rustup / nvm, any toolchain no special setup needed\n'
-printf '  agent logins, herdr sessions    claude / codex / pi, ~/.config\n'
+printf '  agent + gh logins, herdr        claude / codex / pi / gh, ~/.config\n'
 printf '  vscode settings + extensions    dotfiles, /etc, shell history\n\n'
 printf 'so install things normally - nothing needs to live in a special path.\n\n'
 if [ -n "$KITCHEN_VOLUMES" ]; then
