@@ -44,6 +44,20 @@ const CODE_SERVER_VERSION = "4.133.0";
 const UV_VERSION = "0.12.5";
 const CADDY_VERSION = "2.11.4";
 
+/**
+ * Bin dirs for user-level toolchains, prepended to PATH everywhere kitchen
+ * sets it (the boot script's own env, /etc/profile.d, /etc/zsh/zshenv).
+ * ttyd, code-server and the herdr server all inherit the boot script's env,
+ * and PATH entries are resolved at exec time — so a dir that does not exist
+ * yet (rustup's shims, say) starts working for those long-running services
+ * the moment it appears, no restart or config edit needed. Without this, a
+ * herdr plugin installed after rustup fails to build: its `cargo build`
+ * runs with the server's frozen boot-time PATH. rustup -> ~/.cargo/bin;
+ * uv/herdr -> ~/.local/bin. Extend the list if a toolchain installs its
+ * shims elsewhere (nvm's versioned dirs can't be pre-provisioned this way).
+ */
+const USER_BIN_DIRS = "/root/.cargo/bin:/root/.local/bin";
+
 import { modePorts, WORKSPACE_DIR } from "$lib/types";
 
 /** Caddy proxies each public port to the service on localhost. */
@@ -90,7 +104,7 @@ export const bootScript = String.raw`
 set -u
 [ -n "$KITCHEN_SECRET" ] || { echo "KITCHEN_SECRET not set" >&2; exit 1; }
 [ -n "$KITCHEN_SANDBOX_NAME" ] || KITCHEN_SANDBOX_NAME=sandbox
-export PATH="/root/.local/bin:$PATH"
+export PATH="${USER_BIN_DIRS}:$PATH"
 export SHELL=/usr/bin/zsh
 # Unix sockets are fine on the sandbox's own filesystem now, but /tmp keeps
 # the socket out of snapshots, where a stale socket file is meaningless.
@@ -118,7 +132,7 @@ fi
 # --- prompt (root's .bashrc would otherwise override profile.d) ---
 cat > /etc/profile.d/kitchen.sh <<PROFILE
 export PS1='\[\e[38;5;191m\]kitchen@'$KITCHEN_SANDBOX_NAME'\[\e[0m\]:\[\e[38;5;110m\]\w\[\e[0m\]$ '
-export PATH="/root/.local/bin:\$PATH"
+export PATH="${USER_BIN_DIRS}:\$PATH"
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
 case \$- in *i*)
 	if [ -z "\$KITCHEN_MOTD_SHOWN" ]; then
@@ -159,7 +173,7 @@ chmod +x /usr/local/bin/kitchen
 
 # --- zsh: env for every invocation, plus the kitchen prompt + MOTD ---
 cat > /etc/zsh/zshenv <<ZSHENV
-export PATH="/root/.local/bin:\$PATH"
+export PATH="${USER_BIN_DIRS}:\$PATH"
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
 export SHELL=/usr/bin/zsh
 ZSHENV
