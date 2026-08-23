@@ -97,7 +97,23 @@ export const bootScript = String.raw`
 set -u
 [ -n "$KITCHEN_SECRET" ] || { echo "KITCHEN_SECRET not set" >&2; exit 1; }
 [ -n "$KITCHEN_SANDBOX_NAME" ] || KITCHEN_SANDBOX_NAME=sandbox
-export PATH="/root/.local/bin:$PATH"
+# Where installers put things, named on PATH BEFORE they exist.
+#
+# PATH is frozen per process at exec time: a service started at boot can never
+# learn about a directory that appeared an hour later, and no amount of
+# sourcing .zshrc in your shell changes the environment of a daemon. Listing
+# the directories up front is the only fix that works without a restart — a
+# missing entry is skipped, and starts resolving the moment it exists. So
+# rustup-installed cargo is found by the herdr server that spawns the build,
+# even though rustup ran long after boot.
+#
+# For anything that lands somewhere else: symlink it into /usr/local/bin,
+# which is on every PATH here. Do not kill a service to give it a new
+# environment — herdr's daemon inherits from the ttyd that spawns it (so it
+# comes back with the same PATH), and the four supervised services fail the
+# whole sandbox when they exit.
+KITCHEN_TOOL_PATH=/root/.cargo/bin:/root/.local/bin:/root/.bun/bin:/root/.deno/bin:/root/go/bin:/usr/local/go/bin
+export PATH="$KITCHEN_TOOL_PATH:$PATH"
 export SHELL=/usr/bin/zsh
 # Unix sockets are fine on the sandbox's own filesystem now, but /tmp keeps
 # the socket out of snapshots, where a stale socket file is meaningless.
@@ -125,7 +141,7 @@ fi
 # --- prompt (root's .bashrc would otherwise override profile.d) ---
 cat > /etc/profile.d/kitchen.sh <<PROFILE
 export PS1='\[\e[38;5;191m\]kitchen@'$KITCHEN_SANDBOX_NAME'\[\e[0m\]:\[\e[38;5;110m\]\w\[\e[0m\]$ '
-export PATH="/root/.local/bin:\$PATH"
+export PATH="$KITCHEN_TOOL_PATH:\$PATH"
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
 case \$- in *i*)
 	if [ -z "\$KITCHEN_MOTD_SHOWN" ]; then
@@ -160,13 +176,22 @@ printf '  work done after the last snapshot, if this sandbox is killed\n'
 printf '  without being stopped (it has a 24h lifetime). stop it when you are\n'
 printf '  done, or mount a volume for anything you cannot lose.\n\n'
 printf 'browser tab:\n'
-printf '  proxies to port 3000 in this sandbox - start any dev server there\n'
+printf '  proxies to port 3000 in this sandbox - start any dev server there\n\n'
+printf 'tools you install later:\n'
+printf '  herdr and vscode keep the PATH they booted with, so a tool installed\n'
+printf '  after boot has to land somewhere already on it. these are:\n'
+printf '    ~/.cargo/bin  ~/.local/bin  ~/go/bin  ~/.bun/bin  ~/.deno/bin\n'
+printf '    /usr/local/go/bin  /usr/local/bin  (rustup, uv, go, bun, deno)\n'
+printf '  anything elsewhere: ln -s <dir>/<tool> /usr/local/bin/ - takes\n'
+printf '  effect immediately, no restart. restarting a service does NOT pick\n'
+printf '  up a new PATH, and stopping one fails the sandbox.\n'
 KITCHENCMD
 chmod +x /usr/local/bin/kitchen
 
 # --- zsh: env for every invocation, plus the kitchen prompt + MOTD ---
 cat > /etc/zsh/zshenv <<ZSHENV
-export PATH="/root/.local/bin:\$PATH"
+typeset -U path PATH
+export PATH="$KITCHEN_TOOL_PATH:\$PATH"
 export HERDR_SOCKET_PATH=/tmp/herdr.sock
 export SHELL=/usr/bin/zsh
 ZSHENV

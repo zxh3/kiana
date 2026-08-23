@@ -275,6 +275,25 @@ persistence, writes the Caddyfile from `KITCHEN_SECRET`, and starts the
 services; if any dies the script exits nonzero and the reconciler marks the
 sandbox failed.
 
+**PATH names tool directories before they exist.** A process's PATH is frozen
+at exec time, so a service started at boot can never learn about a directory
+that appears an hour later — install rustup mid-session and the herdr daemon
+spawning `cargo build` still cannot find `cargo`, no matter what the
+interactive shell sources. Restarting the service does not help either: herdr's
+daemon inherits from the ttyd that spawns it, and the four supervised services
+fail the whole sandbox when they exit. So the boot script puts the standard
+install directories on PATH up front —
+`~/.cargo/bin ~/.local/bin ~/.bun/bin ~/.deno/bin ~/go/bin /usr/local/go/bin` —
+where a missing entry costs nothing and starts resolving the moment it exists.
+One definition (`KITCHEN_TOOL_PATH`) is baked into all three consumers: the
+boot environment the services inherit, `/etc/profile.d/kitchen.sh`, and
+`/etc/zsh/zshenv` (which also sets `typeset -U path`, so nested shells stop
+stacking duplicates). Anything installed outside those directories is a
+`ln -s` into `/usr/local/bin` away, which needs no restart because that
+directory is already on every PATH. This lives in the boot script rather than
+the image, so a sandbox restored from an older snapshot gets it on its next
+start — no rebuild, no runtime bump.
+
 | Public port | Service | Pane |
 |---|---|---|
 | 7681 | ttyd → `zsh` (oh-my-zsh: git + zsh-autosuggestions) in /workspace | zsh |
