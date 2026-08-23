@@ -200,7 +200,12 @@ async function forget(name: string) {
   await invalidate("app:sandboxes");
 }
 
-async function dismissError(name: string) {
+/**
+ * Stop tracking a local operation — a failed launch, or one this tab can no
+ * longer observe. Nothing is cancelled: a build already running on Modal keeps
+ * going, and if the sandbox appears it shows up as running like any other.
+ */
+async function dismissPending(name: string) {
   clearPending(data.workspace, name);
   await invalidate("app:sandboxes");
 }
@@ -492,8 +497,18 @@ const modeIcons: Record<string, string> = {
 						<span class="text-muted font-mono text-[11px] whitespace-nowrap">
 							{phaseLabel(spec.name, row.phase) === opPhaseLabels.image
 								? 'first build ~2 min'
-								: 'almost there'}
+								: phaseLabel(spec.name, row.phase) === opPhaseLabels.watching
+									? 'not observing it'
+									: 'almost there'}
 						</span>
+						<button
+							type="button"
+							onclick={() => dismissPending(spec.name)}
+							title="Stop tracking this launch. If the sandbox does come up it appears here as running — nothing is cancelled by dismissing."
+							class="text-body cursor-pointer rounded-[5px] border border-white/12 px-[9px] py-[6px] text-[11.5px] leading-none font-medium hover:bg-white/5"
+						>
+							Dismiss
+						</button>
 					{:else}
 						{#if row.kind === 'failed' && /any more/.test(row.error)}
 							<!-- Every snapshot is gone: retrying cannot help, so offer the only
@@ -540,7 +555,7 @@ const modeIcons: Record<string, string> = {
 									{#if row.kind === 'failed'}
 										<DropdownMenu.Item
 											class="text-control data-highlighted:bg-white/6 cursor-pointer rounded-md px-[9px] py-[9px] text-[12.5px]"
-											onSelect={() => dismissError(spec.name)}
+											onSelect={() => dismissPending(spec.name)}
 										>
 											Dismiss error
 										</DropdownMenu.Item>

@@ -40,6 +40,16 @@ const NAME_RETRY_INTERVAL_MS = 4000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Launches this tab is actively streaming.
+ *
+ * A pending record outlives the tab that made it — reload, and the record is
+ * still there but nothing is watching the stream any more. Without this the
+ * row would keep claiming "building image" from a stream no one is reading,
+ * which is how a dead launch looks like a slow one.
+ */
+export const streaming = new Set<string>();
+
 export interface LaunchHandlers {
   onPhase?: (phase: OpPhase) => void;
   onDone?: () => void;
@@ -154,6 +164,7 @@ export async function launch(
   };
 
   markCreating(workspace, spec);
+  streaming.add(spec.name);
   handlers.onPhase?.("resolving");
 
   for (let tries = 1; ; tries++) {
@@ -176,6 +187,7 @@ export async function launch(
       phase,
     );
     if (result.ok) {
+      streaming.delete(spec.name);
       clearPending(workspace, spec.name);
       handlers.onDone?.();
       return;
@@ -197,21 +209,27 @@ export async function launch(
     }
 
     if (!result.streamDied) {
+      streaming.delete(spec.name);
       fail(result.error);
       return;
     }
 
-    // The launch may have survived the broken connection: watch the list.
+    // The launch may have survived the broken connection, so watch the list —
+    // and say that is what is happening, rather than repeating a build phase
+    // nobody is reading any more.
+    phase("watching");
     for (let i = 0; i < RECOVER_ATTEMPTS; i++) {
       await sleep(RECOVER_INTERVAL_MS);
       if (await isRunning(spec.name)) {
+        streaming.delete(spec.name);
         clearPending(workspace, spec.name);
         handlers.onDone?.();
         return;
       }
     }
+    streaming.delete(spec.name);
     fail(
-      "Lost contact with the launch and the sandbox never came up. Retrying is safe — the build resumes from cache.",
+      "Lost contact with the launch and the sandbox never came up. Retrying is safe — a build resumes from cache.",
     );
     return;
   }

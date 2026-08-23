@@ -267,6 +267,24 @@ longer has. Three outcomes:
 The browser also forgets that sandbox's tags at that moment — a start proved
 they are all dead — so the row stops advertising points it cannot use.
 
+## A launch that looks stuck
+
+A pending launch lives in the browser (nothing else can know about a sandbox
+that does not exist yet), and it outlives the tab that started it. Reload, and
+the record is still there but nothing is reading the stream any more — which is
+how a dead launch came to look like a slow one, sitting on "building image"
+until the 8-minute staleness converted it to a failure.
+
+Two changes make that state legible:
+
+- A tab tracks which launches it is actually streaming. A pending launch it is
+  not streaming reports **"lost contact — watching for it"** rather than
+  repeating a build phase nobody is observing. Modal's list is still polled, so
+  a launch that does land still flips the row to running.
+- Every pending row has **Dismiss**, so waiting is never the only option. It
+  clears the local record and cancels nothing: a build already running on Modal
+  continues, and if the sandbox appears it shows up as running like any other.
+
 ## Known rough edges
 
 - **Ghost tags.** There is no unpublish. A deleted point's tag still lists and

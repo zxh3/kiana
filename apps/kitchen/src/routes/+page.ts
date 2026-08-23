@@ -1,5 +1,6 @@
 import { redirect } from "@sveltejs/kit";
 import { ApiError, api } from "$lib/api";
+import { streaming } from "$lib/launch";
 import { loadPending, markFailed, OP_STALE_MS } from "$lib/pending";
 import { RUNTIME_VERSION } from "$lib/runtimeVersion";
 import { visibleSnapshots } from "$lib/snapshots";
@@ -96,7 +97,10 @@ export const load: PageLoad = async ({ fetch, depends, parent }) => {
           kind: "creating",
           spec: op.spec,
           startedAt: op.startedAt,
-          phase: op.phase,
+          // A launch this tab is not streaming (it was started elsewhere, or
+          // survived a reload) cannot honestly report a build phase: all we
+          // are doing is watching Modal's list for it to appear.
+          phase: streaming.has(name) ? op.phase : "watching",
           snapshots: countFor(name),
         });
       } else {

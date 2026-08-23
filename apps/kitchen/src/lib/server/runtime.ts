@@ -39,8 +39,9 @@ const TTYD_COMMIT = "2922cb89f518bae4d0fcf4d757a7419638fc71fc";
  *
  * Mirrored in $lib/runtimeVersion.ts for the client; keep the two in step.
  */
-export const RUNTIME_VERSION = 2;
+export const RUNTIME_VERSION = 3;
 const CODE_SERVER_VERSION = "4.133.0";
+const UV_VERSION = "0.12.5";
 const CADDY_VERSION = "2.11.4";
 
 import { modePorts, WORKSPACE_DIR } from "$lib/types";
@@ -61,8 +62,11 @@ export const runtimeCommands = [
   // resolved then — bump the trailing comment to force a refresh.
   "RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y --no-install-recommends nodejs && rm -rf /var/lib/apt/lists/*",
   "RUN npm install -g @anthropic-ai/claude-code @openai/codex @earendil-works/pi-coding-agent # agents-v1",
+  // uv: python packaging and standalone python builds, so a python project
+  // needs no setup beyond `uv sync`. Pinned like everything else here.
+  `RUN curl -fsSL https://astral.sh/uv/${UV_VERSION}/install.sh | sh`,
   // the installers drop binaries in /root/.local/bin, which login shells don't have on PATH
-  "RUN ln -sf /root/.local/bin/herdr /root/.local/bin/code-server /usr/local/bin/",
+  "RUN ln -sf /root/.local/bin/herdr /root/.local/bin/code-server /root/.local/bin/uv /root/.local/bin/uvx /usr/local/bin/",
   // code-server defaults: dark theme, no telemetry, no trust prompts
   `RUN mkdir -p /root/.local/share/code-server/User && printf '%s' '{"workbench.colorTheme":"Default Dark Modern","security.workspace.trust.enabled":false,"telemetry.telemetryLevel":"off","workbench.startupEditor":"none"}' > /root/.local/share/code-server/User/settings.json`,
   // the working directory: an ordinary directory, captured by snapshots
@@ -122,7 +126,7 @@ printf 'this sandbox IS its filesystem. stopping it saves a snapshot of the whol
 printf 'machine; starting %s again restores it:\n\n' "$NAME"
 printf '  /workspace                      your files\n'
 printf '  apt / pip / npm -g installs     wherever they normally land\n'
-printf '  rustup, nvm, any toolchain      no special setup needed\n'
+printf '  uv / rustup / nvm, any toolchain no special setup needed\n'
 printf '  agent logins, herdr sessions    claude / codex / pi, ~/.config\n'
 printf '  vscode settings + extensions    dotfiles, /etc, shell history\n\n'
 printf 'so install things normally - nothing needs to live in a special path.\n\n'
