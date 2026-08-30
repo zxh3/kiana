@@ -97,6 +97,11 @@ caffeinate -i uv run mediaforge process "$SOURCE" "$OUTPUT"
 Export and processing are incremental, so rerun the same commands after the
 album changes or to resume interrupted work.
 
+When adding media from another computer or a different Photos library, use the
+[multi-Mac import runbook](../../docs/add-photos-from-another-mac.md). It
+bootstraps and merges the cumulative R2 originals, processed media, and Apple
+Photos metadata before publishing a new release.
+
 After verification, mirror both releases to the configured `r2` remote and
 check the uploads:
 

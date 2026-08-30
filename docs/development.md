@@ -50,4 +50,7 @@ requirements, and the command-line build command.
 Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for
 commit messages. See
 [`packages/mediaforge/README.md`](../packages/mediaforge/README.md) for the
-photo-processing and release workflow.
+photo-processing and release workflow. When importing from a different Photos
+library or computer, follow
+[`docs/add-photos-from-another-mac.md`](add-photos-from-another-mac.md) to retain
+the cumulative originals, metadata, and production release safely.
