@@ -73,6 +73,16 @@ export function usePod({
   const seekTimer = useRef<number>(undefined);
   const lockTimer = useRef<number>(undefined);
 
+  // When the song changes (the wheel's ⏮ ⏭, a song ending, shuffle), the
+  // song lists follow it, so Cover Flow's middle cover is what is playing.
+  useEffect(() => {
+    setSelected((previous) => ({
+      ...previous,
+      covers: music.index,
+      songs: music.index,
+    }));
+  }, [music.index]);
+
   useEffect(
     () => () => {
       window.clearTimeout(overlayTimer.current);

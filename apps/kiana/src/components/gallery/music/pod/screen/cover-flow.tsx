@@ -26,8 +26,11 @@ export function CoverFlow({
   const track = tracks[selected];
   return (
     <div className="absolute inset-0 overflow-hidden bg-[radial-gradient(120%_85%_at_50%_0%,#303034_0%,#050505_72%)]">
+      {/* Perspective without a shared 3D space: each cover is drawn and hit
+      in its own projected place, where a preserve-3d stage would put the
+      covers pushed back behind the stage itself, out of reach of a click. */}
       <div
-        className="absolute inset-x-0 top-3 [perspective:260px] [transform-style:preserve-3d]"
+        className="pointer-events-none absolute inset-x-0 top-3 [perspective:260px]"
         style={{ height: COVER }}
       >
         {tracks.map((item, index) => {
@@ -42,7 +45,7 @@ export function CoverFlow({
               aria-label={
                 offset === 0 ? `Play ${item.title}` : `Show ${item.title}`
               }
-              className="absolute top-0 left-1/2 cursor-pointer bg-black transition-[transform,opacity] duration-300 ease-soft outline-none motion-reduce:transition-none"
+              className="pointer-events-auto absolute top-0 left-1/2 cursor-pointer bg-black transition-[transform,opacity] duration-300 ease-soft outline-none motion-reduce:transition-none"
               key={item.videoId}
               onClick={() => onPick(index)}
               style={{
