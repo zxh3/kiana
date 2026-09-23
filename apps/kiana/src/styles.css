@@ -15,6 +15,8 @@
   --color-mat: #e9e2d6;
   --color-taupe: #a89e92;
   --color-rose: #ff7a8a;
+  /* The glow of an old player's display, used only inside the music deck. */
+  --color-amber: #f4c67c;
 
   --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-swift: cubic-bezier(0.4, 0, 0.2, 1);
@@ -24,6 +26,7 @@
   --animate-breathe: breathe 2.4s ease-in-out infinite;
   --animate-now-playing: now-playing 1.4s var(--ease-soft) 0.3s 3;
   --animate-equalize: equalize 1s ease-in-out infinite;
+  --animate-marquee: marquee var(--marquee-duration, 12s) linear infinite;
 }
 
 @layer base {
@@ -80,6 +83,7 @@
   /* A slim slider: a hairline track that fills up to the thumb. */
   .range {
     --value: 50%;
+    --fill: var(--color-paper);
     appearance: none;
     height: 18px;
     background: transparent;
@@ -90,7 +94,7 @@
     border-radius: 9999px;
     background: linear-gradient(
       to right,
-      var(--color-paper) var(--value),
+      var(--fill) var(--value),
       rgb(246 240 230 / 0.18) var(--value)
     );
   }
@@ -115,7 +119,7 @@
   .range::-moz-range-progress {
     height: 3px;
     border-radius: 9999px;
-    background: var(--color-paper);
+    background: var(--fill);
   }
   .range::-moz-range-thumb {
     width: 13px;
@@ -167,6 +171,12 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
   }
 }
 
