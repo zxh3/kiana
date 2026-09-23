@@ -5,7 +5,7 @@ import { ClickWheel } from "./click-wheel";
 import { DragHandle } from "./drag-handle";
 import { FaceButtons } from "./face-buttons";
 import { HoldSwitch } from "./hold-switch";
-import { screenTitles } from "./menu";
+import { menuItems, screenTitles } from "./menu";
 import { CoverFlow } from "./screen/cover-flow";
 import { MenuPreview } from "./screen/menu-preview";
 import { NowPlaying } from "./screen/now-playing";
@@ -124,7 +124,11 @@ export function PocketPlayer({
       <div className="flex h-full">
         <div className="w-[56%]">{list}</div>
         <div className="flex-1">
-          <MenuPreview track={music.track} />
+          <MenuPreview
+            index={music.index}
+            item={menuItems[state.selected.menu]}
+            playlist={music.playlist}
+          />
         </div>
       </div>
     );

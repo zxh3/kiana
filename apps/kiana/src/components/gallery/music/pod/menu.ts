@@ -9,8 +9,12 @@ export type ChoiceScreen = Exclude<Screen, "now">;
 /** Screens drawn as a menu list. */
 export type ListScreen = Exclude<ChoiceScreen, "covers">;
 
+/**
+ * The top menu is titled with the device's name, as a real one showed the
+ * name its owner gave it.
+ */
 export const screenTitles: Record<Screen, string> = {
-  menu: "Music",
+  menu: "Kiana",
   covers: "Cover Flow",
   songs: "Songs",
   settings: "Settings",
@@ -30,7 +34,9 @@ export const parentScreen: Record<Screen, Screen | null> = {
 };
 
 /**
- * The top menu holds only music, with Now Playing last as on the original.
+ * The top menu, laid out as on the original: Shuffle Songs one press away,
+ * and Now Playing last. With a playlist this short the song screens sit
+ * here too, rather than a level down under "Music".
  * Putting the player away belongs to the widget's own minimize and close
  * buttons, not to the device's menus.
  */
