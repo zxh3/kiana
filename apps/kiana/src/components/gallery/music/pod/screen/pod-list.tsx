@@ -3,6 +3,7 @@ import { useState } from "react";
 import { cx } from "../../../../../lib/class-names";
 import { scrollWindow, VISIBLE_ROWS } from "../menu";
 import type { PodRow } from "../rows";
+import { useSwipeSteps } from "../use-swipe-steps";
 import { SpeakerGlyph } from "./glyphs";
 
 const ROW_HEIGHT = 19;
@@ -13,19 +14,21 @@ const highlight =
 
 /**
  * A menu list. The wheel moves the highlight and the centre button picks
- * the row; on the touch screen a tap picks it, and with a mouse the
- * highlight follows the pointer.
+ * the row; on the touch screen a drag up or down moves the highlight and a
+ * tap picks the row, and with a mouse the highlight follows the pointer.
  */
 export function PodList({
   label,
   onHover,
   onPick,
+  onStep,
   rows,
   selected,
 }: {
   label: string;
   onHover: (index: number) => void;
   onPick: (index: number) => void;
+  onStep: (steps: number) => void;
   rows: ReadonlyArray<PodRow>;
   selected: number;
 }) {
@@ -35,9 +38,14 @@ export function PodList({
   const start = scrollWindow(first, selected, rows.length);
   if (start !== first) setFirst(start);
   const scrolls = rows.length > VISIBLE_ROWS;
+  const swipe = useSwipeSteps<HTMLDivElement>({
+    axis: "y",
+    onStep,
+    size: ROW_HEIGHT,
+  });
 
   return (
-    <div className="relative h-full overflow-hidden">
+    <div {...swipe} className="relative h-full touch-none overflow-hidden">
       <ol
         aria-label={label}
         className="transition-transform duration-100 ease-out motion-reduce:transition-none"

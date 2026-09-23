@@ -47,6 +47,7 @@ function Pane({ children }: { children: ReactNode }) {
  * meant to light it never also jumps the song.
  */
 export function PodScreen({
+  asleep,
   battery,
   children,
   covered,
@@ -60,6 +61,8 @@ export function PodScreen({
   screen,
   state,
 }: {
+  /** Put to sleep by holding play: the screen is dark until touched. */
+  asleep: boolean;
   battery: BatteryState | null;
   children: ReactNode;
   /** The video lies over the display, so it takes no focus or taps. */
@@ -141,12 +144,17 @@ export function PodScreen({
             ) : null}
           </AnimatePresence>
         </div>
-        {/* The backlight: bright while in use, dim when left alone. */}
+        {/* The backlight: bright while in use, dim when left alone, and
+        dark while the player sleeps. */}
         <div
           aria-hidden="true"
           className={cx(
             "pointer-events-none absolute inset-0 bg-black transition-opacity ease-out",
-            lit ? "opacity-0 duration-150" : "opacity-40 duration-[1200ms]",
+            asleep
+              ? "opacity-100 duration-500"
+              : lit
+                ? "opacity-0 duration-150"
+                : "opacity-40 duration-[1200ms]",
           )}
         />
       </div>

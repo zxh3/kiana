@@ -7,6 +7,7 @@ import {
   type PodEffect,
   type PodState,
   podReducer,
+  seekStep,
 } from "./machine";
 
 const context: PodContext = {
@@ -170,6 +171,56 @@ describe("pocket player machine", () => {
     ).toContainEqual({ type: "video", on: false });
     const held = run([{ type: "toggleHold" }]).state;
     expect(run([{ type: "toggleVideo" }], held).effects).toEqual([]);
+  });
+
+  it("fast-forwards while ⏭ is held, faster over time, and lands on release", () => {
+    const holding = run([{ type: "holdStart", zone: "next" }]);
+    expect(holding.state.seeking).toBe(1);
+    expect(holding.state.overlay).toBe("scrub");
+    const ticked = run(
+      Array.from({ length: 12 }, () => ({ type: "seekTick" }) as const),
+      holding.state,
+    );
+    // Ten ticks of 2s, then two of 5s, from 0:30.
+    expect(ticked.state.scrubAt).toBe(30 + 10 * 2 + 2 * 5);
+    expect(seekStep(0)).toBe(2);
+    expect(seekStep(30)).toBe(10);
+    const released = run([{ type: "holdEnd", zone: "next" }], ticked.state);
+    expect(released.state.seeking).toBe(0);
+    expect(released.effects).toEqual([{ type: "seek", seconds: 60 }]);
+  });
+
+  it("rewinds while ⏮ is held, stopping at the start", () => {
+    const holding = run([{ type: "holdStart", zone: "previous" }]).state;
+    const ticked = run(
+      Array.from({ length: 40 }, () => ({ type: "seekTick" }) as const),
+      holding,
+    );
+    expect(ticked.state.scrubAt).toBe(0);
+  });
+
+  it("sleeps when play is held, and the next touch only wakes it", () => {
+    const asleep = run([{ type: "holdStart", zone: "play" }], at("menu"));
+    expect(asleep.state.asleep).toBe(true);
+    expect(asleep.effects).toContainEqual({ type: "pause" });
+    const woken = run([{ type: "step", steps: 1 }], asleep.state);
+    expect(woken.state.asleep).toBe(false);
+    expect(woken.state.selected.menu).toBe(0);
+    expect(woken.effects).toEqual([]);
+  });
+
+  it("toggles the backlight when Menu is held", () => {
+    expect(run([{ type: "holdStart", zone: "menu" }]).effects).toContainEqual({
+      type: "backlight",
+    });
+  });
+
+  it("locks the held buttons too while the hold switch is on", () => {
+    const held = run([{ type: "toggleHold" }]).state;
+    const { state, effects } = run([{ type: "holdStart", zone: "play" }], held);
+    expect(effects).toEqual([]);
+    expect(state.asleep).toBe(false);
+    expect(state.lockShown).toBe(true);
   });
 
   it("opens song lists on the song that is playing", () => {

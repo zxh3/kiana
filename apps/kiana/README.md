@@ -48,29 +48,32 @@ Mediaforge release manifest and displays the responsive images described by it.
   whose right half previews the highlighted item, and both the click wheel and
   the touch screen drive it. Circle a thumb or the pointer around the wheel,
   or scroll over the player, to move through lists and flip through covers; on
-  the screen, tap a row, swipe or tap the covers, press or drag along the
-  progress bar to seek, and tap the title bar to go back. On Now Playing the
-  wheel sets the volume, and the centre button brings up a scrubber for the
-  wheel to seek with. Menu goes back (and does nothing at the top menu, so
-  pressing it repeatedly is safe), and the wheel's other buttons are previous,
-  next, and play or pause. The hold switch, a small slot in the aluminium
-  above the screen, locks every control and shows a padlock. The screen dims
-  ten seconds after the last touch, and the battery shows the viewer's own
-  where the browser shares it. Settings, named as on the original, holds
-  Shuffle (on or off) and Repeat (all or one) as two separate settings, the
-  backlight timer, the clicker (the wheel's ticks), and the finish. A tap on
-  the cover on Now Playing plays the song's video on the screen, under the
-  title bar, which goes back like Menu. Minimize and close are two small
-  dimples in the aluminium above the screen, opposite the hold switch, faint
-  until the pointer is over the player or the controls show. Minimized (the
-  default on phones), it becomes a small square player showing the cover: the
-  full player shrinks into its corner as the small one grows out of it, and
-  back. On wider screens it can be dragged to any corner by the grip at the
-  bottom of its body (the small player from anywhere), where it stays; on
-  phones the full player rises from the bottom edge. Songs YouTube refuses to
-  embed are skipped. YouTube's player stays mounted but hidden by default; it
-  covers the display when YouTube needs a tap or a sign-in, or when the cover
-  on Now Playing is tapped. Hiding a playing embed goes against YouTube's API
+  the screen, drag a list or tap a row, swipe or tap the covers, press or drag
+  along the progress bar to seek, and tap the title bar to go back. On Now
+  Playing the wheel sets the volume, and the centre button brings up a
+  scrubber for the wheel to seek with. Menu goes back (and does nothing at the
+  top menu, so pressing it repeatedly is safe), and the wheel's other buttons
+  are previous, next, and play or pause. As on the original there is no up or
+  down button, and held buttons do more: ⏮ and ⏭ rewind and fast-forward, Menu
+  turns the backlight off or on, and play puts the player to sleep until the
+  next touch. The hold switch, a small slot in the aluminium above the screen,
+  locks every control and shows a padlock. The screen dims ten seconds after
+  the last touch, and the battery shows the viewer's own where the browser
+  shares it. Settings, named as on the original, holds Shuffle (on or off) and
+  Repeat (all or one) as two separate settings, the backlight timer, the
+  clicker (the wheel's ticks), and the finish. A tap on the cover on Now
+  Playing plays the song's video on the screen, under the title bar, which
+  goes back like Menu. Minimize and close are two small dimples in the
+  aluminium above the screen, opposite the hold switch, faint until the
+  pointer is over the player or the controls show. Minimized (the default on
+  phones), it becomes a small square player showing the cover: the full player
+  shrinks into its corner as the small one grows out of it, and back. On wider
+  screens it can be dragged to any corner by the grip at the bottom of its
+  body (the small player from anywhere), where it stays; on phones the full
+  player rises from the bottom edge. Songs YouTube refuses to embed are
+  skipped. YouTube's player stays mounted but hidden by default; it covers the
+  display when YouTube needs a tap or a sign-in, or when the cover on Now
+  Playing is tapped. Hiding a playing embed goes against YouTube's API
   policies (III.I.9), so YouTube could stop the songs playing here. The player
   uses youtube.com rather than youtube-nocookie.com, because a YouTube sign-in
   in the same browser is what clears YouTube's "confirm you're not a bot"

@@ -79,6 +79,7 @@ export function describePod(
   rows: Record<ListScreen, PodRow[]>,
   view: PodView,
 ) {
+  if (state.asleep) return "Asleep";
   if (state.screen === "now") {
     if (view.videoOpen) {
       const track = view.playlist[view.index];

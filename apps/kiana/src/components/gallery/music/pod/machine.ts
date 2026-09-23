@@ -21,6 +21,9 @@ import {
 /** What Now Playing shows in place of the progress bar. */
 export type Overlay = "volume" | "scrub";
 
+/** Wheel buttons that do something else when held, as on the original. */
+export type HoldZone = "menu" | "previous" | "next" | "play";
+
 export type PodState = {
   screen: Screen;
   /** Which way the last screen change slid: deeper (1) or back (-1). */
@@ -40,6 +43,12 @@ export type PodState = {
   lockShown: boolean;
   /** Bumped whenever the padlock shows again, so its timer restarts. */
   lockStamp: number;
+  /** Rewinding (-1) or fast-forwarding (1) while ⏮ or ⏭ is held. */
+  seeking: -1 | 0 | 1;
+  /** Ticks since the seek began, so it speeds up the longer it is held. */
+  seekTicks: number;
+  /** Put to sleep by holding play: paused, the screen dark. */
+  asleep: boolean;
 };
 
 /** What the machine needs to know about the music and the widget. */
@@ -67,6 +76,8 @@ export type PodEffect =
   | { type: "shuffle" }
   | { type: "volume"; volume: number }
   | { type: "seek"; seconds: number }
+  | { type: "pause" }
+  | { type: "backlight" }
   | { type: "setting"; item: SettingsItem }
   | { type: "video"; on: boolean };
 
@@ -78,6 +89,8 @@ export type PodAction =
   | { type: "next" }
   | { type: "previous" }
   | { type: "playPause" }
+  | { type: "holdStart"; zone: HoldZone }
+  | { type: "holdEnd"; zone: HoldZone }
   // The touch screen.
   | { type: "toggleVideo" }
   | { type: "pick"; screen: ChoiceScreen; index: number }
@@ -90,6 +103,7 @@ export type PodAction =
   | { type: "trackChanged"; index: number }
   | { type: "overlayExpired"; stamp: number }
   | { type: "commitSeek" }
+  | { type: "seekTick" }
   | { type: "lockExpired"; stamp: number };
 
 export const VOLUME_STEP = 3;
@@ -101,6 +115,15 @@ export const overlayDurations: Record<Overlay, number> = {
 export const LOCK_SHOWS_FOR = 1_100;
 /** The wheel's scrubber seeks once it rests this long. */
 export const SEEK_SETTLE = 300;
+/** How often a held ⏮ or ⏭ moves the scrubber. */
+export const SEEK_TICK = 150;
+
+/** Seconds a held ⏮ or ⏭ moves per tick, faster the longer it is held. */
+export function seekStep(ticks: number) {
+  if (ticks < 10) return 2;
+  if (ticks < 25) return 5;
+  return 10;
+}
 
 /** Actions that come from the controls, which the hold switch locks. */
 const lockable = new Set<PodAction["type"]>([
@@ -110,6 +133,7 @@ const lockable = new Set<PodAction["type"]>([
   "next",
   "previous",
   "playPause",
+  "holdStart",
   "toggleVideo",
   "pick",
   "scrubTo",
@@ -131,6 +155,9 @@ export function initialPodState(index: number): PodState {
     held: false,
     lockShown: false,
     lockStamp: 0,
+    seeking: 0,
+    seekTicks: 0,
+    asleep: false,
   };
 }
 
@@ -259,6 +286,10 @@ export function podReducer(
       effects: [],
     };
   }
+  // Asleep, the first touch only wakes it.
+  if (state.asleep && lockable.has(action.type)) {
+    return { state: { ...state, asleep: false }, effects: [] };
+  }
 
   switch (action.type) {
     case "step": {
@@ -351,6 +382,69 @@ export function podReducer(
         ],
       };
 
+    case "holdStart": {
+      if (action.zone === "menu") {
+        // Holding Menu turns the backlight off, or back on.
+        return {
+          state,
+          effects: [{ type: "cue", cue: "press" }, { type: "backlight" }],
+        };
+      }
+      if (action.zone === "play") {
+        // Holding play puts it to sleep: paused, the screen dark.
+        const cleared = clearScrub(state);
+        return {
+          state: { ...cleared.state, asleep: true },
+          effects: [
+            ...cleared.effects,
+            { type: "cue", cue: "switchOff" },
+            { type: "pause" },
+          ],
+        };
+      }
+      // Holding ⏮ or ⏭ rewinds or fast-forwards through the song.
+      if (context.duration <= 0) return unchanged;
+      return {
+        state: {
+          ...show(state, "scrub"),
+          seeking: action.zone === "next" ? 1 : -1,
+          seekTicks: 0,
+          touching: true,
+          scrubAt: state.scrubAt ?? context.current,
+          seekPending: false,
+        },
+        effects: [{ type: "cue", cue: "press" }],
+      };
+    }
+
+    case "seekTick": {
+      if (state.seeking === 0 || context.duration <= 0) return unchanged;
+      const scrubAt = clamp(
+        (state.scrubAt ?? context.current) +
+          state.seeking * seekStep(state.seekTicks),
+        0,
+        context.duration - 1,
+      );
+      return {
+        state: { ...state, scrubAt, seekTicks: state.seekTicks + 1 },
+        effects: [],
+      };
+    }
+
+    case "holdEnd": {
+      if (state.seeking === 0 || state.scrubAt === null) return unchanged;
+      // Letting go of ⏮ or ⏭ lands the song where the seek got to.
+      return {
+        state: {
+          ...show(state, "scrub"),
+          seeking: 0,
+          seekTicks: 0,
+          touching: false,
+        },
+        effects: [{ type: "seek", seconds: state.scrubAt }],
+      };
+    }
+
     case "pick": {
       // A tap on a side cover brings it to the middle; anything else opens.
       if (
@@ -366,7 +460,11 @@ export function podReducer(
     }
 
     case "hover":
-      if (state.held || state.selected[action.screen] === action.index) {
+      if (
+        state.held ||
+        state.asleep ||
+        state.selected[action.screen] === action.index
+      ) {
         return unchanged;
       }
       return { state: choose(state, action.screen, action.index), effects: [] };
@@ -410,6 +508,8 @@ export function podReducer(
         overlay: state.overlay === "scrub" ? null : state.overlay,
         scrubAt: null,
         seekPending: false,
+        seeking: 0 as const,
+        touching: false,
       };
       return { state: cleared, effects: [] };
     }
