@@ -153,7 +153,13 @@ export function NowPlaying({
             aria-hidden="true"
             className="absolute top-[41px] right-[3px] grid size-4 place-items-center rounded-full bg-black/55 text-white shadow-[0_1px_2px_rgb(0_0_0/.4)] ring-1 ring-white/50 transition-[scale,background-color] duration-150 group-hover/cover:scale-110 group-hover/cover:bg-black/70"
           >
-            <svg fill="currentColor" height="7" viewBox="0 0 7 7" width="7">
+            <svg
+              aria-hidden="true"
+              fill="currentColor"
+              height="7"
+              viewBox="0 0 7 7"
+              width="7"
+            >
               <path d="M1.8 0.9 6.2 3.5 1.8 6.1Z" />
             </svg>
           </span>
