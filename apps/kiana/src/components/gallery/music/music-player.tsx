@@ -29,7 +29,6 @@ import { useCornerDrag } from "./use-corner-drag";
 import { useMediaQuery } from "./use-media-query";
 import type { Music } from "./use-music";
 import { useMusicProgress } from "./use-music-progress";
-import { WidgetActions } from "./widget-actions";
 
 const SIZE_KEY = "kiana.music-size";
 const CORNER_KEY = "kiana.music-corner";
@@ -182,9 +181,13 @@ export function MusicPlayer({
               ) : (
                 <motion.div key="pocket" {...faceMotion}>
                   <PocketPlayer
+                    canMinimize={!needsVideo}
+                    chromeVisible={chromeVisible}
                     covered={showVideo}
                     movable={!docked}
                     music={music}
+                    onClose={music.stop}
+                    onMinimize={() => setSize("mini")}
                     pod={pod}
                     progress={progress}
                   />
@@ -225,17 +228,7 @@ export function MusicPlayer({
             )}
           </motion.div>
 
-          {mini ? null : (
-            <>
-              <WidgetActions
-                canMinimize={!needsVideo}
-                onClose={music.stop}
-                onMinimize={() => setSize("mini")}
-                visible={chromeVisible}
-              />
-              <MusicNotice music={music} width={BODY_WIDTH} />
-            </>
-          )}
+          {mini ? null : <MusicNotice music={music} width={BODY_WIDTH} />}
         </aside>
       )}
     </AnimatePresence>

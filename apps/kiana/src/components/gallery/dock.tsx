@@ -11,8 +11,6 @@ import {
   PauseIcon,
   PlayIcon,
   ShareIcon,
-  SoundOffIcon,
-  SoundOnIcon,
 } from "./icons";
 import { Swap } from "./swap";
 import type { ChromeHoldProps } from "./use-chrome-hold";
@@ -31,32 +29,31 @@ export function Dock({
   favorite,
   fullscreen,
   holdProps,
-  muted,
   onNext,
   onPrevious,
   onShare,
   onToggleFavorite,
   onToggleFullscreen,
-  onToggleMute,
   onTogglePause,
   paused,
   settings,
+  sound,
   visible,
 }: {
   canGoBack: boolean;
   favorite: boolean;
   fullscreen: { active: boolean; supported: boolean };
   holdProps: ChromeHoldProps;
-  muted: boolean;
   onNext: () => void;
   onPrevious: () => void;
   onShare: () => void;
   onToggleFavorite: () => void;
   onToggleFullscreen: () => void;
-  onToggleMute: () => void;
   onTogglePause: () => void;
   paused: boolean;
   settings: ReactNode;
+  /** The sound button and its mixer. */
+  sound: ReactNode;
   visible: boolean;
 }) {
   return (
@@ -134,16 +131,6 @@ export function Dock({
 
         <Divider />
 
-        <ControlButton
-          aria-pressed={!muted}
-          label={muted ? "Turn sound on" : "Turn sound off"}
-          onClick={onToggleMute}
-          shortcut="M"
-        >
-          <Swap id={muted ? "muted" : "sound"}>
-            {muted ? <SoundOffIcon /> : <SoundOnIcon />}
-          </Swap>
-        </ControlButton>
         {fullscreen.supported ? (
           <ControlButton
             aria-pressed={fullscreen.active}
@@ -156,6 +143,7 @@ export function Dock({
             </Swap>
           </ControlButton>
         ) : null}
+        {sound}
         {settings}
       </div>
     </div>

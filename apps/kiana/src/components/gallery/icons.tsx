@@ -124,6 +124,20 @@ export function SoundOnIcon(props: IconProps) {
   );
 }
 
+/** A pointer clicking, for the interface's own sounds. */
+export function ClickIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path
+        d="M8.2 7.2v9.1l2.3-2.1 1.7 3.5 1.6-.8-1.7-3.4 3.1-.3Z"
+        fill="currentColor"
+        stroke="none"
+      />
+      <path d="M5.6 3.4 6.5 5M3.3 5.7 4.9 6.6M2.9 9h1.8M9 2.6v1.8" />
+    </Icon>
+  );
+}
+
 export function SoundOffIcon(props: IconProps) {
   return (
     <Icon {...props}>

@@ -3,6 +3,7 @@ import { type KeyboardEvent, useEffect, useRef } from "react";
 import type { Music } from "../use-music";
 import { ClickWheel } from "./click-wheel";
 import { DragHandle } from "./drag-handle";
+import { FaceButtons } from "./face-buttons";
 import { HoldSwitch } from "./hold-switch";
 import { screenTitles } from "./menu";
 import { CoverFlow } from "./screen/cover-flow";
@@ -16,8 +17,9 @@ import { useScrollSteps } from "./use-scroll-steps";
 
 /**
  * The full music player, after the classic pocket players: a colour touch
- * screen with menus, a click wheel that drives them too, a hold switch on
- * top, and a grip at the bottom for moving it. It only draws; what every
+ * screen with menus, a click wheel that drives them too, a hold switch and
+ * the widget's minimize and close in the top margin, and a grip at the
+ * bottom for moving it. It only draws; what every
  * control does lives in `usePod`, which the widget owns.
  *
  * Keyboard: the wheel's buttons are ordinary buttons (Enter on the centre
@@ -26,17 +28,26 @@ import { useScrollSteps } from "./use-scroll-steps";
  * and Escape goes back.
  */
 export function PocketPlayer({
+  canMinimize,
+  chromeVisible,
   covered,
   movable,
   music,
+  onClose,
+  onMinimize,
   pod,
   progress,
 }: {
+  canMinimize: boolean;
+  /** Whether the gallery's controls are showing; the face buttons follow. */
+  chromeVisible: boolean;
   /** The video lies over the display. */
   covered: boolean;
   /** Whether it can be dragged around the page, by its handle. */
   movable: boolean;
   music: Music;
+  onClose: () => void;
+  onMinimize: () => void;
   pod: Pod;
   progress: { current: number; duration: number };
 }) {
@@ -128,6 +139,12 @@ export function PocketPlayer({
       ref={rootRef}
     >
       <HoldSwitch held={state.held} onToggle={controls.toggleHold} />
+      <FaceButtons
+        canMinimize={canMinimize}
+        onClose={onClose}
+        onMinimize={onMinimize}
+        visible={chromeVisible}
+      />
       <PodScreen
         battery={battery}
         covered={covered}

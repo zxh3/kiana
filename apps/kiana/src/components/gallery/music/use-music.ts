@@ -26,6 +26,7 @@ export type MusicStatus =
 const VOLUME_KEY = "kiana.music-volume";
 const TRACK_KEY = "kiana.music-track";
 const MODE_KEY = "kiana.music-mode";
+const MUTED_KEY = "kiana.music-muted";
 const DEFAULT_VOLUME = 60;
 const BLOCKED_AFTER = 2_500;
 /** Past this many seconds, previous restarts the song instead. */
@@ -45,12 +46,16 @@ function parseTrackIndex(raw: string | null) {
   return index >= 0 ? index : 0;
 }
 
+function parseMuted(raw: string | null) {
+  return raw === "true";
+}
+
 function serializeTrackIndex(index: number) {
   return playlist[index]?.videoId ?? "";
 }
 
-function applyVolume(player: YouTubePlayer, volume: number) {
-  if (volume === 0) {
+function applyVolume(player: YouTubePlayer, volume: number, muted: boolean) {
+  if (muted || volume === 0) {
     player.mute();
     return;
   }
@@ -72,6 +77,8 @@ export function useMusic() {
     serializeTrackIndex,
   );
   const [mode, saveMode] = useStoredState(MODE_KEY, parsePlayMode);
+  // Muting keeps the volume, so unmuting returns to the same level.
+  const [muted, saveMuted] = useStoredState(MUTED_KEY, parseMuted);
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const blockedTimer = useRef<number>(undefined);
@@ -79,6 +86,8 @@ export function useMusic() {
   const shuffleHistory = useRef<number[]>([]);
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
   const indexRef = useRef(index);
   indexRef.current = index;
   const modeRef = useRef<PlayMode>(mode);
@@ -142,7 +151,7 @@ export function useMusic() {
           },
           events: {
             onReady: ({ target: player }) => {
-              applyVolume(player, volumeRef.current);
+              applyVolume(player, volumeRef.current, mutedRef.current);
               player.playVideo();
               blockedTimer.current = window.setTimeout(() => {
                 const state = player.getPlayerState();
@@ -267,12 +276,27 @@ export function useMusic() {
     setMode(nextPlayMode(modeRef.current));
   }, [setMode]);
 
+  /** Setting a level also unmutes, as turning a volume knob would. */
   const setVolume = useCallback(
     (value: number) => {
+      volumeRef.current = value;
+      mutedRef.current = false;
       saveVolume(value);
-      if (playerRef.current) applyVolume(playerRef.current, value);
+      saveMuted(false);
+      if (playerRef.current) applyVolume(playerRef.current, value, false);
     },
-    [saveVolume],
+    [saveMuted, saveVolume],
+  );
+
+  const setMuted = useCallback(
+    (value: boolean) => {
+      mutedRef.current = value;
+      saveMuted(value);
+      if (playerRef.current) {
+        applyVolume(playerRef.current, volumeRef.current, value);
+      }
+    },
+    [saveMuted],
   );
 
   /** Read on demand so time updates never re-render the whole gallery. */
@@ -298,6 +322,7 @@ export function useMusic() {
     hostRef,
     index,
     mode,
+    muted,
     next,
     pause,
     playTrack,
@@ -307,6 +332,7 @@ export function useMusic() {
     readProgress,
     seek,
     setMode,
+    setMuted,
     setVolume,
     start,
     status,

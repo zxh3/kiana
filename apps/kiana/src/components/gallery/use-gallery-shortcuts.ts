@@ -20,7 +20,7 @@ export const shortcutList: ReadonlyArray<{ keys: string[]; label: string }> = [
   { keys: ["←", "→"], label: "Previous or next" },
   { keys: ["L"], label: "Favorite" },
   { keys: ["S"], label: "Share a link" },
-  { keys: ["M"], label: "Sound on or off" },
+  { keys: ["M"], label: "Video sound on or off" },
   { keys: ["G"], label: "Open the library" },
   { keys: ["F"], label: "Full screen" },
   { keys: ["1", "2", "3"], label: "Fill, backdrop, or mat" },

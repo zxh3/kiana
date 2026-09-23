@@ -17,6 +17,7 @@ import {
   orders,
 } from "./model";
 import { Popover } from "./popover";
+import { Switch } from "./switch";
 
 /** A tiny drawing of each frame so the choice is visual, not just a word. */
 function FramePreview({ frame }: { frame: Frame }) {
@@ -100,61 +101,13 @@ function Segmented<T extends string | number>({
   );
 }
 
-function Switch({
-  checked,
-  description,
-  label,
-  onChange,
-}: {
-  checked: boolean;
-  description: string;
-  label: string;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <button
-      aria-checked={checked}
-      className={cx(
-        "flex w-full cursor-pointer items-center gap-3 rounded-[14px] px-3 py-2.5 text-left transition-colors hover:bg-paper/6",
-        focusRing,
-        "focus-visible:ring-offset-0",
-      )}
-      onClick={() => onChange(!checked)}
-      role="switch"
-      type="button"
-    >
-      <span className="flex-1">
-        <span className="block text-[12px] text-paper/90">{label}</span>
-        <span className="mt-1 block text-[10px] leading-snug text-paper/45">
-          {description}
-        </span>
-      </span>
-      <span
-        className={cx(
-          "relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors duration-200",
-          checked ? "bg-paper" : "bg-paper/18",
-        )}
-      >
-        <span
-          className={cx(
-            "absolute top-[3px] left-[3px] size-4 rounded-full shadow-sm transition-[translate,background-color] duration-200 ease-soft",
-            checked ? "translate-x-4 bg-ink" : "bg-paper",
-          )}
-        />
-      </span>
-    </button>
-  );
-}
-
 export function DisplayMenu({
   duration,
   frame,
   keepAwake,
-  uiSounds,
   onDurationChange,
   onFrameChange,
   onKeepAwakeChange,
-  onUiSoundsChange,
   onOpenChange,
   onOpenHelp,
   onOrderChange,
@@ -164,12 +117,9 @@ export function DisplayMenu({
   duration: Duration;
   frame: Frame;
   keepAwake: boolean | null;
-  /** Null where the browser cannot play generated sound. */
-  uiSounds: boolean | null;
   onDurationChange: (duration: Duration) => void;
   onFrameChange: (frame: Frame) => void;
   onKeepAwakeChange: (keepAwake: boolean) => void;
-  onUiSoundsChange: (uiSounds: boolean) => void;
   onOpenChange: (open: boolean) => void;
   onOpenHelp: () => void;
   onOrderChange: (order: Order) => void;
@@ -257,16 +207,6 @@ export function DisplayMenu({
         />
       </Section>
 
-      {uiSounds !== null ? (
-        <div className="px-1">
-          <Switch
-            checked={uiSounds}
-            description="Soft clicks and chimes when you use the controls. The sound button mutes them."
-            label="Interface sounds"
-            onChange={onUiSoundsChange}
-          />
-        </div>
-      ) : null}
       {keepAwake !== null ? (
         <div className="px-1 pb-1">
           <Switch

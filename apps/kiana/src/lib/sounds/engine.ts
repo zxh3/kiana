@@ -14,6 +14,8 @@ type AudioWindow = typeof globalThis & {
 let context: AudioContext | null = null;
 let master: GainNode | null = null;
 let enabled = false;
+/** The viewer's level for interface sounds, from 0 to 1. */
+let volume = 1;
 const gate = createGate({ maxVoices: MAX_VOICES, minGap: MIN_GAP_MS });
 
 export function soundsSupported() {
@@ -24,6 +26,12 @@ export function soundsSupported() {
 
 export function setSoundsEnabled(value: boolean) {
   enabled = value;
+}
+
+/** Sets how loud interface sounds are, from 0 to 1. */
+export function setSoundsVolume(value: number) {
+  volume = Math.max(0, Math.min(1, value));
+  if (master) master.gain.value = MASTER_VOLUME * volume;
 }
 
 /**
@@ -45,7 +53,7 @@ function ensureContext() {
     compressor.attack.value = 0.003;
     compressor.release.value = 0.12;
     const level = created.createGain();
-    level.gain.value = MASTER_VOLUME;
+    level.gain.value = MASTER_VOLUME * volume;
     level.connect(compressor).connect(created.destination);
     context = created;
     master = level;
@@ -57,7 +65,7 @@ function ensureContext() {
 
 /** Plays the sound for an action, when interface sounds are on. */
 export function playCue(name: CueName) {
-  if (!enabled) return;
+  if (!enabled || volume === 0) return;
   const audio = ensureContext();
   if (!audio || !master) return;
   const cue: { recipe: keyof typeof recipes; every?: number } = cues[name];
