@@ -88,23 +88,27 @@ export const recipes = {
       gain: 0.2,
     }),
 
-  /** A dry wooden tock, for choosing an option. */
-  tock: (context, output, at) =>
+  /**
+   * A soft, round pluck for choosing an option: a pure tone that settles
+   * onto its pitch, with a faint octave shimmer and no noise.
+   */
+  pluck: (context, output, at) =>
     Math.max(
       tone(context, output, {
         at,
-        from: 1250,
-        to: 1120,
-        decay: 0.06,
-        gain: 0.2,
+        from: 1108,
+        to: 1046.5,
+        glide: 0.02,
+        attack: 0.003,
+        decay: 0.12,
+        gain: 0.17,
       }),
-      noise(context, output, {
+      tone(context, output, {
         at,
-        duration: 0.035,
-        filter: "bandpass",
-        from: 1500,
-        q: 6,
-        gain: 0.12,
+        from: 2093,
+        attack: 0.002,
+        decay: 0.04,
+        gain: 0.035,
       }),
     ),
 

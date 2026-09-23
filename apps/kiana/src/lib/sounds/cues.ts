@@ -20,7 +20,7 @@ export const cues = {
   /** A menu, dialog, or the full music player opening. */
   open: { recipe: "pop" },
   /** An option chosen in a menu, a filter, or a list. */
-  select: { recipe: "tock" },
+  select: { recipe: "pluck" },
   libraryOpen: { recipe: "sweepUp" },
   libraryClose: { recipe: "sweepDown" },
   favorite: { recipe: "chime" },
