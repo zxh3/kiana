@@ -1,70 +1,109 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { GalleryAsset } from "../../data/photos";
-import { SLIDE_DURATION } from "./model";
-import { shuffledIndexes, upcomingIndexes } from "./slideshow-order";
+import type { Order } from "./model";
+import {
+  advance,
+  canRetreat,
+  createPlayback,
+  currentIndex,
+  jump,
+  type Playback,
+  retarget,
+  retreat,
+  upcoming,
+} from "./playback";
 
-type Playback = {
-  cursor: number;
-  nextOrder: number[];
-  order: number[];
-  previousIndex: number;
+type SlideshowState = {
+  members: ReadonlyArray<number>;
+  order: Order;
+  playback: Playback;
 };
 
-function createPlayback(length: number): Playback {
-  const order = shuffledIndexes(length);
-  const previousIndex = order.at(-1) ?? 0;
-  return {
-    cursor: 0,
-    nextOrder: shuffledIndexes(length, Math.random, previousIndex),
+export function useSlideshow({
+  assets,
+  duration,
+  initialIndex,
+  members,
+  order,
+  paused,
+}: {
+  assets: ReadonlyArray<GalleryAsset>;
+  duration: number;
+  initialIndex?: number;
+  members: ReadonlyArray<number>;
+  order: Order;
+  paused: boolean;
+}) {
+  const [state, setState] = useState<SlideshowState>(() => ({
+    members,
     order,
-    previousIndex,
-  };
-}
+    playback: createPlayback({ members, order }, initialIndex),
+  }));
 
-export function useSlideshow(assets: ReadonlyArray<GalleryAsset>) {
-  const [playback, setPlayback] = useState(() => createPlayback(assets.length));
-  const index = playback.order[playback.cursor] ?? 0;
-  const activeAsset = assets[index];
-  const activeId = activeAsset?.id;
-  const usesTimer = activeAsset?.type !== "video";
-
-  const advance = useCallback(() => {
-    setPlayback((current) => {
-      const previousIndex = current.order[current.cursor] ?? 0;
-      if (current.cursor < current.order.length - 1) {
-        return {
-          ...current,
-          cursor: current.cursor + 1,
-          previousIndex,
-        };
-      }
-
-      const order = current.nextOrder;
-      return {
-        cursor: 0,
-        nextOrder: shuffledIndexes(assets.length, Math.random, order.at(-1)),
-        order,
-        previousIndex,
-      };
+  // Adopt a new collection or order during render, before anything paints.
+  if (state.members !== members || state.order !== order) {
+    setState({
+      members,
+      order,
+      playback: retarget(state.playback, { members, order }),
     });
-  }, [assets.length]);
+  }
 
+  const next = useCallback(() => {
+    setState((current) => ({
+      ...current,
+      playback: advance(current.playback, current),
+    }));
+  }, []);
+
+  const previous = useCallback(() => {
+    setState((current) => ({
+      ...current,
+      playback: retreat(current.playback, current),
+    }));
+  }, []);
+
+  const jumpTo = useCallback((index: number) => {
+    setState((current) => ({
+      ...current,
+      playback: jump(current.playback, current, index),
+    }));
+  }, []);
+
+  const { playback } = state;
+  const index = currentIndex(playback);
+  const timed = assets[index]?.type !== "video";
+
+  // Pausing keeps the time already spent on a slide; resuming spends the rest.
+  const remaining = useRef({ slide: -1, duration, ms: duration });
   useEffect(() => {
-    if (!usesTimer || !activeId) return;
-    const timeout = window.setTimeout(advance, SLIDE_DURATION);
-    return () => window.clearTimeout(timeout);
-  }, [activeId, advance, usesTimer]);
+    if (!timed || paused) return;
+    if (
+      remaining.current.slide !== playback.slide ||
+      remaining.current.duration !== duration
+    ) {
+      remaining.current = { slide: playback.slide, duration, ms: duration };
+    }
+    const startedAt = performance.now();
+    const timeout = window.setTimeout(next, remaining.current.ms);
+    return () => {
+      window.clearTimeout(timeout);
+      remaining.current.ms = Math.max(
+        0,
+        remaining.current.ms - (performance.now() - startedAt),
+      );
+    };
+  }, [duration, next, paused, playback.slide, timed]);
 
   return {
-    advance,
+    canGoBack: canRetreat(playback, state),
     index,
-    previousIndex: playback.previousIndex,
-    upcomingIndexes: upcomingIndexes(
-      playback.order,
-      playback.nextOrder,
-      playback.cursor,
-      2,
-    ),
+    jumpTo,
+    next,
+    previous,
+    previousIndex: playback.previous,
+    slide: playback.slide,
+    upcoming: upcoming(playback, 2),
   };
 }

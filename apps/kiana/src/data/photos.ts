@@ -10,7 +10,10 @@ export type GalleryVideo = {
 export type GalleryAsset = {
   id: string;
   type: "photo" | "live_photo" | "video";
+  /** Calendar date the asset was captured, as YYYY-MM-DD. */
   date: string | null;
+  /** Local wall-clock capture time, as HH:MM. */
+  time: string | null;
   small: string;
   large: string;
   width: number;
@@ -57,6 +60,12 @@ function optionalDate(value: unknown, label: string) {
   return date.slice(0, 10);
 }
 
+function optionalTime(value: unknown) {
+  if (typeof value !== "string") return null;
+  const match = /^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})/.exec(value);
+  return match ? `${match[1]}:${match[2]}` : null;
+}
+
 function requiredMediaType(
   value: unknown,
   label: string,
@@ -100,6 +109,7 @@ export function parseMediaforgeManifest(
       id: requiredString(asset.id, `assets[${index}].id`),
       type,
       date: optionalDate(asset.date, `assets[${index}].date`),
+      time: optionalTime(asset.date),
       small: new URL(
         requiredString(image.small, `assets[${index}].image.small`),
         baseUrl,

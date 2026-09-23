@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { shuffledIndexes, upcomingIndexes } from "./slideshow-order";
+import { buildQueue, previousMember, shuffledIndexes } from "./slideshow-order";
 
 describe("slideshow order", () => {
   it("shuffles every index exactly once", () => {
@@ -17,7 +17,25 @@ describe("slideshow order", () => {
     expect(shuffledIndexes(3, () => 0.99, 0)[0]).not.toBe(0);
   });
 
-  it("looks into the next shuffled round when preloading", () => {
-    expect(upcomingIndexes([2, 0, 1], [2, 1, 0], 1, 2)).toEqual([1, 2]);
+  it("queues every other member once when shuffling", () => {
+    const queue = buildQueue([10, 20, 30, 40], "shuffle", 20, () => 0.4);
+    expect([...queue].sort((left, right) => left - right)).toEqual([
+      10, 30, 40,
+    ]);
+  });
+
+  it("continues chronologically from the current member and wraps", () => {
+    expect(buildQueue([10, 20, 30, 40], "chronological", 30)).toEqual([
+      40, 10, 20,
+    ]);
+    expect(buildQueue([10, 20, 30], "chronological", undefined)).toEqual([
+      10, 20, 30,
+    ]);
+  });
+
+  it("finds the chronologically previous member", () => {
+    expect(previousMember([10, 20, 30], 20)).toBe(10);
+    expect(previousMember([10, 20, 30], 10)).toBe(30);
+    expect(previousMember([10], 10)).toBeUndefined();
   });
 });
