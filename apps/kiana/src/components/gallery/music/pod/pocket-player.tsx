@@ -28,6 +28,7 @@ import { useScrollSteps } from "./use-scroll-steps";
  * and Escape goes back.
  */
 export function PocketPlayer({
+  active,
   canMinimize,
   chromeVisible,
   covered,
@@ -38,6 +39,8 @@ export function PocketPlayer({
   pod,
   progress,
 }: {
+  /** The full player is the one showing; it stays mounted when minimized. */
+  active: boolean;
   canMinimize: boolean;
   /** Whether the gallery's controls are showing; the face buttons follow. */
   chromeVisible: boolean;
@@ -59,7 +62,9 @@ export function PocketPlayer({
 
   // Opening the player lights its screen.
   const { wake } = pod;
-  useEffect(() => wake(), [wake]);
+  useEffect(() => {
+    if (active) wake();
+  }, [active, wake]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") {

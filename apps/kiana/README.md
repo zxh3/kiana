@@ -63,13 +63,14 @@ Mediaforge release manifest and displays the responsive images described by it.
   title bar, which goes back like Menu. Minimize and close are two small
   dimples in the aluminium above the screen, opposite the hold switch, faint
   until the pointer is over the player or the controls show. Minimized (the
-  default on phones), it becomes a small square player showing the cover. On
-  wider screens it can be dragged to any corner by the grip at the bottom of
-  its body (the small player from anywhere), where it stays; on phones the
-  full player rises from the bottom edge. Songs YouTube refuses to embed are
-  skipped. YouTube's player stays mounted but hidden by default; it covers the
-  display when YouTube needs a tap or a sign-in, or when the cover on Now
-  Playing is tapped. Hiding a playing embed goes against YouTube's API
+  default on phones), it becomes a small square player showing the cover: the
+  full player shrinks into its corner as the small one grows out of it, and
+  back. On wider screens it can be dragged to any corner by the grip at the
+  bottom of its body (the small player from anywhere), where it stays; on
+  phones the full player rises from the bottom edge. Songs YouTube refuses to
+  embed are skipped. YouTube's player stays mounted but hidden by default; it
+  covers the display when YouTube needs a tap or a sign-in, or when the cover
+  on Now Playing is tapped. Hiding a playing embed goes against YouTube's API
   policies (III.I.9), so YouTube could stop the songs playing here. The player
   uses youtube.com rather than youtube-nocookie.com, because a YouTube sign-in
   in the same browser is what clears YouTube's "confirm you're not a bot"
