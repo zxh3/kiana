@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cue } from "../../../../lib/sounds";
-import { trackUrl } from "../music-track";
 import type { Music } from "../use-music";
 import { nextFinish } from "./finishes";
 import {
@@ -64,15 +63,16 @@ export function usePod({
   };
 
   const applySetting = (item: SettingsItem) => {
-    if (item === "mode") music.cycleMode();
-    else if (item === "backlight") {
+    if (item === "shuffle") music.setShuffle(!music.shuffle);
+    else if (item === "repeat") {
+      music.setRepeat(music.repeat === "one" ? "all" : "one");
+    } else if (item === "backlight") {
       settings.setBacklight(
         settings.backlight === "timed" ? "always" : "timed",
       );
     } else if (item === "clicker") settings.setClicker(!settings.clicker);
     else if (item === "video") onVideoChange(!videoOpen);
-    else if (item === "finish") settings.setFinish(nextFinish(settings.finish));
-    else window.open(trackUrl(music.track), "_blank", "noopener,noreferrer");
+    else settings.setFinish(nextFinish(settings.finish));
   };
 
   const run = (effect: PodEffect) => {
@@ -93,7 +93,7 @@ export function usePod({
         music.toggle();
         break;
       case "shuffle":
-        music.setMode("shuffle");
+        music.setShuffle(true);
         music.next();
         break;
       case "volume":
@@ -159,7 +159,8 @@ export function usePod({
   const view: PodView = {
     playlist: music.playlist,
     index: music.index,
-    mode: music.mode,
+    shuffle: music.shuffle,
+    repeat: music.repeat,
     backlight: settings.backlight,
     clicker: settings.clicker,
     finish: settings.finish,

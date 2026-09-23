@@ -1,5 +1,4 @@
-import type { PlayMode } from "../music-queue";
-import { playModeLabels } from "../music-queue";
+import type { Repeat } from "../music-queue";
 import type { Track } from "../music-track";
 import { type Finish, finishLabels } from "./finishes";
 import { formatPodTime } from "./format";
@@ -31,7 +30,8 @@ export type PodRow = {
 export type PodView = {
   playlist: ReadonlyArray<Track>;
   index: number;
-  mode: PlayMode;
+  shuffle: boolean;
+  repeat: Repeat;
   backlight: Backlight;
   clicker: boolean;
   finish: Finish;
@@ -43,13 +43,13 @@ export type PodView = {
 
 /** The rows of each list screen. */
 export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
-  const details: Record<(typeof settingsItems)[number], string | undefined> = {
-    mode: playModeLabels[view.mode],
+  const details: Record<(typeof settingsItems)[number], string> = {
+    shuffle: view.shuffle ? "On" : "Off",
+    repeat: view.repeat === "one" ? "One" : "All",
     backlight: backlightLabels[view.backlight],
     clicker: view.clicker ? "On" : "Off",
     video: view.videoOpen ? "On" : "Off",
     finish: finishLabels[view.finish],
-    youtube: undefined,
   };
   return {
     menu: menuItems.map((item) => ({
@@ -67,7 +67,6 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
       key: item,
       label: settingsLabels[item],
       detail: details[item],
-      opens: item === "youtube",
     })),
   };
 }

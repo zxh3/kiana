@@ -1,5 +1,5 @@
 import { cx } from "../../../../lib/class-names";
-import { BODY_PADDING } from "./geometry";
+import { BODY_PADDING, CORNER_CLEARANCE } from "./geometry";
 
 /**
  * The hold switch, set into the aluminium above the screen's left corner,
@@ -20,8 +20,13 @@ export function HoldSwitch({
       aria-pressed={held}
       className="group/hold absolute flex cursor-pointer items-center rounded-full px-1 outline-none focus-visible:ring-2 focus-visible:ring-[#3a86ea]/70"
       onClick={onToggle}
-      // In the body's top margin, against the player's content box.
-      style={{ top: -BODY_PADDING, left: -8, height: BODY_PADDING }}
+      // In the body's top margin, against the player's content box, far
+      // enough in that the slot clears the rounded corner.
+      style={{
+        top: -BODY_PADDING,
+        left: CORNER_CLEARANCE,
+        height: BODY_PADDING,
+      }}
       title={held ? "Hold is on: the controls are locked" : "Hold"}
       type="button"
     >

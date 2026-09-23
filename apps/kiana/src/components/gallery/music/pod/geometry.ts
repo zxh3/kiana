@@ -11,6 +11,12 @@
 export const BODY_PADDING = 18;
 export const BODY_RADIUS = 32;
 
+/**
+ * How far in from the screen's edge the controls in the top margin (hold,
+ * minimize, close) sit, so they clear the body's rounded corners.
+ */
+export const CORNER_CLEARANCE = 4;
+
 /** The window's dark border around the display. */
 export const DISPLAY_INSET = 4;
 

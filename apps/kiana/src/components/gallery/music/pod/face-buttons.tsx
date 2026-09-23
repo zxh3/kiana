@@ -1,6 +1,6 @@
 import { cx } from "../../../../lib/class-names";
 import { cue } from "../../../../lib/sounds";
-import { BODY_PADDING } from "./geometry";
+import { BODY_PADDING, CORNER_CLEARANCE } from "./geometry";
 
 /** Two strokes each, drawn at the size of a printed mark. */
 const marks = {
@@ -75,8 +75,13 @@ export function FaceButtons({
         "absolute flex items-center gap-0.5 transition-opacity duration-300 group-focus-within/player:opacity-100 group-hover/player:opacity-100 [@media(hover:none)]:opacity-100",
         visible ? "opacity-100" : "opacity-0",
       )}
-      // In the body's top margin, against the player's content box.
-      style={{ top: -BODY_PADDING, right: -8, height: BODY_PADDING }}
+      // In the body's top margin, against the player's content box, far
+      // enough in that the dimples clear the rounded corner.
+      style={{
+        top: -BODY_PADDING,
+        right: CORNER_CLEARANCE,
+        height: BODY_PADDING,
+      }}
     >
       <FaceButton
         disabled={!canMinimize}

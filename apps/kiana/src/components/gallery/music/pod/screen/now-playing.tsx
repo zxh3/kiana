@@ -8,7 +8,7 @@ import {
   SoundOnIcon,
 } from "../../../icons";
 import { Marquee } from "../../marquee";
-import type { PlayMode } from "../../music-queue";
+import type { Repeat } from "../../music-queue";
 import { type Track, trackArt } from "../../music-track";
 import { formatPodTime } from "../format";
 import type { Overlay } from "../machine";
@@ -96,10 +96,11 @@ export function NowPlaying({
   duration,
   index,
   loading,
-  mode,
   onSeek,
   onVolume,
   overlay,
+  repeat,
+  shuffle,
   track,
   volume,
 }: {
@@ -108,10 +109,11 @@ export function NowPlaying({
   duration: number;
   index: number;
   loading: boolean;
-  mode: PlayMode;
   onSeek: (fraction: number, done: boolean) => void;
   onVolume: (fraction: number, done: boolean) => void;
   overlay: Overlay | null;
+  repeat: Repeat;
+  shuffle: boolean;
   track: Track;
   volume: number;
 }) {
@@ -122,15 +124,11 @@ export function NowPlaying({
         <span className="tabular-nums">
           {index + 1} of {count}
         </span>
-        {mode === "shuffle" ? (
-          <ShuffleIcon className="text-[#2d7ae3]" size={12} />
-        ) : (
-          <RepeatIcon
-            className="text-[#2d7ae3]"
-            one={mode === "one"}
-            size={12}
-          />
-        )}
+        {/* Shuffle when it is on, and how the list repeats. */}
+        <span className="flex items-center gap-1 text-[#2d7ae3]">
+          {shuffle ? <ShuffleIcon size={12} /> : null}
+          <RepeatIcon one={repeat === "one"} size={12} />
+        </span>
       </div>
       <div className="mt-1.5 flex gap-2.5">
         <div className="relative w-[60px] shrink-0">

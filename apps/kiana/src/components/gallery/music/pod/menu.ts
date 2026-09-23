@@ -66,23 +66,24 @@ export const menuOpens: Record<MenuItem, boolean> = {
   now: true,
 };
 
+/** Settings, named as on the original where it had the same setting. */
 export const settingsItems = [
-  "mode",
+  "shuffle",
+  "repeat",
   "backlight",
   "clicker",
   "video",
   "finish",
-  "youtube",
 ] as const;
 export type SettingsItem = (typeof settingsItems)[number];
 
 export const settingsLabels: Record<SettingsItem, string> = {
-  mode: "Play Mode",
+  shuffle: "Shuffle",
+  repeat: "Repeat",
   backlight: "Backlight",
   clicker: "Clicker",
-  video: "Video",
+  video: "Show Video",
   finish: "Finish",
-  youtube: "Open on YouTube",
 };
 
 /** Rows that fit on the screen at once. */

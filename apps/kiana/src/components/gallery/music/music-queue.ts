@@ -1,33 +1,39 @@
-export const playModes = ["all", "one", "shuffle"] as const;
-export type PlayMode = (typeof playModes)[number];
+import { readStorage } from "../use-stored-state";
 
-export const playModeLabels: Record<PlayMode, string> = {
-  all: "Repeat all",
-  one: "Repeat one",
-  shuffle: "Shuffle",
-};
+/**
+ * Shuffle and repeat are separate settings, as on the classic players:
+ * - repeat all, shuffle off: the list in order, looping (列表循环)
+ * - repeat one: the song again when it ends (单曲循环)
+ * - shuffle on: any other song next (随机播放)
+ */
+export type Repeat = "all" | "one";
 
-export function parsePlayMode(raw: string | null): PlayMode {
-  return playModes.includes(raw as PlayMode) ? (raw as PlayMode) : "all";
+/** The single setting these replaced, read so a saved choice carries over. */
+const LEGACY_MODE_KEY = "kiana.music-mode";
+
+export function parseShuffle(raw: string | null) {
+  if (raw === "true" || raw === "false") return raw === "true";
+  return readStorage(LEGACY_MODE_KEY) === "shuffle";
 }
 
-export function nextPlayMode(mode: PlayMode): PlayMode {
-  return playModes[(playModes.indexOf(mode) + 1) % playModes.length];
+export function parseRepeat(raw: string | null): Repeat {
+  if (raw === "all" || raw === "one") return raw;
+  return readStorage(LEGACY_MODE_KEY) === "one" ? "one" : "all";
 }
 
 /**
- * The track after `index`. Repeat all and repeat one both step forward when
- * asked (repeat one only replays when a song ends on its own). Shuffle picks
+ * The track after `index` when the viewer asks for the next one, or a song
+ * ends without repeat one: the next in the list, wrapping, or with shuffle
  * any other track.
  */
 export function nextTrackIndex(
   index: number,
   length: number,
-  mode: PlayMode,
+  shuffle: boolean,
   random: () => number = Math.random,
 ) {
   if (length < 2) return index;
-  if (mode === "shuffle") {
+  if (shuffle) {
     const pick = Math.floor(
       Math.min(random(), 1 - Number.EPSILON) * (length - 1),
     );

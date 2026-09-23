@@ -74,7 +74,8 @@ describe("pocket player rules", () => {
         { videoId: "b", title: "Two", artist: "Second" },
       ],
       index: 1,
-      mode: "all",
+      shuffle: false,
+      repeat: "all",
       backlight: "timed",
       clicker: true,
       finish: "silver",
@@ -97,7 +98,7 @@ describe("pocket player rules", () => {
         {
           ...state,
           screen: "settings",
-          selected: { ...state.selected, settings: 2 },
+          selected: { ...state.selected, settings: 3 },
         },
         rows,
         view,
