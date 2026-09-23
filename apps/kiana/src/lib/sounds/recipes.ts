@@ -104,62 +104,6 @@ export const recipes = {
   /** A knob turned back: the same detent, a little lower. */
   detentBack: (context, output, at) => detent(context, output, at, 2700),
 
-  /** A rounded click with a tiny breath of air, for primary buttons. */
-  press: (context, output, at) =>
-    Math.max(
-      tone(context, output, {
-        at,
-        from: 1500,
-        to: 700,
-        glide: 0.02,
-        decay: 0.045,
-        gain: 0.26,
-      }),
-      noise(context, output, {
-        at,
-        duration: 0.012,
-        filter: "highpass",
-        from: 2600,
-        gain: 0.1,
-      }),
-    ),
-
-  /** A light tick that leans up, for moving forward. */
-  tickForward: (context, output, at) =>
-    tone(context, output, {
-      at,
-      type: "triangle",
-      from: 2500,
-      to: 1900,
-      glide: 0.015,
-      decay: 0.03,
-      gain: 0.16,
-    }),
-
-  /** The same tick a little lower, for moving back. */
-  tickBack: (context, output, at) =>
-    tone(context, output, {
-      at,
-      type: "triangle",
-      from: 2000,
-      to: 1500,
-      glide: 0.015,
-      decay: 0.03,
-      gain: 0.16,
-    }),
-
-  /** A small rising bubble, for a menu or panel opening. */
-  pop: (context, output, at) =>
-    tone(context, output, {
-      at,
-      from: 420,
-      to: 860,
-      glide: 0.07,
-      attack: 0.004,
-      decay: 0.09,
-      gain: 0.2,
-    }),
-
   /**
    * A fine notch, like a small selector switch, for choosing an option: the
    * knob detent's smaller sibling, a single dry snap with a brief bright ring
@@ -238,64 +182,6 @@ export const recipes = {
     Math.max(
       bell(context, output, at, 1318.5, 0.15, 0.5),
       bell(context, output, at + 0.075, 1975.5, 0.12, 0.55),
-    ),
-
-  /** One low bell, for letting a favorite go. */
-  unchime: (context, output, at) => bell(context, output, at, 784, 0.1, 0.26),
-
-  /** Three quick glints climbing, for a copied link. */
-  glint: (context, output, at) =>
-    Math.max(
-      ...[2093, 2637, 3136].map((pitch, step) =>
-        tone(context, output, {
-          at: at + step * 0.045,
-          from: pitch,
-          decay: 0.08,
-          gain: 0.08,
-        }),
-      ),
-    ),
-
-  /** A switch flicked on: a click that lifts. */
-  switchOn: (context, output, at) =>
-    Math.max(
-      tone(context, output, {
-        at,
-        type: "triangle",
-        from: 1300,
-        to: 2000,
-        glide: 0.02,
-        decay: 0.04,
-        gain: 0.15,
-      }),
-      noise(context, output, {
-        at,
-        duration: 0.01,
-        filter: "highpass",
-        from: 3000,
-        gain: 0.06,
-      }),
-    ),
-
-  /** A switch flicked off: the same click falling. */
-  switchOff: (context, output, at) =>
-    Math.max(
-      tone(context, output, {
-        at,
-        type: "triangle",
-        from: 1900,
-        to: 1200,
-        glide: 0.02,
-        decay: 0.04,
-        gain: 0.14,
-      }),
-      noise(context, output, {
-        at,
-        duration: 0.01,
-        filter: "highpass",
-        from: 3000,
-        gain: 0.05,
-      }),
     ),
 
   /** A soft low thud, for something that did not work. */

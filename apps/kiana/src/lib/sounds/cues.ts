@@ -9,32 +9,39 @@ type Cue = {
 /**
  * What each action in the interface sounds like. Call sites name the action,
  * never the sound, so the palette can change in one place.
+ *
+ * The palette is deliberately small, one sound per kind of meaning:
+ * - notch: touching any control
+ * - detent: moving from one item to the next
+ * - chime: keeping something
+ * - sweep: the library coming and going
+ * - thud: something that did not work
  */
 export const cues = {
-  /** Play or pause, full screen, and other plain buttons. */
-  press: { recipe: "press" },
-  /**
-   * Next and previous photo: the detent of a rotary knob. Arrow keys repeat,
-   * so it is rate-limited, which also paces the clicks like a turned dial.
-   */
+  // Controls: buttons, menus, options, switches.
+  press: { recipe: "notch" },
+  open: { recipe: "notch" },
+  select: { recipe: "notch" },
+  switchOn: { recipe: "notch" },
+  switchOff: { recipe: "notch" },
+  unfavorite: { recipe: "notch" },
+
+  // Moving through photos and songs, like turning a knob. Arrow keys repeat,
+  // so these are rate-limited, which also paces the clicks like a dial.
   next: { recipe: "detentForward", every: 45 },
   previous: { recipe: "detentBack", every: 45 },
-  /** A photo picked in the library: the same detent, a dial set to it. */
   pickPhoto: { recipe: "detentForward" },
-  /** Next and previous song in the music player: a lighter tick. */
-  songNext: { recipe: "tickForward", every: 45 },
-  songPrevious: { recipe: "tickBack", every: 45 },
-  /** A menu, dialog, or the full music player opening. */
-  open: { recipe: "pop" },
-  /** An option chosen in a menu, a filter, or a list. */
-  select: { recipe: "notch" },
+  songNext: { recipe: "detentForward", every: 45 },
+  songPrevious: { recipe: "detentBack", every: 45 },
+
+  // Keeping something.
+  favorite: { recipe: "chime" },
+  copied: { recipe: "chime" },
+
+  // The library.
   libraryOpen: { recipe: "sweepUp" },
   libraryClose: { recipe: "sweepDown" },
-  favorite: { recipe: "chime" },
-  unfavorite: { recipe: "unchime" },
-  copied: { recipe: "glint" },
-  switchOn: { recipe: "switchOn" },
-  switchOff: { recipe: "switchOff" },
+
   error: { recipe: "thud" },
 } satisfies Record<string, Cue>;
 
