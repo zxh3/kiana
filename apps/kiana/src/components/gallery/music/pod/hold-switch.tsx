@@ -1,13 +1,11 @@
 import { cx } from "../../../../lib/class-names";
-import { BODY_PADDING, BODY_RADIUS } from "./geometry";
-
-/** How far the switch stands above the body's top edge. */
-const SLOT_RISE = 4;
+import { BODY_PADDING } from "./geometry";
 
 /**
- * The hold switch on the top edge, peeking over the body. Sliding it on
- * shows its orange side and locks every control, so a player in a pocket
- * (or under a stray hand) does nothing it was not asked to.
+ * The hold switch, set into the aluminium above the screen's left corner,
+ * opposite the minimize and close dimples: a shallow slot with a knob of
+ * the body's own metal. Sliding it on uncovers an orange strip, as on the
+ * original, and locks every control on the wheel and the screen.
  */
 export function HoldSwitch({
   held,
@@ -20,23 +18,24 @@ export function HoldSwitch({
     <button
       aria-label="Hold"
       aria-pressed={held}
-      className="absolute flex h-6 w-11 cursor-pointer justify-center rounded-full pt-2 outline-none focus-visible:ring-2 focus-visible:ring-[#3a86ea]/70"
+      className="group/hold absolute flex cursor-pointer items-center rounded-full px-1 outline-none focus-visible:ring-2 focus-visible:ring-[#3a86ea]/70"
       onClick={onToggle}
-      // Placed against the player's content box, which the body's padding
-      // insets: the slot rises 4px above the top edge, just past the corner.
-      style={{
-        top: -BODY_PADDING - SLOT_RISE - 8,
-        left: BODY_RADIUS - BODY_PADDING - 4,
-      }}
-      title={held ? "Hold is on: controls are locked" : "Hold"}
+      // In the body's top margin, against the player's content box.
+      style={{ top: -BODY_PADDING, left: -8, height: BODY_PADDING }}
+      title={held ? "Hold is on: the controls are locked" : "Hold"}
       type="button"
     >
-      <span className="relative block h-[7px] w-[26px] overflow-hidden rounded-full bg-[#2a2a2c] shadow-[inset_0_1px_2px_rgb(0_0_0/.6)]">
-        <span className="absolute inset-y-0 left-0 w-1/2 bg-[#f08a1c]" />
+      <span className="relative block h-[9px] w-[21px] overflow-hidden rounded-full bg-black/[.06] shadow-[inset_0_1px_1.5px_rgb(0_0_0/.3),0_1px_0_var(--pod-rim)]">
         <span
           className={cx(
-            "absolute inset-y-0 w-[14px] rounded-full bg-(image:--pod-body) shadow-[inset_0_1px_0_var(--pod-rim),0_0_0_0.5px_rgb(0_0_0/.35)] transition-[left] duration-200 ease-soft motion-reduce:transition-none",
-            held ? "left-[12px]" : "left-0",
+            "absolute inset-y-[1.5px] left-[1.5px] w-[9px] rounded-full bg-[#f08a1c] shadow-[inset_0_1px_1px_rgb(0_0_0/.25)] transition-opacity duration-200",
+            held ? "opacity-100" : "opacity-0",
+          )}
+        />
+        <span
+          className={cx(
+            "absolute inset-y-[1.5px] w-[10px] rounded-full bg-(image:--pod-body) shadow-[0_0.5px_1px_rgb(0_0_0/.35),inset_0_0.5px_0_var(--pod-rim)] transition-[left] duration-200 ease-soft group-active/hold:brightness-95 motion-reduce:transition-none",
+            held ? "left-[9.5px]" : "left-[1.5px]",
           )}
         />
       </span>
