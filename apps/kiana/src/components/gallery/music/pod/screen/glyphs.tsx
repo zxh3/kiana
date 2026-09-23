@@ -93,6 +93,22 @@ export function LockGlyph({ size = 9 }: { size?: number }) {
   );
 }
 
+/** Going back, in the title bar. */
+export function BackGlyph() {
+  return (
+    <svg aria-hidden="true" height="10" viewBox="0 0 7 10" width="7">
+      <path
+        d="M5.5 1 1.5 5l4 4"
+        fill="none"
+        stroke="#4d4d4d"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
 /** Marks the song that is playing in a list. */
 export function SpeakerGlyph({ className }: { className?: string }) {
   return (

@@ -1,6 +1,7 @@
 import { cx } from "../../../../../lib/class-names";
 import type { BatteryState } from "../use-battery";
 import {
+  BackGlyph,
   BatteryGlyph,
   LockGlyph,
   type PlayState,
@@ -11,9 +12,10 @@ const bar =
   "relative flex h-[18px] w-full shrink-0 items-center justify-center border-b border-[#8e8e8e] bg-[linear-gradient(180deg,#fefefe_0%,#e4e4e4_55%,#cdcdcd_100%)] px-1.5 outline-none";
 
 /**
- * The grey title bar: play state and hold on the left, battery right. When
- * there is somewhere to go back to, a chevron shows before the title and a
- * tap on the bar goes back, like Menu.
+ * The grey title bar. The left is for navigation only: a back chevron when
+ * there is somewhere to go back to, and a tap anywhere on the bar goes
+ * back, like Menu. What the player is doing sits on the right with the
+ * battery: hold, then play or pause.
  */
 export function StatusBar({
   battery,
@@ -31,29 +33,24 @@ export function StatusBar({
 }) {
   const content = (
     <>
-      <span className="absolute left-1.5 flex items-center gap-1">
-        <PlayStateGlyph state={state} />
-        {held ? <LockGlyph /> : null}
-      </span>
-      <span className="flex items-center gap-1 text-[11px] leading-none font-bold text-[#1b1b1b]">
-        {onBack ? (
-          <span
-            aria-hidden="true"
-            className="-mt-px text-[13px] text-[#6d6d6d]"
-          >
-            ‹
-          </span>
-        ) : null}
+      {onBack ? (
+        <span className="absolute left-1.5 flex">
+          <BackGlyph />
+        </span>
+      ) : null}
+      <span className="text-[11px] leading-none font-bold text-[#1b1b1b]">
         {title}
       </span>
       <span
-        className="absolute right-1.5 flex"
+        className="absolute right-1.5 flex items-center gap-1"
         title={
           battery
             ? `Battery ${Math.round(battery.level * 100)}%${battery.charging ? ", charging" : ""}`
             : undefined
         }
       >
+        {held ? <LockGlyph /> : null}
+        <PlayStateGlyph state={state} />
         <BatteryGlyph battery={battery} />
       </span>
     </>
@@ -62,8 +59,10 @@ export function StatusBar({
   return (
     <button
       aria-label={`Back from ${title}`}
-      className={cx(bar, "cursor-pointer focus-visible:bg-[#d8e6f8]")}
+      className={cx(bar, "cursor-pointer")}
       onClick={onBack}
+      // For pointers; from the keyboard, Menu or Escape goes back.
+      tabIndex={-1}
       type="button"
     >
       {content}
