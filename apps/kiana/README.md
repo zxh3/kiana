@@ -22,8 +22,9 @@ Mediaforge release manifest and displays the responsive images described by it.
   ("On this day", widened to the surrounding week when a date is sparse),
   favorites, a single year, or a single month from the library.
 - **Order.** Shuffle, or play by date. In shuffle, previous steps back through
-  what was shown. By date, previous and next always move to the neighbouring
-  photo by date, including after jumping to a photo from the library.
+  what was shown, and every visit starts a fresh shuffle. By date, previous and
+  next always move to the neighbouring photo by date, including after jumping
+  to a photo from the library, and each collection resumes where you left it.
 - **Frames.** Fill, backdrop, or mat, each with its own transition.
 - **Library.** A month-by-month grid of every asset with filters for photos,
   Live Photos, videos, and favorites, plus a year rail. It opens centred on
@@ -36,7 +37,8 @@ Mediaforge release manifest and displays the responsive images described by it.
 - **Keep screen awake.** An optional setting that holds a screen wake lock
   while photos play.
 
-Preferences are stored in local storage under `kiana.*` keys. The desktop
+Preferences, favorites, and date-order positions are stored in local storage
+under `kiana.*` keys. The desktop
 wallpaper app writes `kiana.frame` on every launch, and the library is rendered
 outside `<main>` because that app stretches every image inside `<main>` to cover
 the screen.

@@ -27,18 +27,22 @@ export function useSlideshow({
   members,
   order,
   paused,
+  resumeIndex,
 }: {
   assets: ReadonlyArray<GalleryAsset>;
   duration: number;
+  /** A shared photo to open first; wins over `resumeIndex`. */
   initialIndex?: number;
   members: ReadonlyArray<number>;
   order: Order;
   paused: boolean;
+  /** Where date order last left the current collection. */
+  resumeIndex?: number;
 }) {
   const [state, setState] = useState<SlideshowState>(() => ({
     members,
     order,
-    playback: createPlayback({ members, order }, initialIndex),
+    playback: createPlayback({ members, order }, initialIndex ?? resumeIndex),
   }));
 
   // Adopt a new collection or order during render, before anything paints.
@@ -46,7 +50,7 @@ export function useSlideshow({
     setState({
       members,
       order,
-      playback: retarget(state.playback, { members, order }),
+      playback: retarget(state.playback, { members, order }, resumeIndex),
     });
   }
 

@@ -119,6 +119,21 @@ describe("playback", () => {
     expect(moved.slide).toBe(playback.slide + 1);
   });
 
+  it("resumes a collection where date order left it", () => {
+    const playback = createPlayback(chronological, 1);
+    const byDate: PlaybackSource = {
+      members: [4, 5, 6, 7],
+      order: "chronological",
+    };
+    const resumed = retarget(playback, byDate, 6);
+    expect(currentIndex(resumed)).toBe(6);
+    expect(upcoming(resumed, 2)).toEqual([7, 4]);
+    // A stale position outside the collection starts from the oldest.
+    expect(currentIndex(retarget(playback, byDate, 99))).toBe(4);
+    // The visible photo wins when the new collection contains it.
+    expect(currentIndex(retarget(playback, chronological, 3))).toBe(1);
+  });
+
   it("stays put when a collection has a single asset", () => {
     const single: PlaybackSource = { members: [5], order: "shuffle" };
     const playback = createPlayback(single);

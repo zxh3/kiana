@@ -146,9 +146,15 @@ export function jump(
 
 /**
  * Adopts a new collection or order. The visible asset stays when it belongs
- * to the new collection; otherwise the slideshow moves to the new one.
+ * to the new collection. Otherwise the slideshow moves to `resumeAt` (where
+ * date order last left this collection) when that is a member, or starts
+ * the collection afresh.
  */
-export function retarget(playback: Playback, source: PlaybackSource): Playback {
+export function retarget(
+  playback: Playback,
+  source: PlaybackSource,
+  resumeAt?: number,
+): Playback {
   const current = currentIndex(playback);
   if (source.members.includes(current)) {
     return {
@@ -156,6 +162,16 @@ export function retarget(playback: Playback, source: PlaybackSource): Playback {
       history: [current],
       position: 0,
       queue: buildQueue(source.members, source.order, current, source.random),
+    };
+  }
+
+  if (resumeAt !== undefined && source.members.includes(resumeAt)) {
+    return {
+      history: [resumeAt],
+      position: 0,
+      queue: buildQueue(source.members, source.order, resumeAt, source.random),
+      previous: current,
+      slide: playback.slide + 1,
     };
   }
 

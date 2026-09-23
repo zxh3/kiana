@@ -26,6 +26,7 @@ import { frameLabels } from "./model";
 import { useGalleryPreferences } from "./preferences";
 import { ProgressBar } from "./progress-bar";
 import { createProgressChannel } from "./progress-channel";
+import { parseResume, type ResumePositions, resumeKey } from "./resume";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { Stage } from "./stage";
 import { Toast, type ToastMessage } from "./toast";
@@ -36,6 +37,7 @@ import { useFavorites } from "./use-favorites";
 import { useFullscreen } from "./use-fullscreen";
 import { useGalleryShortcuts } from "./use-gallery-shortcuts";
 import { useSlideshow } from "./use-slideshow";
+import { useStoredState } from "./use-stored-state";
 import { useToday } from "./use-today";
 import { useWakeLock, wakeLockSupported } from "./use-wake-lock";
 
@@ -144,6 +146,22 @@ export function Gallery({
     [assets, favorites],
   );
 
+  // Date order remembers where it left each collection; shuffle always
+  // starts a fresh shuffle.
+  const [resume, saveResume] = useStoredState<ResumePositions>(
+    resumeKey,
+    parseResume,
+    JSON.stringify,
+  );
+  const indexById = useMemo(
+    () => new Map(assets.map(({ id }, index) => [id, index])),
+    [assets],
+  );
+  const resumeId =
+    preferences.order === "chronological" ? resume[collection.id] : undefined;
+  const resumeIndex =
+    resumeId === undefined ? undefined : indexById.get(resumeId);
+
   const paused = pausedByUser || libraryOpen;
   const slideshow = useSlideshow({
     assets,
@@ -152,8 +170,14 @@ export function Gallery({
     members: collection.members,
     order: preferences.order,
     paused,
+    resumeIndex,
   });
   const asset = assets[slideshow.index];
+  useEffect(() => {
+    if (preferences.order !== "chronological") return;
+    if (resume[collection.id] === asset.id) return;
+    saveResume({ ...resume, [collection.id]: asset.id });
+  }, [asset.id, collection.id, preferences.order, resume, saveResume]);
   const favorite = favorites.has(asset.id);
   const mat = preferences.frame === "mat";
   useWakeLock(preferences.keepAwake && !paused);
