@@ -1,19 +1,10 @@
-import {
-  type CSSProperties,
-  type PointerEvent,
-  type RefObject,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type CSSProperties, type PointerEvent, useRef, useState } from "react";
 
-import { cx } from "../../lib/class-names";
-import { angleDelta, DEGREES_PER_STEP, takeSteps } from "./ipod-menu";
+import { cx } from "../../../../lib/class-names";
+import { angleDelta, DEGREES_PER_STEP, takeSteps } from "./menu";
 
 type Zone = "menu" | "previous" | "next" | "play" | "center";
 
-/** Scroll distance that counts as one click of the wheel. */
-const PIXELS_PER_STEP = 40;
 /** Inside this radius the angle to the centre is too jumpy to follow. */
 const DEAD_RADIUS = 20;
 
@@ -61,33 +52,6 @@ function PlayPauseGlyph() {
       <rect height="8" rx="0.4" width="2.2" x="13" y="0.5" />
     </svg>
   );
-}
-
-/**
- * Scrolling over `ref` turns the wheel, so a mouse wheel or a trackpad
- * works like a thumb.
- */
-export function useScrollSteps(
-  ref: RefObject<HTMLElement | null>,
-  onStep: (steps: number) => void,
-) {
-  const latest = useRef(onStep);
-  latest.current = onStep;
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    let travel = 0;
-    const handleWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      travel += event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
-      const { steps, rest } = takeSteps(travel, PIXELS_PER_STEP);
-      travel = rest;
-      if (steps !== 0) latest.current(steps);
-    };
-    element.addEventListener("wheel", handleWheel, { passive: false });
-    return () => element.removeEventListener("wheel", handleWheel);
-  }, [ref]);
 }
 
 /**

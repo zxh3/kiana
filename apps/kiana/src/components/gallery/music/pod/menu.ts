@@ -1,13 +1,17 @@
 /**
- * The pocket player's screens and the arithmetic of its click wheel. Kept
- * free of React so the rules can be tested on their own.
+ * The pocket player's screens, menus, and the arithmetic of its click wheel.
+ * Kept free of React so the rules can be tested on their own.
  */
 
-export type Screen = "menu" | "songs" | "settings" | "now";
-export type ListScreen = Exclude<Screen, "now">;
+export type Screen = "menu" | "covers" | "songs" | "settings" | "now";
+/** Screens with a highlight that the wheel moves. */
+export type ChoiceScreen = Exclude<Screen, "now">;
+/** Screens drawn as a menu list. */
+export type ListScreen = Exclude<ChoiceScreen, "covers">;
 
 export const screenTitles: Record<Screen, string> = {
   menu: "Music",
+  covers: "Cover Flow",
   songs: "Songs",
   settings: "Settings",
   now: "Now Playing",
@@ -19,30 +23,57 @@ export const screenTitles: Record<Screen, string> = {
  */
 export const parentScreen: Record<Screen, Screen | null> = {
   menu: null,
+  covers: "menu",
   songs: "menu",
   settings: "menu",
   now: "menu",
 };
 
 /**
- * The top menu holds only music. Putting the player away belongs to the
- * widget's own minimize and close buttons, not to the device's menus.
+ * The top menu holds only music, with Now Playing last as on the original.
+ * Putting the player away belongs to the widget's own minimize and close
+ * buttons, not to the device's menus.
  */
-export const menuItems = ["now", "songs", "shuffle", "settings"] as const;
+export const menuItems = [
+  "covers",
+  "songs",
+  "shuffle",
+  "settings",
+  "now",
+] as const;
 export type MenuItem = (typeof menuItems)[number];
 
 export const menuLabels: Record<MenuItem, string> = {
-  now: "Now Playing",
+  covers: "Cover Flow",
   songs: "Songs",
   shuffle: "Shuffle Songs",
   settings: "Settings",
+  now: "Now Playing",
 };
 
-export const settingsItems = ["mode", "video", "finish", "youtube"] as const;
+/** Menu items that open another screen, drawn with a chevron. */
+export const menuOpens: Record<MenuItem, boolean> = {
+  covers: true,
+  songs: true,
+  shuffle: false,
+  settings: true,
+  now: true,
+};
+
+export const settingsItems = [
+  "mode",
+  "backlight",
+  "clicker",
+  "video",
+  "finish",
+  "youtube",
+] as const;
 export type SettingsItem = (typeof settingsItems)[number];
 
 export const settingsLabels: Record<SettingsItem, string> = {
   mode: "Play Mode",
+  backlight: "Backlight",
+  clicker: "Clicker",
   video: "Video",
   finish: "Finish",
   youtube: "Open on YouTube",
@@ -70,7 +101,7 @@ export function takeSteps(travel: number, size: number) {
 
 /** Lists stop at their ends rather than wrapping, as the original did. */
 export function moveSelection(index: number, steps: number, length: number) {
-  return Math.max(0, Math.min(length - 1, index + steps));
+  return clamp(index + steps, 0, length - 1);
 }
 
 /** The first visible row, moved only as far as needed to show `selected`. */

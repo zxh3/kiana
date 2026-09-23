@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { nextFinish, parseFinish } from "./ipod-finishes";
+import { nextFinish, parseFinish } from "./finishes";
+import { formatPodTime } from "./format";
 import {
   angleDelta,
+  menuItems,
   moveSelection,
   parentScreen,
   scrollWindow,
   takeSteps,
-} from "./ipod-menu";
+} from "./menu";
+import { parseBacklight, parseClicker } from "./settings";
 
 describe("pocket player", () => {
   it("measures wheel turns the short way round", () => {
@@ -36,15 +39,29 @@ describe("pocket player", () => {
     expect(scrollWindow(0, 4, 5, 7)).toBe(0);
   });
 
-  it("goes back to the menu from every screen but the menu", () => {
+  it("goes back to the menu from every screen, and nowhere from the menu", () => {
     expect(parentScreen.now).toBe("menu");
-    expect(parentScreen.songs).toBe("menu");
+    expect(parentScreen.covers).toBe("menu");
     expect(parentScreen.menu).toBeNull();
   });
 
-  it("keeps a saved finish and cycles through them", () => {
+  it("keeps Now Playing last in the menu, as on the original", () => {
+    expect(menuItems.at(-1)).toBe("now");
+  });
+
+  it("writes times the way the player does", () => {
+    expect(formatPodTime(0)).toBe("0:00");
+    expect(formatPodTime(187.9)).toBe("3:07");
+    expect(formatPodTime(Number.NaN)).toBe("0:00");
+  });
+
+  it("reads saved settings and falls back to the defaults", () => {
     expect(parseFinish("rose")).toBe("rose");
     expect(parseFinish("gold")).toBe("silver");
     expect(nextFinish("rose")).toBe("silver");
+    expect(parseBacklight("always")).toBe("always");
+    expect(parseBacklight(null)).toBe("timed");
+    expect(parseClicker(null)).toBe(true);
+    expect(parseClicker("false")).toBe(false);
   });
 });
