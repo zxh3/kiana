@@ -17,7 +17,7 @@ import {
 import { finishStyles, parseFinish } from "./ipod-finishes";
 import { type Corner, parseCorner, parsePlayerSize } from "./music-layout";
 import { trackArt, trackUrl } from "./music-track";
-import { PocketPlayer } from "./pocket-player";
+import { glassFrame, PocketPlayer, videoFrame } from "./pocket-player";
 import { Swap } from "./swap";
 import { useCornerDrag } from "./use-corner-drag";
 import { useMediaQuery } from "./use-media-query";
@@ -369,15 +369,18 @@ export function MusicPlayer({
             </AnimatePresence>
 
             {/* The player: one element for the widget's whole life, so switching
-            sizes never interrupts the music. It lies over the screen. */}
+            sizes never interrupts the music. It lies over the display. Clipping
+            with clip-path keeps the frame's corners clean, which border-radius
+            alone does not always do for an iframe. */}
             <div
               className={cx(
-                "absolute top-[10px] left-[10px] h-[159px] w-[212px] overflow-hidden rounded-[7px] border-2 border-[#0d0d0d] bg-black transition-opacity duration-300",
+                "absolute bg-black transition-opacity duration-300 [clip-path:inset(0_round_3px)]",
                 showVideo
                   ? "z-20 opacity-100"
                   : "pointer-events-none -z-20 opacity-0",
               )}
               inert={!showVideo}
+              style={videoFrame}
             >
               {music.status === "loading" ? (
                 <div className="absolute inset-0 grid place-items-center">
@@ -388,6 +391,14 @@ export function MusicPlayer({
               ) : null}
               <div className="absolute inset-0" ref={music.hostRef} />
             </div>
+            {mini ? null : (
+              // Glare across the whole glass, over the display and the video.
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute z-30 rounded-[9px] bg-[linear-gradient(118deg,rgb(255_255_255/.2)_0%,rgb(255_255_255/.05)_34%,transparent_35%)]"
+                style={glassFrame}
+              />
+            )}
           </motion.div>
 
           {!mini && music.status === "blocked" ? (

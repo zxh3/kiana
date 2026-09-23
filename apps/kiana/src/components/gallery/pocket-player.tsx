@@ -35,6 +35,29 @@ const VOLUME_SHOWS_FOR = 1_600;
 const SCRUBBER_SHOWS_FOR = 3_500;
 const SEEK_AFTER = 250;
 
+/** The window's dark border around the display. */
+const DISPLAY_INSET = 4;
+
+/**
+ * Where the glass window and the display inside it sit within the player's
+ * body (which has 10px of padding), so the video can cover the display
+ * exactly and the glare can lie over both.
+ */
+export const glassFrame = { top: 10, left: 10, width: 212, height: 159 };
+export const displayFrame = {
+  top: glassFrame.top + DISPLAY_INSET,
+  left: glassFrame.left + DISPLAY_INSET,
+  width: glassFrame.width - DISPLAY_INSET * 2,
+  height: glassFrame.height - DISPLAY_INSET * 2,
+};
+/** The video overlaps the dark border by a pixel, so no white edge shows. */
+export const videoFrame = {
+  top: displayFrame.top - 1,
+  left: displayFrame.left - 1,
+  width: displayFrame.width + 2,
+  height: displayFrame.height + 2,
+};
+
 /** Deeper screens slide in from the right; Menu slides them back out. */
 const slide: Variants = {
   enter: (direction: number) => ({ x: `${direction * 100}%` }),
@@ -239,9 +262,16 @@ export function PocketPlayer({
       onKeyDown={handleKeyDown}
       ref={rootRef}
     >
-      {/* The screen, behind glass. */}
-      <div className="relative h-[159px] w-[212px] overflow-hidden rounded-[7px] border-2 border-[#0d0d0d] bg-white font-pod shadow-[0_0_0_1px_rgb(0_0_0/.25)]">
-        <div className="flex h-full flex-col">
+      {/* The glass window, with the display set inside its dark border. */}
+      <div
+        className="rounded-[9px] bg-[#0a0a0b] shadow-[0_0_0_1px_rgb(0_0_0/.28),inset_0_0_0_1px_rgb(255_255_255/.05)]"
+        style={{
+          padding: DISPLAY_INSET,
+          width: glassFrame.width,
+          height: glassFrame.height,
+        }}
+      >
+        <div className="flex h-full flex-col overflow-hidden rounded-[2px] bg-white font-pod">
           <StatusBar
             state={
               playing
@@ -303,11 +333,6 @@ export function PocketPlayer({
             </AnimatePresence>
           </div>
         </div>
-        {/* Glare on the glass. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[linear-gradient(118deg,rgb(255_255_255/.28)_0%,rgb(255_255_255/.06)_34%,transparent_35%)]"
-        />
       </div>
 
       <div className="mt-[18px]">
