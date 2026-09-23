@@ -35,22 +35,26 @@ Mediaforge release manifest and displays the responsive images described by it.
 - **Share.** Copies a link that opens the current photo. The server renders
   that photo as the link preview image.
 - **Music.** The Music button in the top bar plays a five-song YouTube playlist
-  as background music. The now-playing widget is a small pill (the default on
-  phones) that opens into a deck in the spirit of the classic desktop players:
-  an amber display with the time, track number, play mode, a scrolling title,
-  and a spectrum; a seek bar; previous, play, and next; repeat all, repeat one,
-  or shuffle; volume; and a docked playlist. On wider screens the widget can be
-  dragged to any corner, where it stays; on phones the deck rises as a bottom
-  sheet that a swipe down tucks away. Songs YouTube refuses to embed are
-  skipped. The spectrum is decorative, because the audio plays inside YouTube's
-  frame and cannot be measured. Starting the music mutes clip sound, and turning
-  clip sound on pauses the music. YouTube's player stays mounted at full size
-  but is collapsed and transparent by default; it opens by itself when YouTube
-  needs a tap or a sign-in, and a toggle shows it on demand. Hiding a playing
-  embed goes against YouTube's API policies (III.I.9), so YouTube could stop the
-  songs playing here. The player uses youtube.com rather than
-  youtube-nocookie.com, because a YouTube sign-in in the same browser is what
-  clears YouTube's "confirm you're not a bot" check. The playlist is set in
+  as background music. The player is made like the pocket music players of
+  the 2000s, in silver, graphite, or rose aluminium. Its colour screen has a
+  menu (Now Playing, Songs, Shuffle Songs, Settings, Turn Off), and a click
+  wheel drives it: circle a thumb or the pointer around the wheel, or scroll
+  over the player, to move through lists. On Now Playing the wheel sets the
+  volume, and the centre button brings up a scrubber for the wheel to seek
+  with. Menu goes back, and the wheel's other buttons are previous, next, and
+  play or pause. Settings holds the play mode (repeat all, repeat one, or
+  shuffle), the video, the finish, and a link to the song on YouTube.
+  Minimized (the default on phones), it becomes a small square player showing
+  the cover. On wider screens it can be dragged to any corner, where it stays;
+  on phones the full player rises from the bottom edge. Songs YouTube refuses
+  to embed are skipped. Starting the music mutes clip sound, and turning clip
+  sound on pauses the music. YouTube's player stays mounted but hidden by
+  default; it covers the screen when YouTube needs a tap or a sign-in, or when
+  the video is turned on in Settings. Hiding a playing embed goes against
+  YouTube's API policies (III.I.9), so YouTube could stop the songs playing
+  here. The player uses youtube.com rather than youtube-nocookie.com, because
+  a YouTube sign-in in the same browser is what clears YouTube's "confirm
+  you're not a bot" check. The playlist is set in
   `src/components/gallery/music-track.ts`.
 - **Interface sounds.** Soft clicks, ticks, and chimes answer the controls.
   They are on by default and can be turned off with the switch in the
@@ -66,7 +70,7 @@ Mediaforge release manifest and displays the responsive images described by it.
   while photos play.
 
 Preferences, favorites, date-order positions, and the music volume, song,
-play mode, widget size, corner, and playlist panel, and the interface sounds
+play mode, player size, corner, and finish, and the interface sounds
 switch are stored in local storage under `kiana.*` keys. The desktop
 wallpaper app writes `kiana.frame` on every launch, and the library is rendered
 outside `<main>` because that app stretches every image inside `<main>` to cover

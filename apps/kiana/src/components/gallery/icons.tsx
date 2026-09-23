@@ -258,19 +258,6 @@ export function MusicNoteIcon(props: IconProps) {
   );
 }
 
-export function ScreenIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <rect height="10.5" rx="2" width="14" x="3" y="4.75" />
-      <path
-        d="M8.75 8.1v3.8c0 .3.33.48.58.32l2.95-1.9a.38.38 0 0 0 0-.64L9.33 7.78a.38.38 0 0 0-.58.32Z"
-        fill="currentColor"
-        stroke="none"
-      />
-    </Icon>
-  );
-}
-
 export function MinimizeIcon(props: IconProps) {
   return (
     <Icon {...props}>
@@ -322,32 +309,6 @@ export function EqualizerIcon({
   );
 }
 
-export function SkipBackIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M5.5 5v10" strokeWidth={1.8} />
-      <path
-        d="M15 5.6v8.8a.7.7 0 0 1-1.06.6L7.7 10.6a.7.7 0 0 1 0-1.2l6.24-4.4A.7.7 0 0 1 15 5.6Z"
-        fill="currentColor"
-        stroke="none"
-      />
-    </Icon>
-  );
-}
-
-export function SkipForwardIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M14.5 5v10" strokeWidth={1.8} />
-      <path
-        d="M5 5.6v8.8a.7.7 0 0 0 1.06.6l6.24-4.4a.7.7 0 0 0 0-1.2L6.06 5a.7.7 0 0 0-1.06.6Z"
-        fill="currentColor"
-        stroke="none"
-      />
-    </Icon>
-  );
-}
-
 export function RepeatIcon({
   one = false,
   ...props
@@ -369,36 +330,6 @@ export function ShuffleIcon(props: IconProps) {
       <path d="M3.75 6.25h1.9c1.1 0 2.13.54 2.76 1.44l3.18 4.62a3.35 3.35 0 0 0 2.76 1.44h1.9" />
       <path d="M3.75 13.75h1.9c1.1 0 2.13-.54 2.76-1.44l.4-.58M11.2 8.27l.39-.58a3.35 3.35 0 0 1 2.76-1.44h1.9" />
       <path d="m14.5 4.25 2 2-2 2M14.5 11.75l2 2-2 2" />
-    </Icon>
-  );
-}
-
-export function ListIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M8 6h8.25M8 10h8.25M8 14h5.5" />
-      <circle cx="4.75" cy="6" fill="currentColor" r="1" stroke="none" />
-      <circle cx="4.75" cy="10" fill="currentColor" r="1" stroke="none" />
-      <circle cx="4.75" cy="14" fill="currentColor" r="1" stroke="none" />
-    </Icon>
-  );
-}
-
-export function GripIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      {[7.5, 12.5].flatMap((x) =>
-        [6, 10, 14].map((y) => (
-          <circle
-            cx={x}
-            cy={y}
-            fill="currentColor"
-            key={`${x}-${y}`}
-            r="1.1"
-            stroke="none"
-          />
-        )),
-      )}
     </Icon>
   );
 }

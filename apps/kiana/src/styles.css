@@ -4,6 +4,10 @@
   --font-serif:
     "Instrument Serif", "Songti SC", "Noto Serif SC", ui-serif, Georgia,
     "Times New Roman", serif;
+  /* The pocket player's screen, set in the sans of its era. */
+  --font-pod:
+    "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
   --font-mono:
     "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     monospace;
@@ -27,6 +31,7 @@
   --animate-now-playing: now-playing 1.4s var(--ease-soft) 0.3s 3;
   --animate-equalize: equalize 1s ease-in-out infinite;
   --animate-marquee: marquee var(--marquee-duration, 12s) linear infinite;
+  --animate-pod-pan: pod-pan 16s ease-in-out infinite alternate;
 }
 
 @layer base {
@@ -177,6 +182,16 @@
 @keyframes marquee {
   to {
     transform: translateX(-50%);
+  }
+}
+
+/* The slow pan and zoom across the cover beside the player's menu. */
+@keyframes pod-pan {
+  from {
+    transform: scale(1.12) translateX(-7%);
+  }
+  to {
+    transform: scale(1.3) translate(7%, -3%);
   }
 }
 

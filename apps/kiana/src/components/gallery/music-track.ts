@@ -27,6 +27,7 @@ export function trackUrl(track: Track) {
   return `https://www.youtube.com/watch?v=${track.videoId}`;
 }
 
-export function trackThumbnail(track: Track) {
-  return `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`;
+/** The video's 16:9 still, without the letterbox bars of the larger sizes. */
+export function trackArt(track: Track) {
+  return `https://i.ytimg.com/vi/${track.videoId}/mqdefault.jpg`;
 }

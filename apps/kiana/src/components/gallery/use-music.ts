@@ -255,10 +255,18 @@ export function useMusic() {
     [load],
   );
 
+  const setMode = useCallback(
+    (next: PlayMode) => {
+      shuffleHistory.current = [];
+      modeRef.current = next;
+      saveMode(next);
+    },
+    [saveMode],
+  );
+
   const cycleMode = useCallback(() => {
-    shuffleHistory.current = [];
-    saveMode(nextPlayMode(modeRef.current));
-  }, [saveMode]);
+    setMode(nextPlayMode(modeRef.current));
+  }, [setMode]);
 
   const setVolume = useCallback(
     (value: number) => {
@@ -299,6 +307,7 @@ export function useMusic() {
     previous,
     readProgress,
     seek,
+    setMode,
     setVolume,
     start,
     status,
