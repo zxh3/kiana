@@ -71,7 +71,6 @@ export function usePod({
         settings.backlight === "timed" ? "always" : "timed",
       );
     } else if (item === "clicker") settings.setClicker(!settings.clicker);
-    else if (item === "video") onVideoChange(!videoOpen);
     else settings.setFinish(nextFinish(settings.finish));
   };
 
@@ -106,8 +105,8 @@ export function usePod({
       case "setting":
         applySetting(effect.item);
         break;
-      case "closeVideo":
-        onVideoChange(false);
+      case "video":
+        onVideoChange(effect.on);
         break;
     }
   };
@@ -195,6 +194,7 @@ export function usePod({
       next: touch(() => ({ type: "next" })),
       previous: touch(() => ({ type: "previous" })),
       playPause: touch(() => ({ type: "playPause" })),
+      toggleVideo: touch(() => ({ type: "toggleVideo" })),
       pick: touch((screen: ChoiceScreen, index: number) => ({
         type: "pick",
         screen,

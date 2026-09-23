@@ -38,10 +38,24 @@ const displayFrame = {
   height: glassFrame.height - DISPLAY_INSET * 2,
 };
 
+/** The display's grey title bar. */
+export const STATUS_BAR_HEIGHT = 18;
+
 /** The video overlaps the dark border by a pixel, so no white edge shows. */
 export const videoFrame = {
   top: displayFrame.top - 1,
   left: displayFrame.left - 1,
   width: displayFrame.width + 2,
   height: displayFrame.height + 2,
+};
+
+/**
+ * The video opened from Now Playing sits under the title bar, which stays
+ * to go back; only when YouTube needs a tap or a sign-in does it take the
+ * whole display, so its prompt has room.
+ */
+export const videoBelowTitleFrame = {
+  ...videoFrame,
+  top: displayFrame.top + STATUS_BAR_HEIGHT,
+  height: videoFrame.height - STATUS_BAR_HEIGHT - 1,
 };

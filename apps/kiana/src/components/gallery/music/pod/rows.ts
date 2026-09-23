@@ -48,7 +48,6 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
     repeat: view.repeat === "one" ? "One" : "All",
     backlight: backlightLabels[view.backlight],
     clicker: view.clicker ? "On" : "Off",
-    video: view.videoOpen ? "On" : "Off",
     finish: finishLabels[view.finish],
   };
   return {
@@ -81,6 +80,10 @@ export function describePod(
   view: PodView,
 ) {
   if (state.screen === "now") {
+    if (view.videoOpen) {
+      const track = view.playlist[view.index];
+      return `Showing the video: ${track.title}`;
+    }
     if (state.overlay === "volume") return `Volume ${view.volume}%`;
     if (state.overlay === "scrub") {
       return `Position ${formatPodTime(state.scrubAt ?? view.current)} of ${formatPodTime(view.duration)}`;

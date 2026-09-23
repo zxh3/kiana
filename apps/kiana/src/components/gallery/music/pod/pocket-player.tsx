@@ -91,6 +91,7 @@ export function PocketPlayer({
           index={music.index}
           loading={music.status === "loading"}
           onSeek={controls.scrubTo}
+          onShowVideo={controls.toggleVideo}
           onVolume={controls.volumeTo}
           overlay={state.overlay}
           repeat={music.repeat}

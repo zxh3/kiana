@@ -88,7 +88,8 @@ function Bar({ percent, marker }: { percent: number; marker?: boolean }) {
  * Now Playing: the cover with its reflection, the song, and a progress bar.
  * Turning the wheel here shows the volume instead; the centre button swaps
  * in the scrubber. On the touch screen, pressing or dragging along the bar
- * seeks, or sets the volume while that is showing.
+ * seeks, or sets the volume while that is showing, and a tap on the cover
+ * shows the video.
  */
 export function NowPlaying({
   count,
@@ -97,6 +98,7 @@ export function NowPlaying({
   index,
   loading,
   onSeek,
+  onShowVideo,
   onVolume,
   overlay,
   repeat,
@@ -110,6 +112,7 @@ export function NowPlaying({
   index: number;
   loading: boolean;
   onSeek: (fraction: number, done: boolean) => void;
+  onShowVideo: () => void;
   onVolume: (fraction: number, done: boolean) => void;
   overlay: Overlay | null;
   repeat: Repeat;
@@ -131,13 +134,29 @@ export function NowPlaying({
         </span>
       </div>
       <div className="mt-1.5 flex gap-2.5">
-        <div className="relative w-[60px] shrink-0">
+        {/* The cover is the video's own picture: a tap plays the video on
+        the screen. */}
+        <button
+          aria-label={`Show the video of ${track.title}`}
+          className="group/cover relative w-[60px] shrink-0 cursor-pointer outline-none"
+          onClick={onShowVideo}
+          title="Show the video"
+          type="button"
+        >
           <img
             alt=""
             className="block size-[60px] object-cover shadow-[0_1px_3px_rgb(0_0_0/.35)]"
             draggable={false}
             src={trackArt(track)}
           />
+          <span
+            aria-hidden="true"
+            className="absolute top-[41px] right-[3px] grid size-4 place-items-center rounded-full bg-black/55 text-white shadow-[0_1px_2px_rgb(0_0_0/.4)] ring-1 ring-white/50 transition-[scale,background-color] duration-150 group-hover/cover:scale-110 group-hover/cover:bg-black/70"
+          >
+            <svg fill="currentColor" height="7" viewBox="0 0 7 7" width="7">
+              <path d="M1.8 0.9 6.2 3.5 1.8 6.1Z" />
+            </svg>
+          </span>
           {/* The reflection on the glossy floor beneath the cover. */}
           <img
             alt=""
@@ -146,7 +165,7 @@ export function NowPlaying({
             draggable={false}
             src={trackArt(track)}
           />
-        </div>
+        </button>
         <div className="min-w-0 flex-1 pt-1">
           <Marquee>
             <span className="text-[12.5px] leading-tight font-bold" lang="zh">

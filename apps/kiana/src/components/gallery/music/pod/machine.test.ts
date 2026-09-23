@@ -156,7 +156,20 @@ describe("pocket player machine", () => {
       videoCovers: true,
     });
     expect(state.screen).toBe("settings");
-    expect(effects).toContainEqual({ type: "closeVideo" });
+    expect(effects).toContainEqual({ type: "video", on: false });
+  });
+
+  it("toggles the video from the cover, but not while held", () => {
+    expect(run([{ type: "toggleVideo" }]).effects).toContainEqual({
+      type: "video",
+      on: true,
+    });
+    const shown = { ...context, videoOpen: true, videoCovers: true };
+    expect(
+      run([{ type: "toggleVideo" }], undefined, shown).effects,
+    ).toContainEqual({ type: "video", on: false });
+    const held = run([{ type: "toggleHold" }]).state;
+    expect(run([{ type: "toggleVideo" }], held).effects).toEqual([]);
   });
 
   it("opens song lists on the song that is playing", () => {

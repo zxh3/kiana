@@ -1,4 +1,5 @@
 import { cx } from "../../../../../lib/class-names";
+import { STATUS_BAR_HEIGHT } from "../geometry";
 import type { BatteryState } from "../use-battery";
 import {
   BackGlyph,
@@ -9,7 +10,7 @@ import {
 } from "./glyphs";
 
 const bar =
-  "relative flex h-[18px] w-full shrink-0 items-center justify-center border-b border-[#8e8e8e] bg-[linear-gradient(180deg,#fefefe_0%,#e4e4e4_55%,#cdcdcd_100%)] px-1.5 outline-none";
+  "relative flex w-full shrink-0 items-center justify-center border-b border-[#8e8e8e] bg-[linear-gradient(180deg,#fefefe_0%,#e4e4e4_55%,#cdcdcd_100%)] px-1.5 outline-none";
 
 /**
  * The grey title bar. The left is for navigation only: a back chevron when
@@ -55,12 +56,20 @@ export function StatusBar({
       </span>
     </>
   );
-  if (!onBack) return <div className={bar}>{content}</div>;
+  const style = { height: STATUS_BAR_HEIGHT };
+  if (!onBack) {
+    return (
+      <div className={bar} style={style}>
+        {content}
+      </div>
+    );
+  }
   return (
     <button
       aria-label={`Back from ${title}`}
       className={cx(bar, "cursor-pointer")}
       onClick={onBack}
+      style={style}
       // For pointers; from the keyboard, Menu or Escape goes back.
       tabIndex={-1}
       type="button"

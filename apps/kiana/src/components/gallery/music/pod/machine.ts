@@ -68,7 +68,7 @@ export type PodEffect =
   | { type: "volume"; volume: number }
   | { type: "seek"; seconds: number }
   | { type: "setting"; item: SettingsItem }
-  | { type: "closeVideo" };
+  | { type: "video"; on: boolean };
 
 export type PodAction =
   // The click wheel.
@@ -79,6 +79,7 @@ export type PodAction =
   | { type: "previous" }
   | { type: "playPause" }
   // The touch screen.
+  | { type: "toggleVideo" }
   | { type: "pick"; screen: ChoiceScreen; index: number }
   | { type: "hover"; screen: ChoiceScreen; index: number }
   | { type: "scrubTo"; fraction: number; done: boolean }
@@ -109,6 +110,7 @@ const lockable = new Set<PodAction["type"]>([
   "next",
   "previous",
   "playPause",
+  "toggleVideo",
   "pick",
   "scrubTo",
   "volumeTo",
@@ -303,7 +305,7 @@ export function podReducer(
     case "back": {
       const press: PodEffect = { type: "cue", cue: "press" };
       if (context.videoOpen) {
-        return { state, effects: [press, { type: "closeVideo" }] };
+        return { state, effects: [press, { type: "video", on: false }] };
       }
       const parent = parentScreen[state.screen];
       if (!parent || context.videoCovers) return { state, effects: [press] };
@@ -336,6 +338,17 @@ export function podReducer(
       return {
         state,
         effects: [{ type: "cue", cue: "press" }, { type: "toggle" }],
+      };
+
+    case "toggleVideo":
+      // The cover on Now Playing opens the video; it closes the same way,
+      // or with Menu.
+      return {
+        state,
+        effects: [
+          { type: "cue", cue: "select" },
+          { type: "video", on: !context.videoOpen },
+        ],
       };
 
     case "pick": {

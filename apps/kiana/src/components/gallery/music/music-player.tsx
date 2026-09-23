@@ -19,6 +19,7 @@ import {
   BODY_RADIUS,
   BODY_WIDTH,
   glassFrame,
+  videoBelowTitleFrame,
   videoFrame,
 } from "./pod/geometry";
 import { NanoPlayer } from "./pod/nano-player";
@@ -201,13 +202,18 @@ export function MusicPlayer({
             border-radius alone does not always do for an iframe. */}
             <div
               className={cx(
-                "absolute bg-black transition-opacity duration-300 [clip-path:inset(0_round_3px)]",
+                "absolute bg-black transition-opacity duration-300",
+                // Rounded to the display's corners; under the title bar only
+                // the bottom ones.
+                needsVideo
+                  ? "[clip-path:inset(0_round_3px)]"
+                  : "[clip-path:inset(0_round_0_0_3px_3px)]",
                 showVideo
                   ? "z-20 opacity-100"
                   : "pointer-events-none -z-20 opacity-0",
               )}
               inert={!showVideo}
-              style={videoFrame}
+              style={needsVideo ? videoFrame : videoBelowTitleFrame}
             >
               {music.status === "loading" ? (
                 <div className="absolute inset-0 grid place-items-center">

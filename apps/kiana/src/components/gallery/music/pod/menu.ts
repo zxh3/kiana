@@ -72,7 +72,6 @@ export const settingsItems = [
   "repeat",
   "backlight",
   "clicker",
-  "video",
   "finish",
 ] as const;
 export type SettingsItem = (typeof settingsItems)[number];
@@ -82,7 +81,6 @@ export const settingsLabels: Record<SettingsItem, string> = {
   repeat: "Repeat",
   backlight: "Backlight",
   clicker: "Clicker",
-  video: "Show Video",
   finish: "Finish",
 };
 
