@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { cx } from "../../lib/class-names";
+import { cue } from "../../lib/sounds";
 import { ControlButton, focusRing } from "./control-button";
 import {
   CloseIcon,
@@ -79,7 +80,10 @@ export function MusicButton({ music }: { music: Music }) {
         playing ? "text-paper" : "text-paper/85",
         focusRing,
       )}
-      onClick={music.toggle}
+      onClick={() => {
+        cue("press");
+        music.toggle();
+      }}
       onFocus={music.preload}
       onPointerEnter={music.preload}
       title={label}
@@ -107,7 +111,10 @@ function PlayPause({ music, size }: { music: Music; size: "small" | "large" }) {
           : "size-14 shadow-[0_10px_30px_-10px_rgba(244,198,124,.55)]",
         focusRing,
       )}
-      onClick={music.toggle}
+      onClick={() => {
+        cue("press");
+        music.toggle();
+      }}
       title={playing ? "Pause" : "Play"}
       type="button"
     >
@@ -336,7 +343,10 @@ export function MusicPlayer({
                 focusRing,
                 "focus-visible:ring-offset-0",
               )}
-              onClick={() => setSize("full")}
+              onClick={() => {
+                cue("open");
+                setSize("full");
+              }}
               type="button"
             >
               <EqualizerIcon
@@ -354,7 +364,10 @@ export function MusicPlayer({
             <ControlButton
               className="size-9"
               label="Next song"
-              onClick={music.next}
+              onClick={() => {
+                cue("next");
+                music.next();
+              }}
             >
               <SkipForwardIcon size={16} />
             </ControlButton>
@@ -434,7 +447,10 @@ export function MusicPlayer({
               <ControlButton
                 className="size-10 text-amber hover:text-amber"
                 label={`Play mode: ${modeLabel}. Change it`}
-                onClick={music.cycleMode}
+                onClick={() => {
+                  cue("select");
+                  music.cycleMode();
+                }}
               >
                 {music.mode === "shuffle" ? (
                   <ShuffleIcon size={19} />
@@ -445,7 +461,10 @@ export function MusicPlayer({
               <ControlButton
                 className="size-11"
                 label="Previous song"
-                onClick={music.previous}
+                onClick={() => {
+                  cue("previous");
+                  music.previous();
+                }}
               >
                 <SkipBackIcon size={20} />
               </ControlButton>
@@ -453,7 +472,10 @@ export function MusicPlayer({
               <ControlButton
                 className="size-11"
                 label="Next song"
-                onClick={music.next}
+                onClick={() => {
+                  cue("next");
+                  music.next();
+                }}
               >
                 <SkipForwardIcon size={20} />
               </ControlButton>
@@ -464,7 +486,10 @@ export function MusicPlayer({
                   listOpen && "text-amber hover:text-amber",
                 )}
                 label={listOpen ? "Hide the playlist" : "Show the playlist"}
-                onClick={() => setListOpen(!listOpen)}
+                onClick={() => {
+                  cue("select");
+                  setListOpen(!listOpen);
+                }}
               >
                 <ListIcon size={19} />
               </ControlButton>
@@ -503,7 +528,10 @@ export function MusicPlayer({
                 className={cx("size-8", showVideo && "text-paper")}
                 disabled={needsVideo}
                 label={showVideo ? "Hide the video" : "Show the video"}
-                onClick={() => setVideoOpen(!videoOpen)}
+                onClick={() => {
+                  cue("select");
+                  setVideoOpen(!videoOpen);
+                }}
               >
                 <ScreenIcon size={16} />
               </ControlButton>
@@ -593,7 +621,10 @@ export function MusicPlayer({
                               focusRing,
                               "focus-visible:ring-offset-0",
                             )}
-                            onClick={() => music.playTrack(position)}
+                            onClick={() => {
+                              cue("select");
+                              music.playTrack(position);
+                            }}
                             type="button"
                           >
                             <span

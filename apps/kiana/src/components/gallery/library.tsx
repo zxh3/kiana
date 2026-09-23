@@ -3,6 +3,7 @@ import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
+import { cue } from "../../lib/sounds";
 import { ControlButton, focusRing } from "./control-button";
 import { CloseIcon, HeartIcon, LiveIcon, PlayIcon } from "./icons";
 import {
@@ -352,6 +353,7 @@ export function Library({
   }, [width]);
 
   const pickFilter = (next: LibraryFilter) => {
+    cue("select");
     setFilter(next);
     scrollRef.current?.scrollTo({ top: 0 });
   };
@@ -539,9 +541,10 @@ export function Library({
                     "focus-visible:ring-offset-0",
                   )}
                   key={year}
-                  onClick={() =>
-                    virtualizer.scrollToIndex(row, { align: "start" })
-                  }
+                  onClick={() => {
+                    cue("select");
+                    virtualizer.scrollToIndex(row, { align: "start" });
+                  }}
                   title={`Jump to ${year}`}
                   type="button"
                 >

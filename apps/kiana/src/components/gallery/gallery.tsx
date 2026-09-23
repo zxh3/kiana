@@ -9,6 +9,7 @@ import {
 
 import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
+import { cue, setSoundsEnabled, soundsSupported } from "../../lib/sounds";
 import { Caption } from "./caption";
 import { CollectionMenu } from "./collection-menu";
 import {
@@ -197,7 +198,31 @@ export function Gallery({
     return () => window.clearTimeout(timeout);
   }, [toast]);
 
-  const togglePause = useCallback(() => setPausedByUser((value) => !value), []);
+  useEffect(() => {
+    setSoundsEnabled(preferences.uiSounds);
+  }, [preferences.uiSounds]);
+
+  // Actions the viewer takes make a sound; the timer and song ends do not.
+  const togglePause = useCallback(() => {
+    cue("press");
+    setPausedByUser((value) => !value);
+  }, []);
+  const goNext = useCallback(() => {
+    cue("next");
+    slideshow.next();
+  }, [slideshow.next]);
+  const goPrevious = useCallback(() => {
+    cue("previous");
+    slideshow.previous();
+  }, [slideshow.previous]);
+  const toggleFullscreen = useCallback(() => {
+    cue("press");
+    fullscreen.toggle();
+  }, [fullscreen.toggle]);
+  const openHelp = useCallback(() => {
+    cue("open");
+    setHelpOpen(true);
+  }, []);
   // Background music and clip sound take turns: starting the music mutes
   // clips, and turning clip sound on pauses the music.
   const music = useMusic();
@@ -205,13 +230,14 @@ export function Gallery({
     if (music.status === "playing") setMuted(true);
   }, [music.status]);
   const toggleMute = useCallback(() => {
+    cue(muted ? "switchOn" : "switchOff");
     if (muted && music.status === "playing") music.pause();
     setMuted(!muted);
   }, [music.pause, music.status, muted]);
-  const toggleFavorite = useCallback(
-    () => toggleFavoriteId(asset.id),
-    [asset.id, toggleFavoriteId],
-  );
+  const toggleFavorite = useCallback(() => {
+    cue(favorite ? "unfavorite" : "favorite");
+    toggleFavoriteId(asset.id);
+  }, [asset.id, favorite, toggleFavoriteId]);
 
   const share = useCallback(async () => {
     const url = new URL("/", window.location.origin);
@@ -226,18 +252,24 @@ export function Gallery({
           return;
       }
     }
-    showToast(
-      (await copyText(url.href)) ? "Link copied" : "Couldn’t copy the link",
-    );
+    const copied = await copyText(url.href);
+    cue(copied ? "copied" : "error");
+    showToast(copied ? "Link copied" : "Couldn’t copy the link");
   }, [asset.id, showToast]);
 
   const openLibrary = useCallback(() => {
+    cue("libraryOpen");
     setMenu(null);
     onOpenLibrary();
   }, [onOpenLibrary]);
+  const closeLibrary = useCallback(() => {
+    cue("libraryClose");
+    onCloseLibrary();
+  }, [onCloseLibrary]);
 
   const openAsset = useCallback(
     (index: number) => {
+      cue("select");
       if (!collection.members.includes(index)) setCollectionId("all");
       slideshow.jumpTo(index);
       onCloseLibrary();
@@ -247,6 +279,7 @@ export function Gallery({
 
   const playMonth = useCallback(
     (monthKey: string) => {
+      cue("select");
       setCollectionId(monthCollectionId(monthKey));
       setPausedByUser(false);
       onCloseLibrary();
@@ -255,17 +288,18 @@ export function Gallery({
   );
 
   useGalleryShortcuts(!libraryOpen && !helpOpen && menu === null, {
-    onNext: slideshow.next,
-    onOpenHelp: () => setHelpOpen(true),
+    onNext: goNext,
+    onOpenHelp: openHelp,
     onOpenLibrary: openLibrary,
     onPickFrame: (frame) => {
+      cue("select");
       preferences.setFrame(frame);
       showToast(frameLabels[frame]);
     },
-    onPrevious: slideshow.previous,
+    onPrevious: goPrevious,
     onShare: () => void share(),
     onToggleFavorite: toggleFavorite,
-    onToggleFullscreen: fullscreen.toggle,
+    onToggleFullscreen: toggleFullscreen,
     onToggleMute: toggleMute,
     onTogglePause: togglePause,
   });
@@ -294,8 +328,8 @@ export function Gallery({
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (Math.abs(dx) > SWIPE_DISTANCE && Math.abs(dx) > Math.abs(dy) * 1.4) {
-      if (dx < 0) slideshow.next();
-      else slideshow.previous();
+      if (dx < 0) goNext();
+      else goPrevious();
       return;
     }
     const tap =
@@ -337,7 +371,7 @@ export function Gallery({
         )}
         onDoubleClick={(event) => {
           const mouse = window.matchMedia("(pointer: fine)").matches;
-          if (mouse && !ignoresGesture(event.target)) fullscreen.toggle();
+          if (mouse && !ignoresGesture(event.target)) toggleFullscreen();
         }}
         onPointerCancel={() => {
           gesture.current = null;
@@ -384,9 +418,13 @@ export function Gallery({
                 },
                 years,
               }}
-              onOpenChange={(open) => setMenu(open ? "collection" : null)}
+              onOpenChange={(open) => {
+                if (open) cue("open");
+                setMenu(open ? "collection" : null);
+              }}
               onOpenLibrary={openLibrary}
               onSelect={(id) => {
+                cue("select");
                 setCollectionId(id);
                 setPausedByUser(false);
               }}
@@ -414,11 +452,11 @@ export function Gallery({
           fullscreen={fullscreen}
           holdProps={holdProps}
           muted={muted}
-          onNext={slideshow.next}
-          onPrevious={slideshow.previous}
+          onNext={goNext}
+          onPrevious={goPrevious}
           onShare={() => void share()}
           onToggleFavorite={toggleFavorite}
-          onToggleFullscreen={fullscreen.toggle}
+          onToggleFullscreen={toggleFullscreen}
           onToggleMute={toggleMute}
           onTogglePause={togglePause}
           paused={pausedByUser}
@@ -427,12 +465,36 @@ export function Gallery({
               duration={preferences.duration}
               frame={preferences.frame}
               keepAwake={wakeLockSupported ? preferences.keepAwake : null}
-              onDurationChange={preferences.setDuration}
-              onFrameChange={preferences.setFrame}
-              onKeepAwakeChange={preferences.setKeepAwake}
-              onOpenChange={(open) => setMenu(open ? "display" : null)}
-              onOpenHelp={() => setHelpOpen(true)}
-              onOrderChange={preferences.setOrder}
+              onDurationChange={(duration) => {
+                cue("select");
+                preferences.setDuration(duration);
+              }}
+              onFrameChange={(frame) => {
+                cue("select");
+                preferences.setFrame(frame);
+              }}
+              onKeepAwakeChange={(keepAwake) => {
+                cue(keepAwake ? "switchOn" : "switchOff");
+                preferences.setKeepAwake(keepAwake);
+              }}
+              onOpenChange={(open) => {
+                if (open) cue("open");
+                setMenu(open ? "display" : null);
+              }}
+              onOpenHelp={openHelp}
+              onOrderChange={(order) => {
+                cue("select");
+                preferences.setOrder(order);
+              }}
+              onUiSoundsChange={(on) => {
+                // Turning sounds on plays the first one; turning them off
+                // plays the last.
+                if (on) setSoundsEnabled(true);
+                cue(on ? "switchOn" : "switchOff");
+                if (!on) setSoundsEnabled(false);
+                preferences.setUiSounds(on);
+              }}
+              uiSounds={soundsSupported() ? preferences.uiSounds : null}
               open={menu === "display"}
               order={preferences.order}
             />
@@ -460,7 +522,7 @@ export function Gallery({
           chronological={chronological}
           currentIndex={slideshow.index}
           favorites={favorites}
-          onClose={onCloseLibrary}
+          onClose={closeLibrary}
           onOpenAsset={openAsset}
           onPlayMonth={playMonth}
         />

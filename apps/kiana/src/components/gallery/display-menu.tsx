@@ -140,9 +140,11 @@ export function DisplayMenu({
   duration,
   frame,
   keepAwake,
+  uiSounds,
   onDurationChange,
   onFrameChange,
   onKeepAwakeChange,
+  onUiSoundsChange,
   onOpenChange,
   onOpenHelp,
   onOrderChange,
@@ -152,9 +154,12 @@ export function DisplayMenu({
   duration: Duration;
   frame: Frame;
   keepAwake: boolean | null;
+  /** Null where the browser cannot play generated sound. */
+  uiSounds: boolean | null;
   onDurationChange: (duration: Duration) => void;
   onFrameChange: (frame: Frame) => void;
   onKeepAwakeChange: (keepAwake: boolean) => void;
+  onUiSoundsChange: (uiSounds: boolean) => void;
   onOpenChange: (open: boolean) => void;
   onOpenHelp: () => void;
   onOrderChange: (order: Order) => void;
@@ -237,6 +242,16 @@ export function DisplayMenu({
         />
       </Section>
 
+      {uiSounds !== null ? (
+        <div className="px-1">
+          <Switch
+            checked={uiSounds}
+            description="Soft clicks and chimes when you use the controls."
+            label="Interface sounds"
+            onChange={onUiSoundsChange}
+          />
+        </div>
+      ) : null}
       {keepAwake !== null ? (
         <div className="px-1 pb-1">
           <Switch
