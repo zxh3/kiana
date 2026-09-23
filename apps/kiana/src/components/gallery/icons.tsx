@@ -258,6 +258,19 @@ export function MusicNoteIcon(props: IconProps) {
   );
 }
 
+export function ScreenIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect height="10.5" rx="2" width="14" x="3" y="4.75" />
+      <path
+        d="M8.75 8.1v3.8c0 .3.33.48.58.32l2.95-1.9a.38.38 0 0 0 0-.64L9.33 7.78a.38.38 0 0 0-.58.32Z"
+        fill="currentColor"
+        stroke="none"
+      />
+    </Icon>
+  );
+}
+
 export function ExternalIcon(props: IconProps) {
   return (
     <Icon {...props}>

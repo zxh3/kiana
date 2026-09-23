@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { cx } from "../../lib/class-names";
 import { ControlButton, focusRing } from "./control-button";
@@ -10,6 +10,7 @@ import {
   MusicNoteIcon,
   PauseIcon,
   PlayIcon,
+  ScreenIcon,
   SoundOffIcon,
   SoundOnIcon,
 } from "./icons";
@@ -61,9 +62,12 @@ export function MusicButton({ music }: { music: Music }) {
 }
 
 /**
- * The now-playing card. It shows YouTube's player itself, at least 200px
- * square and never covered, because YouTube does not allow hidden or
- * audio-only playback. It sits above the photos, menus, and library.
+ * The now-playing card: a compact strip of controls above the photos, menus,
+ * and library. YouTube's player stays mounted at full size so playback keeps
+ * going, but it is collapsed and transparent by default. It opens by itself
+ * when YouTube needs a tap or a sign-in, and a toggle shows it on demand.
+ * Hiding a playing embed goes against YouTube's API policies (III.I.9); that
+ * trade-off was the site owner's choice.
  */
 export function MusicPlayer({
   music,
@@ -73,9 +77,12 @@ export function MusicPlayer({
   raised: boolean;
 }) {
   const lastVolume = useRef(music.volume || 60);
+  const [videoOpen, setVideoOpen] = useState(false);
   if (music.status === "idle") return null;
 
   const playing = music.status === "playing";
+  const needsVideo = music.status === "blocked" || music.status === "error";
+  const showVideo = videoOpen || needsVideo;
   const muted = music.volume === 0;
   const hint =
     music.status === "blocked"
@@ -94,27 +101,40 @@ export function MusicPlayer({
       )}
       data-raised={raised || undefined}
     >
-      <div className="glass w-[220px] rounded-[22px] bg-night/82 p-2.5 text-paper sm:w-[376px]">
-        <div className="relative size-[200px] overflow-hidden rounded-[12px] bg-black sm:w-[356px]">
-          {/* Behind the player while it loads: the track's own thumbnail. */}
+      <div className="glass w-[272px] rounded-[22px] bg-night/82 p-2.5 text-paper sm:w-[320px]">
+        <div
+          className={cx(
+            "relative transition-[height,margin] duration-500 ease-soft motion-reduce:transition-none",
+            showVideo ? "mb-1 h-[200px]" : "h-0",
+          )}
+        >
           <div
-            aria-hidden="true"
-            className="absolute inset-0 scale-110 bg-cover bg-center opacity-60 blur-xl"
-            style={{
-              backgroundImage: `url("https://i.ytimg.com/vi/${backgroundTrack.videoId}/hqdefault.jpg")`,
-            }}
-          />
-          {music.status === "loading" ? (
-            <div className="absolute inset-0 grid place-items-center">
-              <span className="animate-breathe text-paper">
-                <MusicNoteIcon size={28} />
-              </span>
-            </div>
-          ) : null}
-          <div className="absolute inset-0" ref={music.hostRef} />
+            className={cx(
+              "absolute inset-x-0 top-0 h-[200px] overflow-hidden rounded-[12px] bg-black transition-opacity duration-300",
+              showVideo ? "opacity-100" : "-z-10 opacity-0",
+            )}
+            inert={!showVideo}
+          >
+            {/* Behind the player while it loads: the track's own thumbnail. */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 scale-110 bg-cover bg-center opacity-60 blur-xl"
+              style={{
+                backgroundImage: `url("https://i.ytimg.com/vi/${backgroundTrack.videoId}/hqdefault.jpg")`,
+              }}
+            />
+            {music.status === "loading" ? (
+              <div className="absolute inset-0 grid place-items-center">
+                <span className="animate-breathe text-paper">
+                  <MusicNoteIcon size={28} />
+                </span>
+              </div>
+            ) : null}
+            <div className="absolute inset-0" ref={music.hostRef} />
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 pt-3 pr-0.5 pl-2">
+        <div className="flex items-center gap-2 pt-1.5 pr-0.5 pl-2 sm:gap-2.5">
           <EqualizerIcon className="shrink-0 text-paper/80" playing={playing} />
           <div className="min-w-0 flex-1">
             <p
@@ -125,9 +145,17 @@ export function MusicPlayer({
             </p>
             <p className="label mt-2 truncate text-paper/45">
               {backgroundTrack.artist}
-              <span className="max-sm:hidden"> · {backgroundTrack.source}</span>
             </p>
           </div>
+          <ControlButton
+            aria-pressed={showVideo}
+            className={cx("size-9", showVideo && "text-paper")}
+            disabled={needsVideo}
+            label={showVideo ? "Hide the video" : "Show the video"}
+            onClick={() => setVideoOpen(!videoOpen)}
+          >
+            <ScreenIcon size={17} />
+          </ControlButton>
           <button
             aria-label={playing ? "Pause the music" : "Play the music"}
             className={cx(
@@ -141,7 +169,7 @@ export function MusicPlayer({
             {playing ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
           </button>
           <ControlButton
-            className="-ml-1"
+            className="-ml-1 size-9"
             label="Close the music player"
             onClick={music.stop}
           >

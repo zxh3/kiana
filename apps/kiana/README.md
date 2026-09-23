@@ -35,15 +35,16 @@ Mediaforge release manifest and displays the responsive images described by it.
 - **Share.** Copies a link that opens the current photo. The server renders
   that photo as the link preview image.
 - **Music.** The Music button in the top bar loops a YouTube track as
-  background music, with play, pause, volume, and a link to YouTube. Starting
-  the music mutes clip sound, and turning clip sound on pauses the music.
-  YouTube's API policies forbid hidden or audio-only playback and require the
-  embedded player to stay visible at 200 × 200 pixels or larger, so the player
-  sits in a card above the photos, menus, and library while music is on, and
-  nothing is drawn over it. The track is set in
-  `src/components/gallery/music-track.ts`. The player uses youtube.com rather
-  than youtube-nocookie.com, because a YouTube sign-in in the same browser is
-  what clears YouTube's "confirm you're not a bot" check.
+  background music. A compact now-playing card offers play, pause, volume, and
+  a link to YouTube. Starting the music mutes clip sound, and turning clip
+  sound on pauses the music. YouTube's player stays mounted at full size but
+  is collapsed and transparent by default; it opens by itself when YouTube
+  needs a tap or a sign-in, and a toggle shows it on demand. Hiding a playing
+  embed goes against YouTube's API policies (III.I.9), so YouTube could stop
+  the track playing here. The player uses youtube.com rather than
+  youtube-nocookie.com, because a YouTube sign-in in the same browser is what
+  clears YouTube's "confirm you're not a bot" check. The track is set in
+  `src/components/gallery/music-track.ts`.
 - **Keep screen awake.** An optional setting that holds a screen wake lock
   while photos play.
 

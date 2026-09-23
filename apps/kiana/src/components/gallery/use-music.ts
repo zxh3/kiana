@@ -37,9 +37,8 @@ function applyVolume(player: YouTubePlayer, volume: number) {
 }
 
 /**
- * Background music through YouTube's embedded player. YouTube's policies
- * require the player to stay visible while it plays, so the player lives in
- * a card the page shows for as long as music is on.
+ * Background music through YouTube's embedded player, which lives in the
+ * now-playing card for as long as music is on.
  */
 export function useMusic() {
   const [status, setStatus] = useState<MusicStatus>("idle");
