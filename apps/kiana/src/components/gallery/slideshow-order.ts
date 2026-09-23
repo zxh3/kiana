@@ -45,13 +45,17 @@ export function buildQueue(
   return shuffledIndexes(others.length, random).map((index) => others[index]);
 }
 
-/** The member that precedes `current` chronologically, wrapping around. */
-export function previousMember(
+/**
+ * The member next to `current` in date order, wrapping around at either end.
+ * An asset outside the collection steps to the collection's first or last.
+ */
+export function neighborMember(
   members: ReadonlyArray<number>,
   current: number,
+  direction: 1 | -1,
 ) {
-  if (members.length < 2) return undefined;
+  if (members.length === 0) return undefined;
   const position = members.indexOf(current);
-  if (position === -1) return members.at(-1);
-  return members[(position - 1 + members.length) % members.length];
+  if (position === -1) return direction === 1 ? members[0] : members.at(-1);
+  return members[(position + direction + members.length) % members.length];
 }

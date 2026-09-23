@@ -21,8 +21,9 @@ Mediaforge release manifest and displays the responsive images described by it.
 - **Collections.** Play everything, photos taken on today's date in past years
   ("On this day", widened to the surrounding week when a date is sparse),
   favorites, a single year, or a single month from the library.
-- **Order.** Shuffle, or play by date. Previous steps back through what was
-  shown.
+- **Order.** Shuffle, or play by date. In shuffle, previous steps back through
+  what was shown. By date, previous and next always move to the neighbouring
+  photo by date, including after jumping to a photo from the library.
 - **Frames.** Fill, backdrop, or mat, each with its own transition.
 - **Library.** A month-by-month grid of every asset with filters for photos,
   Live Photos, videos, and favorites, plus a year rail. Selecting a tile plays

@@ -1,5 +1,5 @@
 import type { Order } from "./model";
-import { buildQueue, previousMember } from "./slideshow-order";
+import { buildQueue, neighborMember } from "./slideshow-order";
 
 /** How many shown assets "previous" can step back through. */
 export const HISTORY_LIMIT = 250;
@@ -60,7 +60,29 @@ function moveTo(
   };
 }
 
+/**
+ * In date order, previous and next always mean the neighbouring photo by
+ * date, wherever the slideshow got to (a jump from the library included).
+ */
+function step(
+  playback: Playback,
+  source: PlaybackSource,
+  direction: 1 | -1,
+): Playback {
+  const current = currentIndex(playback);
+  const target = neighborMember(source.members, current, direction);
+  if (target === undefined || target === current) return playback;
+  return {
+    history: [target],
+    position: 0,
+    queue: buildQueue(source.members, "chronological", target),
+    previous: current,
+    slide: playback.slide + 1,
+  };
+}
+
 export function advance(playback: Playback, source: PlaybackSource): Playback {
+  if (source.order === "chronological") return step(playback, source, 1);
   if (playback.position < playback.history.length - 1) {
     return moveTo(
       playback,
@@ -83,30 +105,27 @@ export function advance(playback: Playback, source: PlaybackSource): Playback {
 }
 
 export function canRetreat(playback: Playback, source: PlaybackSource) {
-  return (
-    playback.position > 0 ||
-    (source.order === "chronological" && source.members.length > 1)
+  return source.order === "chronological"
+    ? source.members.length > 1
+    : playback.position > 0;
+}
+
+/** Shuffle steps back through what was shown; date order steps back a date. */
+export function retreat(playback: Playback, source: PlaybackSource): Playback {
+  if (source.order === "chronological") return step(playback, source, -1);
+  if (playback.position === 0) return playback;
+  return moveTo(
+    playback,
+    playback.history,
+    playback.position - 1,
+    playback.queue,
   );
 }
 
-export function retreat(playback: Playback, source: PlaybackSource): Playback {
-  if (playback.position > 0) {
-    return moveTo(
-      playback,
-      playback.history,
-      playback.position - 1,
-      playback.queue,
-    );
-  }
-  if (source.order !== "chronological") return playback;
-
-  const before = previousMember(source.members, currentIndex(playback));
-  if (before === undefined) return playback;
-  const history = [before, ...playback.history].slice(0, HISTORY_LIMIT);
-  return moveTo(playback, history, 0, playback.queue);
-}
-
-/** Shows `index` next, keeping the way back to what was on screen. */
+/**
+ * Shows `index` next. In shuffle, previous returns to what was on screen; in
+ * date order, previous and next continue from `index` by date.
+ */
 export function jump(
   playback: Playback,
   source: PlaybackSource,

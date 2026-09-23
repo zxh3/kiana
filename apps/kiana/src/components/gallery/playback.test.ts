@@ -69,15 +69,35 @@ describe("playback", () => {
     expect(currentIndex(playback)).toBe(0);
   });
 
-  it("jumps to an asset and continues from it", () => {
-    let playback = createPlayback(chronological, 0);
-    playback = jump(playback, chronological, 2);
-    expect(currentIndex(playback)).toBe(2);
-    expect(playback.previous).toBe(0);
-    playback = advance(playback, chronological);
+  it("steps by date in both directions after a jump when playing by date", () => {
+    const byDate: PlaybackSource = {
+      members: [0, 1, 2, 3, 4, 5],
+      order: "chronological",
+    };
+    let playback = createPlayback(byDate, 0);
+    playback = advance(playback, byDate);
+    playback = jump(playback, byDate, 4);
+    expect(currentIndex(playback)).toBe(4);
+    expect(playback.previous).toBe(1);
+
+    // Back goes to the photo dated just before the jump target, not to
+    // where the slideshow was before the jump.
+    playback = retreat(playback, byDate);
     expect(currentIndex(playback)).toBe(3);
-    playback = retreat(retreat(playback, chronological), chronological);
+    playback = retreat(playback, byDate);
+    expect(currentIndex(playback)).toBe(2);
+    playback = advance(advance(advance(playback, byDate), byDate), byDate);
+    expect(currentIndex(playback)).toBe(5);
+    expect(upcoming(playback, 2)).toEqual([0, 1]);
+  });
+
+  it("returns to what was on screen before a jump when shuffling", () => {
+    let playback = createPlayback(shuffled, 0);
+    playback = jump(playback, shuffled, 3);
+    playback = retreat(playback, shuffled);
     expect(currentIndex(playback)).toBe(0);
+    playback = advance(playback, shuffled);
+    expect(currentIndex(playback)).toBe(3);
   });
 
   it("keeps the visible asset when the new collection contains it", () => {

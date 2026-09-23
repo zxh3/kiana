@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildQueue, previousMember, shuffledIndexes } from "./slideshow-order";
+import { buildQueue, neighborMember, shuffledIndexes } from "./slideshow-order";
 
 describe("slideshow order", () => {
   it("shuffles every index exactly once", () => {
@@ -33,9 +33,14 @@ describe("slideshow order", () => {
     ]);
   });
 
-  it("finds the chronologically previous member", () => {
-    expect(previousMember([10, 20, 30], 20)).toBe(10);
-    expect(previousMember([10, 20, 30], 10)).toBe(30);
-    expect(previousMember([10], 10)).toBeUndefined();
+  it("finds neighbouring members by date, wrapping at the ends", () => {
+    expect(neighborMember([10, 20, 30], 20, -1)).toBe(10);
+    expect(neighborMember([10, 20, 30], 20, 1)).toBe(30);
+    expect(neighborMember([10, 20, 30], 10, -1)).toBe(30);
+    expect(neighborMember([10, 20, 30], 30, 1)).toBe(10);
+    expect(neighborMember([10], 10, 1)).toBe(10);
+    expect(neighborMember([], 10, 1)).toBeUndefined();
+    expect(neighborMember([10, 20, 30], 99, 1)).toBe(10);
+    expect(neighborMember([10, 20, 30], 99, -1)).toBe(30);
   });
 });
