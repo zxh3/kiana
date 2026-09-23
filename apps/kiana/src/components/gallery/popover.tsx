@@ -18,6 +18,7 @@ export type PopoverTriggerProps = {
 
 const placements = {
   "bottom-start": "top-[calc(100%+10px)] left-0 origin-top-left",
+  "top-start": "bottom-[calc(100%+10px)] left-0 origin-bottom-left",
   "top-end": "right-0 bottom-[calc(100%+12px)] origin-bottom-right",
   "top-center":
     "bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 origin-bottom",

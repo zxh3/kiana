@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
-  nextPlayMode,
-  nextTrackIndex,
+  afterSongEnds,
+  nextInOrder,
   type PlayMode,
   parsePlayMode,
-  previousTrackIndex,
+  previousInOrder,
+  shuffleBag,
 } from "./music-queue";
 import { playlist } from "./music-track";
 import { useStoredState } from "./use-stored-state";
@@ -78,6 +79,7 @@ export function useMusic() {
   const blockedTimer = useRef<number>(undefined);
   const failures = useRef(0);
   const shuffleHistory = useRef<number[]>([]);
+  const shuffleRound = useRef<number[]>([]);
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
   const indexRef = useRef(index);
@@ -103,11 +105,31 @@ export function useMusic() {
       }
       indexRef.current = next;
       saveIndex(next);
+      shuffleRound.current = shuffleRound.current.filter(
+        (queued) => queued !== next,
+      );
       const player = playerRef.current;
       if (player) player.loadVideoById(playlist[next].videoId);
       else setStatus("loading");
     },
     [saveIndex],
+  );
+
+  /** 随机播放: every other song once per round, in a fresh random order. */
+  const drawShuffled = useCallback(() => {
+    if (shuffleRound.current.length === 0) {
+      shuffleRound.current = shuffleBag(playlist.length, indexRef.current);
+    }
+    return shuffleRound.current[0] ?? indexRef.current;
+  }, []);
+
+  /** Where next goes: the following song, or the next one in the shuffle. */
+  const following = useCallback(
+    () =>
+      modeRef.current === "shuffle"
+        ? drawShuffled()
+        : nextInOrder(indexRef.current, playlist.length),
+    [drawShuffled],
   );
 
   // Create the player once the widget, and so its host element, is on screen.
@@ -163,17 +185,16 @@ export function useMusic() {
               } else if (data === PlayerState.paused) {
                 setStatus("paused");
               } else if (data === PlayerState.ended) {
-                if (modeRef.current === "one") {
+                const after = afterSongEnds(
+                  indexRef.current,
+                  playlist.length,
+                  modeRef.current,
+                );
+                if (after.kind === "repeat") {
                   player.seekTo(0, true);
                   player.playVideo();
                 } else {
-                  load(
-                    nextTrackIndex(
-                      indexRef.current,
-                      playlist.length,
-                      modeRef.current,
-                    ),
-                  );
+                  load(after.kind === "play" ? after.index : drawShuffled());
                 }
               }
             },
@@ -198,7 +219,7 @@ export function useMusic() {
     return () => {
       cancelled = true;
     };
-  }, [load, status]);
+  }, [drawShuffled, load, status]);
 
   useEffect(() => destroy, [destroy]);
 
@@ -225,9 +246,7 @@ export function useMusic() {
     setStatus("idle");
   }, [destroy]);
 
-  const next = useCallback(() => {
-    load(nextTrackIndex(indexRef.current, playlist.length, modeRef.current));
-  }, [load]);
+  const next = useCallback(() => load(following()), [following, load]);
 
   const previous = useCallback(() => {
     const player = playerRef.current;
@@ -238,7 +257,7 @@ export function useMusic() {
     const remembered =
       modeRef.current === "shuffle" ? shuffleHistory.current.pop() : undefined;
     load(
-      remembered ?? previousTrackIndex(indexRef.current, playlist.length),
+      remembered ?? previousInOrder(indexRef.current, playlist.length),
       false,
     );
   }, [load]);
@@ -255,10 +274,15 @@ export function useMusic() {
     [load],
   );
 
-  const cycleMode = useCallback(() => {
-    shuffleHistory.current = [];
-    saveMode(nextPlayMode(modeRef.current));
-  }, [saveMode]);
+  const setMode = useCallback(
+    (next: PlayMode) => {
+      shuffleHistory.current = [];
+      shuffleRound.current = [];
+      modeRef.current = next;
+      saveMode(next);
+    },
+    [saveMode],
+  );
 
   const setVolume = useCallback(
     (value: number) => {
@@ -287,7 +311,6 @@ export function useMusic() {
   }, []);
 
   return {
-    cycleMode,
     hostRef,
     index,
     mode,
@@ -299,6 +322,7 @@ export function useMusic() {
     previous,
     readProgress,
     seek,
+    setMode,
     setVolume,
     start,
     status,

@@ -38,20 +38,21 @@ Mediaforge release manifest and displays the responsive images described by it.
   as background music. The now-playing widget is a small pill (the default on
   phones) that opens into a deck in the spirit of the classic desktop players:
   an amber display with the time, track number, play mode, a scrolling title,
-  and a spectrum; a seek bar; previous, play, and next; repeat all, repeat one,
-  or shuffle; volume; and a docked playlist. On wider screens the widget can be
-  dragged to any corner, where it stays; on phones the deck rises as a bottom
-  sheet that a swipe down tucks away. Songs YouTube refuses to embed are
-  skipped. The spectrum is decorative, because the audio plays inside YouTube's
-  frame and cannot be measured. Starting the music mutes clip sound, and turning
-  clip sound on pauses the music. YouTube's player stays mounted at full size
-  but is collapsed and transparent by default; it opens by itself when YouTube
-  needs a tap or a sign-in, and a toggle shows it on demand. Hiding a playing
-  embed goes against YouTube's API policies (III.I.9), so YouTube could stop the
-  songs playing here. The player uses youtube.com rather than
-  youtube-nocookie.com, because a YouTube sign-in in the same browser is what
-  clears YouTube's "confirm you're not a bot" check. The playlist is set in
-  `src/components/gallery/music-track.ts`.
+  and a spectrum; a seek bar; previous, play, and next; three play modes, 列表循环
+  (repeat all), 单曲循环 (repeat one), and 随机播放 (shuffle, which plays every song
+  once before any repeats), chosen from a menu; volume; and a docked playlist.
+  On wider screens the widget can be dragged to any corner, where it stays; on
+  phones the deck rises as a bottom sheet that a swipe down tucks away. Songs
+  YouTube refuses to embed are skipped. The spectrum is decorative, because the
+  audio plays inside YouTube's frame and cannot be measured. Starting the music
+  mutes clip sound, and turning clip sound on pauses the music. YouTube's player
+  stays mounted at full size but is collapsed and transparent by default; it
+  opens by itself when YouTube needs a tap or a sign-in, and a toggle shows it
+  on demand. Hiding a playing embed goes against YouTube's API policies
+  (III.I.9), so YouTube could stop the songs playing here. The player uses
+  youtube.com rather than youtube-nocookie.com, because a YouTube sign-in in the
+  same browser is what clears YouTube's "confirm you're not a bot" check. The
+  playlist is set in `src/components/gallery/music-track.ts`.
 - **Keep screen awake.** An optional setting that holds a screen wake lock
   while photos play.
 

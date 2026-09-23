@@ -33,11 +33,13 @@ const frameShortcuts: Record<string, Frame> = {
   "3": "mat",
 };
 
+/** Text fields, and widgets such as the music player that handle keys. */
 function isEditable(target: EventTarget | null) {
   return (
     target instanceof HTMLElement &&
     (target.isContentEditable ||
-      ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName))
+      ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName) ||
+      target.closest("[data-own-keys]") !== null)
   );
 }
 

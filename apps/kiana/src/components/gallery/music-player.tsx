@@ -9,6 +9,7 @@ import {
 import { cx } from "../../lib/class-names";
 import { ControlButton, focusRing } from "./control-button";
 import {
+  CheckIcon,
   CloseIcon,
   EqualizerIcon,
   ExternalIcon,
@@ -28,8 +29,9 @@ import {
 } from "./icons";
 import { Marquee } from "./marquee";
 import { type Corner, parseCorner, parsePlayerSize } from "./music-layout";
-import { playModeLabels } from "./music-queue";
+import { type PlayMode, playModeNames, playModes } from "./music-queue";
 import { trackThumbnail, trackUrl } from "./music-track";
+import { Popover } from "./popover";
 import { parseFlag } from "./preferences";
 import { Spectrum } from "./spectrum";
 import { useCornerDrag } from "./use-corner-drag";
@@ -93,6 +95,11 @@ export function MusicButton({ music }: { music: Music }) {
       <span className="label max-sm:sr-only">{statusLabels[music.status]}</span>
     </button>
   );
+}
+
+function PlayModeIcon({ mode, size }: { mode: PlayMode; size: number }) {
+  if (mode === "shuffle") return <ShuffleIcon size={size} />;
+  return <RepeatIcon one={mode === "one"} size={size} />;
 }
 
 function PlayPause({ music, size }: { music: Music; size: "small" | "large" }) {
@@ -169,6 +176,7 @@ export function MusicPlayer({
   });
   const [progress, setProgress] = useState({ current: 0, duration: 0 });
   const [scrub, setScrub] = useState<number | null>(null);
+  const [modeMenu, setModeMenu] = useState(false);
   const swipe = useRef<number | null>(null);
 
   const idle = music.status === "idle";
@@ -209,7 +217,7 @@ export function MusicPlayer({
     music.seek(scrub);
     setScrub(null);
   };
-  const modeLabel = playModeLabels[music.mode];
+  const modeName = playModeNames[music.mode];
 
   const handleSwipeStart = (event: PointerEvent<HTMLButtonElement>) => {
     swipe.current = event.clientY;
@@ -226,6 +234,8 @@ export function MusicPlayer({
   return (
     <aside
       aria-label="Music"
+      // Keys pressed in here belong to the player, not the slideshow.
+      data-own-keys=""
       className={cx(
         "fixed z-50 transition-[bottom,opacity,translate] duration-500 ease-soft starting:translate-y-3 starting:opacity-0",
         sheet
@@ -387,7 +397,12 @@ export function MusicPlayer({
                       / {String(music.playlist.length).padStart(2, "0")}
                     </span>
                   </p>
-                  <p className="label mt-1.5 text-paper/40">{modeLabel}</p>
+                  <p
+                    className="mt-1.5 text-[11px] tracking-[.18em] text-paper/45"
+                    lang="zh"
+                  >
+                    {modeName.zh}
+                  </p>
                 </div>
               </div>
               <Marquee className="relative mt-3">
@@ -431,17 +446,71 @@ export function MusicPlayer({
             />
 
             <div className="mt-1.5 flex items-center justify-between px-1">
-              <ControlButton
-                className="size-10 text-amber hover:text-amber"
-                label={`Play mode: ${modeLabel}. Change it`}
-                onClick={music.cycleMode}
-              >
-                {music.mode === "shuffle" ? (
-                  <ShuffleIcon size={19} />
-                ) : (
-                  <RepeatIcon one={music.mode === "one"} size={19} />
+              <Popover
+                className="w-[228px] p-1.5"
+                kind="menu"
+                label="Play mode"
+                onOpenChange={setModeMenu}
+                open={modeMenu}
+                placement="top-start"
+                trigger={(props) => (
+                  <ControlButton
+                    {...props}
+                    className={cx(
+                      "size-10 text-amber hover:text-amber",
+                      modeMenu && "bg-paper/10",
+                    )}
+                    label={`Play mode: ${modeName.zh} (${modeName.en})`}
+                  >
+                    <PlayModeIcon mode={music.mode} size={19} />
+                  </ControlButton>
                 )}
-              </ControlButton>
+              >
+                {playModes.map((option) => {
+                  const name = playModeNames[option];
+                  const checked = option === music.mode;
+                  return (
+                    <button
+                      aria-checked={checked}
+                      className={cx(
+                        "flex w-full cursor-pointer items-center gap-3 rounded-[14px] px-3 py-2.5 text-left transition-colors duration-150 hover:bg-paper/8 focus-visible:bg-paper/10",
+                        focusRing,
+                        "focus-visible:ring-offset-0",
+                      )}
+                      key={option}
+                      onClick={() => {
+                        music.setMode(option);
+                        setModeMenu(false);
+                      }}
+                      role="menuitemradio"
+                      type="button"
+                    >
+                      <span
+                        className={checked ? "text-amber" : "text-paper/55"}
+                      >
+                        <PlayModeIcon mode={option} size={18} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={cx(
+                            "block text-[14px] leading-tight",
+                            checked ? "text-amber" : "text-paper",
+                          )}
+                          lang="zh"
+                        >
+                          {name.zh}
+                        </span>
+                        <span className="label mt-1 block text-paper/40">
+                          {name.en}
+                        </span>
+                      </span>
+                      <span className="grid w-4 place-items-center text-amber">
+                        {checked ? <CheckIcon size={15} /> : null}
+                      </span>
+                    </button>
+                  );
+                })}
+              </Popover>
               <ControlButton
                 className="size-11"
                 label="Previous song"

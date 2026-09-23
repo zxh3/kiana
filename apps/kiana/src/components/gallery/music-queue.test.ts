@@ -1,36 +1,45 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  nextPlayMode,
-  nextTrackIndex,
+  afterSongEnds,
+  nextInOrder,
   parsePlayMode,
-  previousTrackIndex,
+  previousInOrder,
+  shuffleBag,
 } from "./music-queue";
 
 describe("music queue", () => {
   it("steps through the list and wraps in both directions", () => {
-    expect(nextTrackIndex(0, 5, "all")).toBe(1);
-    expect(nextTrackIndex(4, 5, "all")).toBe(0);
-    expect(nextTrackIndex(2, 5, "one")).toBe(3);
-    expect(previousTrackIndex(0, 5)).toBe(4);
-    expect(previousTrackIndex(3, 5)).toBe(2);
-    expect(nextTrackIndex(0, 1, "all")).toBe(0);
+    expect(nextInOrder(0, 5)).toBe(1);
+    expect(nextInOrder(4, 5)).toBe(0);
+    expect(previousInOrder(0, 5)).toBe(4);
+    expect(previousInOrder(3, 5)).toBe(2);
+    expect(nextInOrder(0, 1)).toBe(0);
   });
 
-  it("shuffles to any track except the current one", () => {
-    const picks = new Set<number>();
-    for (let step = 0; step < 50; step += 1) {
-      picks.add(nextTrackIndex(2, 5, "shuffle", () => step / 50));
+  it("plays the list in order and loops back to the start (列表循环)", () => {
+    expect(afterSongEnds(2, 5, "all")).toEqual({ kind: "play", index: 3 });
+    expect(afterSongEnds(4, 5, "all")).toEqual({ kind: "play", index: 0 });
+  });
+
+  it("repeats the current song (单曲循环)", () => {
+    expect(afterSongEnds(4, 5, "one")).toEqual({ kind: "repeat" });
+    expect(afterSongEnds(0, 5, "one")).toEqual({ kind: "repeat" });
+  });
+
+  it("shuffles every other song exactly once per round (随机播放)", () => {
+    expect(afterSongEnds(1, 5, "shuffle")).toEqual({ kind: "shuffle" });
+    for (let trial = 0; trial < 20; trial += 1) {
+      const bag = shuffleBag(5, 2);
+      expect([...bag].sort()).toEqual([0, 1, 3, 4]);
     }
-    expect([...picks].sort()).toEqual([0, 1, 3, 4]);
-    expect(nextTrackIndex(2, 5, "shuffle", () => 0.999_999)).toBe(4);
   });
 
-  it("cycles and parses play modes", () => {
-    expect(nextPlayMode("all")).toBe("one");
-    expect(nextPlayMode("one")).toBe("shuffle");
-    expect(nextPlayMode("shuffle")).toBe("all");
+  it("parses play modes, keeping a saved repeat-all choice", () => {
+    expect(parsePlayMode("all")).toBe("all");
     expect(parsePlayMode("one")).toBe("one");
+    expect(parsePlayMode("shuffle")).toBe("shuffle");
     expect(parsePlayMode("loop")).toBe("all");
+    expect(parsePlayMode(null)).toBe("all");
   });
 });
