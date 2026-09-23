@@ -22,6 +22,7 @@
   --animate-heart-pop: heart-pop 420ms var(--ease-soft);
   --animate-toast-in: toast-in 320ms var(--ease-soft);
   --animate-breathe: breathe 2.4s ease-in-out infinite;
+  --animate-now-playing: now-playing 1.4s var(--ease-soft) 0.3s 3;
 }
 
 @layer base {
@@ -110,6 +111,18 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* A ripple around the playing tile when the library opens. */
+@keyframes now-playing {
+  from {
+    outline: 2px solid rgb(246 240 230 / 0.85);
+    outline-offset: 4px;
+  }
+  to {
+    outline: 2px solid rgb(246 240 230 / 0);
+    outline-offset: 18px;
   }
 }
 

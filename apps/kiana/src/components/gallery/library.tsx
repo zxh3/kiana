@@ -7,6 +7,7 @@ import { ControlButton, focusRing } from "./control-button";
 import { CloseIcon, HeartIcon, LiveIcon, PlayIcon } from "./icons";
 import {
   buildRows,
+  centeredOffset,
   groupByMonth,
   type LibraryFilter,
   type LibraryRow,
@@ -42,6 +43,13 @@ function kindLabel(asset: GalleryAsset) {
   return "Photo";
 }
 
+function rowHeightFor(row: LibraryRow, compact: boolean, tileSize: number) {
+  if (row.kind === "intro") return compact ? 200 : 300;
+  if (row.kind === "empty") return 220;
+  if (row.kind === "month") return compact ? 76 : 108;
+  return tileSize + TILE_GAP;
+}
+
 const LibraryTile = memo(function LibraryTile({
   asset,
   current,
@@ -61,12 +69,18 @@ const LibraryTile = memo(function LibraryTile({
   return (
     <button
       aria-current={current || undefined}
-      aria-label={[kindLabel(asset), date, favorite && "favorite"]
+      aria-label={[
+        kindLabel(asset),
+        date,
+        favorite && "favorite",
+        current && "now playing",
+      ]
         .filter(Boolean)
         .join(", ")}
       className={cx(
         "group relative block aspect-square cursor-pointer overflow-hidden bg-paper/[.045] outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-paper",
-        current && "z-10 ring-2 ring-paper ring-offset-2 ring-offset-night",
+        current &&
+          "z-10 animate-now-playing ring-[3px] ring-paper ring-offset-[3px] ring-offset-night motion-reduce:animate-none",
       )}
       onClick={() => onOpen(index)}
       type="button"
@@ -90,7 +104,7 @@ const LibraryTile = memo(function LibraryTile({
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(0,0,0,.5),transparent_45%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100"
       />
-      {date ? (
+      {date && !current ? (
         <span
           aria-hidden="true"
           className="pointer-events-none absolute bottom-2 left-2.5 font-serif text-[14px] text-paper italic opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100 max-sm:hidden"
@@ -115,6 +129,15 @@ const LibraryTile = memo(function LibraryTile({
           filled
           size={15}
         />
+      ) : null}
+      {current ? (
+        <span
+          aria-hidden="true"
+          className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-paper py-1.5 pr-2.5 pl-2 text-[9px] leading-none tracking-[.16em] text-ink uppercase shadow-[0_2px_12px_rgba(0,0,0,.4)] max-sm:pr-2"
+        >
+          <PlayIcon size={9} />
+          <span className="max-sm:hidden">Now playing</span>
+        </span>
       ) : null}
     </button>
   );
@@ -188,7 +211,8 @@ export function Library({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const scrollRef = useRef<HTMLElement>(null);
   const [filter, setFilter] = useState<LibraryFilter>("all");
-  const [width, setWidth] = useState(0);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const { width } = size;
 
   // Open as a modal so the slideshow underneath is inert, and hand focus
   // back to whatever opened the library when it goes away.
@@ -207,7 +231,13 @@ export function Library({
   useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
-    const measure = () => setWidth(element.clientWidth);
+    const measure = () =>
+      setSize((current) =>
+        current.width === element.clientWidth &&
+        current.height === element.clientHeight
+          ? current
+          : { width: element.clientWidth, height: element.clientHeight },
+      );
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
@@ -267,35 +297,45 @@ export function Library({
       : null;
   }, [groups]);
 
-  const rowHeight = (row: LibraryRow) => {
-    if (row.kind === "intro") return compact ? 200 : 300;
-    if (row.kind === "empty") return 220;
-    if (row.kind === "month") return compact ? 76 : 108;
-    return tileSize + TILE_GAP;
-  };
+  const heights = useMemo(
+    () => rows.map((row) => rowHeightFor(row, compact, tileSize)),
+    [rows, compact, tileSize],
+  );
+
+  // Open centred on the photo that was playing. The offset is worked out
+  // from the known row heights before the first paint, so the grid starts
+  // there instead of rendering the newest months and then jumping.
+  const openingOffset = useRef<number | null>(null);
+  if (openingOffset.current === null && width > 0) {
+    const row = rowContaining(rows, currentIndex);
+    openingOffset.current =
+      row > 0 ? centeredOffset(heights, row, size.height) : 0;
+  }
 
   const virtualizer = useVirtualizer({
     count: rows.length,
-    estimateSize: (index) => rowHeight(rows[index]),
+    enabled: width > 0,
+    estimateSize: (index) => heights[index],
     getItemKey: (index) => rows[index].key,
     getScrollElement: () => scrollRef.current,
+    initialOffset: () => openingOffset.current ?? 0,
+    initialRect: size,
     overscan: 5,
   });
 
   // Row heights are computed, not measured, so re-measure when they change.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: heights derive from these
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run when the heights change
   useLayoutEffect(() => {
     virtualizer.measure();
-  }, [virtualizer, rows, tileSize, compact]);
+  }, [virtualizer, heights]);
 
-  // Open at the photo that was on screen, so the library starts "here".
   const openedAtCurrent = useRef(false);
   useLayoutEffect(() => {
-    if (openedAtCurrent.current || width === 0) return;
+    const element = scrollRef.current;
+    if (openedAtCurrent.current || !element || width === 0) return;
     openedAtCurrent.current = true;
-    const row = rowContaining(rows, currentIndex);
-    if (row > 0) virtualizer.scrollToIndex(row, { align: "center" });
-  }, [currentIndex, rows, virtualizer, width]);
+    element.scrollTop = openingOffset.current ?? 0;
+  }, [width]);
 
   const pickFilter = (next: LibraryFilter) => {
     setFilter(next);
@@ -405,6 +445,12 @@ export function Library({
                       paddingLeft: sidePadding,
                       paddingRight: railSpace,
                       transform: `translateY(${item.start}px)`,
+                      // Let the playing tile's highlight spill over its
+                      // neighbouring rows instead of sliding under them.
+                      zIndex:
+                        row.kind === "tiles" && row.items.includes(currentIndex)
+                          ? 1
+                          : undefined,
                     }}
                   >
                     {row.kind === "intro" ? (

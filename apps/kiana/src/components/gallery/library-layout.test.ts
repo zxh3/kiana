@@ -4,6 +4,7 @@ import type { GalleryAsset } from "../../data/photos";
 import { chronologicalIndexes } from "./collections";
 import {
   buildRows,
+  centeredOffset,
   groupByMonth,
   libraryIndexes,
   rowContaining,
@@ -76,6 +77,15 @@ describe("library layout", () => {
       { year: 2024, row: 1 },
       { year: 2023, row: 6 },
     ]);
+  });
+
+  it("centres a row in the viewport and clamps at both ends", () => {
+    const heights = [300, 100, 200, 200, 200, 200, 100];
+    expect(centeredOffset(heights, 3, 400)).toBe(500);
+    expect(centeredOffset(heights, 1, 400)).toBe(150);
+    expect(centeredOffset(heights, 0, 400)).toBe(0);
+    expect(centeredOffset(heights, 6, 400)).toBe(900);
+    expect(centeredOffset([100], 0, 400)).toBe(0);
   });
 
   it("shows an empty row when nothing matches", () => {

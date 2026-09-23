@@ -96,6 +96,25 @@ export function buildRows(
   return rows;
 }
 
+/**
+ * The scroll offset that centres row `row` in a viewport of `viewport`
+ * pixels, clamped to the scrollable range.
+ */
+export function centeredOffset(
+  heights: ReadonlyArray<number>,
+  row: number,
+  viewport: number,
+) {
+  let start = 0;
+  let total = 0;
+  heights.forEach((height, index) => {
+    if (index < row) start += height;
+    total += height;
+  });
+  const offset = start - (viewport - (heights[row] ?? 0)) / 2;
+  return Math.max(0, Math.min(offset, total - viewport));
+}
+
 export function rowContaining(rows: ReadonlyArray<LibraryRow>, index: number) {
   return rows.findIndex(
     (row) => row.kind === "tiles" && row.items.includes(index),
