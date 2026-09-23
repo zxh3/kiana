@@ -17,11 +17,13 @@ const slide: Variants = {
 };
 
 /**
- * The glass window and the colour display set inside it: the status bar,
- * the current screen sliding in and out, the padlock that answers a touch
+ * The glass window and the colour display set inside it. It only shows;
+ * the click wheel does everything. Inside: the status bar, the current
+ * screen sliding in and out, the padlock that answers a touch
  * while the hold switch is on, and the backlight dimming when idle.
  */
 export function PodScreen({
+  announcement,
   battery,
   children,
   direction,
@@ -31,6 +33,8 @@ export function PodScreen({
   screen,
   state,
 }: {
+  /** What the highlight is on, read out as the wheel moves. */
+  announcement: string;
   battery: BatteryState | null;
   children: ReactNode;
   direction: 1 | -1;
@@ -49,7 +53,10 @@ export function PodScreen({
         height: glassFrame.height,
       }}
     >
-      <div className="relative flex h-full flex-col overflow-hidden rounded-[2px] bg-white font-pod">
+      <div className="relative flex h-full flex-col overflow-hidden rounded-[2px] bg-white font-pod select-none">
+        <p aria-live="polite" className="sr-only">
+          {announcement}
+        </p>
         <StatusBar
           battery={battery}
           held={held}

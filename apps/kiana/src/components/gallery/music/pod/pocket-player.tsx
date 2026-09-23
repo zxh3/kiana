@@ -46,6 +46,19 @@ export function PocketPlayer({
     controls.step(event.key === "ArrowDown" ? 1 : -1);
   };
 
+  // The screen only shows, so a screen reader hears what the wheel lands on.
+  const announcement = (() => {
+    if (screen === "now") {
+      return `${screenTitles.now}: ${music.track.title}, ${music.track.artist}`;
+    }
+    if (screen === "covers") {
+      const track = music.playlist[pod.selected.covers];
+      return `${track.title}, ${track.artist}`;
+    }
+    const row = pod.rows[screen][pod.selected[screen]];
+    return row.detail ? `${row.label}, ${row.detail}` : row.label;
+  })();
+
   const renderScreen = () => {
     if (screen === "now") {
       return (
@@ -66,7 +79,6 @@ export function PocketPlayer({
       return (
         <CoverFlow
           current={music.index}
-          onPick={controls.pickCover}
           selected={pod.selected.covers}
           tracks={music.playlist}
         />
@@ -75,8 +87,6 @@ export function PocketPlayer({
     const list = (
       <PodList
         label={screenTitles[screen]}
-        onHover={(index) => controls.hover(screen, index)}
-        onPick={(index) => controls.pick(screen, index)}
         rows={pod.rows[screen]}
         selected={pod.selected[screen]}
       />
@@ -102,6 +112,7 @@ export function PocketPlayer({
     >
       <HoldSwitch held={pod.held} onToggle={pod.toggleHold} />
       <PodScreen
+        announcement={announcement}
         battery={battery}
         direction={pod.direction}
         held={pod.held}

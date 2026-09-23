@@ -10,27 +10,22 @@ const REACH = 4;
 /**
  * Cover Flow: the songs' covers in a row, the chosen one facing forward and
  * the rest turned away on either side, each with its reflection. The wheel
- * flips through them; picking the middle cover plays it.
+ * flips through them and the centre button plays the middle one.
  */
 export function CoverFlow({
   current,
-  onPick,
   selected,
   tracks,
 }: {
   current: number;
-  onPick: (index: number) => void;
   selected: number;
   tracks: ReadonlyArray<Track>;
 }) {
   const track = tracks[selected];
   return (
     <div className="absolute inset-0 overflow-hidden bg-[radial-gradient(120%_85%_at_50%_0%,#303034_0%,#050505_72%)]">
-      {/* Perspective without a shared 3D space: each cover is drawn and hit
-      in its own projected place, where a preserve-3d stage would put the
-      covers pushed back behind the stage itself, out of reach of a click. */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-3 [perspective:260px]"
+        className="absolute inset-x-0 top-3 [perspective:260px]"
         style={{ height: COVER }}
       >
         {tracks.map((item, index) => {
@@ -40,14 +35,10 @@ export function CoverFlow({
           const x =
             distance === 0 ? 0 : side * (FIRST_GAP + (distance - 1) * NEXT_GAP);
           return (
-            <button
-              aria-current={offset === 0 || undefined}
-              aria-label={
-                offset === 0 ? `Play ${item.title}` : `Show ${item.title}`
-              }
-              className="pointer-events-auto absolute top-0 left-1/2 cursor-pointer bg-black transition-[transform,opacity] duration-300 ease-soft outline-none motion-reduce:transition-none"
+            <div
+              aria-hidden="true"
+              className="absolute top-0 left-1/2 bg-black transition-[transform,opacity] duration-300 ease-soft outline-none motion-reduce:transition-none"
               key={item.videoId}
-              onClick={() => onPick(index)}
               style={{
                 width: COVER,
                 height: COVER,
@@ -61,8 +52,6 @@ export function CoverFlow({
                 WebkitBoxReflect:
                   "below 1px linear-gradient(transparent 58%, rgb(255 255 255 / 0.3))",
               }}
-              tabIndex={distance > REACH ? -1 : undefined}
-              type="button"
             >
               <img
                 alt=""
@@ -73,7 +62,7 @@ export function CoverFlow({
               {index === current ? (
                 <span className="absolute inset-x-0 bottom-0 h-[2px] bg-[#4a95f0]" />
               ) : null}
-            </button>
+            </div>
           );
         })}
       </div>

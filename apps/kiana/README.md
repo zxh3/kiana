@@ -38,21 +38,22 @@ Mediaforge release manifest and displays the responsive images described by it.
   playlist as background music. The player is made like the pocket music
   players of the 2000s, in silver, graphite, or rose aluminium. Its colour
   screen has a menu (Cover Flow, Songs, Shuffle Songs, Settings, Now Playing),
-  and a click wheel drives it: circle a thumb or the pointer around the wheel,
-  or scroll over the player, to move through lists and flip through covers. On
-  Now Playing the wheel sets the volume, and the centre button brings up a
-  scrubber for the wheel to seek with. Menu goes back (and does nothing at the
-  top menu, so pressing it repeatedly is safe), and the wheel's other buttons
-  are previous, next, and play or pause. The hold switch on the top edge locks
-  every control and shows a padlock. The screen dims ten seconds after the
-  last touch, and the battery shows the viewer's own where the browser shares
-  it. Settings holds the play mode (repeat all, repeat one, or shuffle), the
-  backlight timer, the clicker (the wheel's ticks), the video, the finish, and
-  a link to the song on YouTube. Minimize and close sit in a small pill under
-  the device and come and go with the rest of the controls. Minimized (the
-  default on phones), it becomes a small square player showing the cover. On
-  wider screens it can be dragged to any corner, where it stays; on phones the
-  full player rises from the bottom edge. Songs YouTube refuses to embed are
+  and, as on the original, the screen only shows while the click wheel does
+  everything: circle a thumb or the pointer around the wheel, or scroll over
+  the player, to move through lists and flip through covers. On Now Playing
+  the wheel sets the volume, and the centre button brings up a scrubber for
+  the wheel to seek with. Menu goes back (and does nothing at the top menu, so
+  pressing it repeatedly is safe), and the wheel's other buttons are previous,
+  next, and play or pause. The hold switch on the top edge locks every control
+  and shows a padlock. The screen dims ten seconds after the last touch, and
+  the battery shows the viewer's own where the browser shares it. Settings
+  holds the play mode (repeat all, repeat one, or shuffle), the backlight
+  timer, the clicker (the wheel's ticks), the video, the finish, and a link to
+  the song on YouTube. Minimize and close sit in a small pill under the device
+  and come and go with the rest of the controls. Minimized (the default on
+  phones), it becomes a small square player showing the cover. On wider
+  screens it can be dragged to any corner, where it stays; on phones the full
+  player rises from the bottom edge. Songs YouTube refuses to embed are
   skipped. Starting the music mutes clip sound, and turning clip sound on
   pauses the music. YouTube's player stays mounted but hidden by default; it
   covers the display when YouTube needs a tap or a sign-in, or when the video

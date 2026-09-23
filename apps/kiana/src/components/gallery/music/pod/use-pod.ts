@@ -260,16 +260,6 @@ export function usePod({
     if (parent) go(parent, -1);
   };
 
-  /** A tap on a cover: the middle one plays, a side one comes to the middle. */
-  const pickCover = (index: number) => {
-    if (index === selected.covers) {
-      activate("covers", index);
-      return;
-    }
-    click();
-    choose("covers", index);
-  };
-
   const toggleHold = () => {
     backlight.wake();
     cue(held ? "switchOff" : "switchOn");
@@ -292,15 +282,10 @@ export function usePod({
     toggleHold,
     controls: {
       back: unlessHeld(back),
-      hover: (on: ChoiceScreen, index: number) => {
-        if (!held) choose(on, index);
-      },
       next: unlessHeld(() => {
         cue("songNext");
         music.next();
       }),
-      pick: unlessHeld(activate),
-      pickCover: unlessHeld(pickCover),
       playPause: unlessHeld(() => {
         cue("press");
         music.toggle();
