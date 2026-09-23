@@ -4,6 +4,7 @@ import { cue } from "../../../../lib/sounds";
 import type { Music } from "../use-music";
 import { nextFinish } from "./finishes";
 import {
+  type HoldZone,
   initialPodState,
   LOCK_SHOWS_FOR,
   overlayDurations,
@@ -12,6 +13,7 @@ import {
   type PodEffect,
   podReducer,
   SEEK_SETTLE,
+  SEEK_TICK,
 } from "./machine";
 import { type ChoiceScreen, parentScreen, type SettingsItem } from "./menu";
 import { describePod, type PodView, podRows } from "./rows";
@@ -102,6 +104,13 @@ export function usePod({
       case "seek":
         music.seek(effect.seconds);
         break;
+      case "pause":
+        music.pause();
+        break;
+      case "backlight":
+        if (backlight.lit) backlight.dim();
+        else backlight.wake();
+        break;
       case "setting":
         applySetting(effect.item);
         break;
@@ -154,6 +163,16 @@ export function usePod({
   useEffect(() => {
     dispatch({ type: "trackChanged", index: music.index });
   }, [dispatch, music.index]);
+
+  // A held ⏮ or ⏭ moves the scrubber until it is let go.
+  useEffect(() => {
+    if (state.seeking === 0) return;
+    const timer = window.setInterval(
+      () => dispatch({ type: "seekTick" }),
+      SEEK_TICK,
+    );
+    return () => window.clearInterval(timer);
+  }, [dispatch, state.seeking]);
 
   const view: PodView = {
     playlist: music.playlist,
@@ -213,6 +232,12 @@ export function usePod({
         done,
       })),
       toggleHold: touch(() => ({ type: "toggleHold" })),
+      // Holding Menu toggles the backlight itself, so it does not wake it.
+      holdStart: (zone: HoldZone) => {
+        if (zone !== "menu") backlight.wake();
+        dispatch({ type: "holdStart", zone });
+      },
+      holdEnd: (zone: HoldZone) => dispatch({ type: "holdEnd", zone }),
     },
   };
 }

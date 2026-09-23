@@ -122,6 +122,7 @@ export function PocketPlayer({
         label={screenTitles[screen]}
         onHover={(index) => controls.hover(screen, index)}
         onPick={(index) => controls.pick(screen, index)}
+        onStep={controls.step}
         rows={pod.rows[screen]}
         selected={state.selected[screen]}
       />
@@ -157,6 +158,7 @@ export function PocketPlayer({
         visible={chromeVisible}
       />
       <PodScreen
+        asleep={state.asleep}
         battery={battery}
         covered={covered}
         description={pod.description}
@@ -179,6 +181,8 @@ export function PocketPlayer({
       </PodScreen>
       <div className="mt-[22px]">
         <ClickWheel
+          onHoldEnd={controls.holdEnd}
+          onHoldStart={controls.holdStart}
           onMenu={controls.back}
           onNext={controls.next}
           onPlayPause={controls.playPause}

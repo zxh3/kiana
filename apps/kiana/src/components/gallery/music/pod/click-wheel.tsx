@@ -1,13 +1,32 @@
-import { type CSSProperties, type PointerEvent, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type PointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { cx } from "../../../../lib/class-names";
 import { useClickSwallow } from "../use-click-swallow";
+import type { HoldZone } from "./machine";
 import { angleDelta, DEGREES_PER_STEP, takeSteps } from "./menu";
 
 type Zone = "menu" | "previous" | "next" | "play" | "center";
 
 /** Inside this radius the angle to the centre is too jumpy to follow. */
 const DEAD_RADIUS = 20;
+
+/**
+ * How long a button must be held before it does its second job, as on the
+ * original: ⏮ and ⏭ rewind and fast-forward, Menu turns the backlight off
+ * or on, and play puts the player to sleep.
+ */
+const holdDelays: Record<HoldZone, number> = {
+  previous: 450,
+  next: 450,
+  menu: 900,
+  play: 1_400,
+};
 
 /** A press rocks the wheel toward the thumb, as the real one did. */
 const tilts: Record<Zone, string> = {
@@ -57,11 +76,14 @@ function PlayPauseGlyph() {
 
 /**
  * The click wheel. Circling a thumb (or pointer) around the ring scrolls,
- * one click every fifteen degrees, clockwise for down. The four compass
- * points and the centre are buttons, and a turn that starts on one of them
- * does not press it.
+ * one click every fifteen degrees, clockwise for down; there is no up or
+ * down button, as on the original. The four compass points and the centre
+ * are buttons, and the compass points also answer being held. A turn that
+ * starts on a button does not press it, and neither does a hold.
  */
 export function ClickWheel({
+  onHoldEnd,
+  onHoldStart,
   onMenu,
   onNext,
   onPlayPause,
@@ -70,6 +92,8 @@ export function ClickWheel({
   onStep,
   playing,
 }: {
+  onHoldEnd: (zone: HoldZone) => void;
+  onHoldStart: (zone: HoldZone) => void;
   onMenu: () => void;
   onNext: () => void;
   onPlayPause: () => void;
@@ -87,6 +111,21 @@ export function ClickWheel({
   } | null>(null);
   const swallow = useClickSwallow();
   const [pressed, setPressed] = useState<Zone | null>(null);
+  const holdTimer = useRef<number>(undefined);
+  const holding = useRef<HoldZone | null>(null);
+  const holdEnd = useRef(onHoldEnd);
+  holdEnd.current = onHoldEnd;
+
+  const cancelHold = () => window.clearTimeout(holdTimer.current);
+
+  // A hold still running when the wheel goes away ends with it.
+  useEffect(
+    () => () => {
+      window.clearTimeout(holdTimer.current);
+      if (holding.current) holdEnd.current(holding.current);
+    },
+    [],
+  );
 
   const locate = (event: PointerEvent) => {
     const rect = ref.current?.getBoundingClientRect();
@@ -106,12 +145,26 @@ export function ClickWheel({
       ?.dataset.zone as Zone | undefined;
     setPressed(zone ?? null);
     if (zone === "center") return;
+    const pointerId = event.pointerId;
     turn.current = {
-      id: event.pointerId,
+      id: pointerId,
       angle: locate(event).angle,
       travel: 0,
       turned: false,
     };
+    if (!zone) return;
+    cancelHold();
+    holdTimer.current = window.setTimeout(() => {
+      if (turn.current?.id !== pointerId || turn.current.turned) return;
+      holding.current = zone;
+      // Keep the release even if the pointer drifts off the wheel.
+      try {
+        ref.current?.setPointerCapture(pointerId);
+      } catch {
+        // The pointer is already gone.
+      }
+      onHoldStart(zone);
+    }, holdDelays[zone]);
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -125,8 +178,10 @@ export function ClickWheel({
     const { steps, rest } = takeSteps(current.travel, DEGREES_PER_STEP);
     if (steps === 0) return;
     current.travel = rest;
+    if (holding.current) return;
     if (!current.turned) {
       current.turned = true;
+      cancelHold();
       setPressed(null);
       try {
         ref.current?.setPointerCapture(event.pointerId);
@@ -139,10 +194,14 @@ export function ClickWheel({
 
   const handlePointerEnd = () => {
     const current = turn.current;
+    const held = holding.current;
     turn.current = null;
+    holding.current = null;
+    cancelHold();
     setPressed(null);
-    // A turn that began on a button does not press it.
-    if (current?.turned) swallow.arm();
+    if (held) onHoldEnd(held);
+    // A turn or a hold that began on a button does not also press it.
+    if (current?.turned || held) swallow.arm();
   };
 
   return (
