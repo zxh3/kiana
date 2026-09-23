@@ -38,8 +38,8 @@ type Progress = { current: number; duration: number };
 
 /**
  * Everything the pocket player does, apart from how it looks: which screen
- * is showing, what each control does there, the hold switch, and the
- * backlight. The component only draws what this returns.
+ * is showing, what the wheel and the touch screen do there, the hold
+ * switch, and the backlight. The components only draw what this returns.
  */
 export function usePod({
   music,
@@ -260,6 +260,31 @@ export function usePod({
     if (parent) go(parent, -1);
   };
 
+  /** A tap on the screen: a row opens, a side cover comes to the middle. */
+  const pick = (on: ChoiceScreen, index: number) => {
+    if (on === "covers" && index !== selected.covers) {
+      click();
+      choose("covers", index);
+      return;
+    }
+    activate(on, index);
+  };
+
+  /** Dragging along the progress bar; the song jumps when it is let go. */
+  const seekTo = (fraction: number, done: boolean) => {
+    if (progress.duration <= 0) return;
+    const target = clamp(fraction, 0, 1) * (progress.duration - 1);
+    setScrubAt(target);
+    showOverlay("scrub", SCRUBBER_SHOWS_FOR);
+    window.clearTimeout(seekTimer.current);
+    if (done) music.seek(target);
+  };
+
+  const setVolumeTo = (fraction: number) => {
+    music.setVolume(Math.round(clamp(fraction, 0, 1) * 100));
+    showOverlay("volume", VOLUME_SHOWS_FOR);
+  };
+
   const toggleHold = () => {
     backlight.wake();
     cue(held ? "switchOff" : "switchOn");
@@ -277,11 +302,20 @@ export function usePod({
     selected,
     overlay,
     scrubAt,
+    /** Whether Menu, or a tap on the title bar, has somewhere to go back. */
+    canGoBack: videoOn || parentScreen[screen] !== null,
     /** Counts as a touch, for the backlight. */
     wake: backlight.wake,
     toggleHold,
     controls: {
       back: unlessHeld(back),
+      /** With a mouse, the highlight follows the pointer, silently. */
+      hover: (on: ChoiceScreen, index: number) => {
+        if (!held) choose(on, index);
+      },
+      pick: unlessHeld(pick),
+      seekTo: unlessHeld(seekTo),
+      setVolumeTo: unlessHeld(setVolumeTo),
       next: unlessHeld(() => {
         cue("songNext");
         music.next();

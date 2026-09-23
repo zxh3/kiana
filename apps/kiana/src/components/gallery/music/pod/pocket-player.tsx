@@ -2,6 +2,7 @@ import { type KeyboardEvent, useRef } from "react";
 
 import type { Music } from "../use-music";
 import { ClickWheel } from "./click-wheel";
+import { DragHandle } from "./drag-handle";
 import { HoldSwitch } from "./hold-switch";
 import { screenTitles } from "./menu";
 import { CoverFlow } from "./screen/cover-flow";
@@ -15,18 +16,22 @@ import { usePod } from "./use-pod";
 import { useScrollSteps } from "./use-scroll-steps";
 
 /**
- * The full music player, after the classic pocket players: a colour screen
- * with menus, a click wheel to drive them, and a hold switch on top. It
+ * The full music player, after the classic pocket players: a colour touch
+ * screen with menus, a click wheel that drives them too, a hold switch on
+ * top, and a grip at the bottom for moving it. It
  * fills the space the player's body gives it; the YouTube frame sits over
  * the display when the video is on.
  */
 export function PocketPlayer({
+  movable,
   music,
   onVideoChange,
   progress,
   settings,
   videoOn,
 }: {
+  /** Whether it can be dragged around the page, by its handle. */
+  movable: boolean;
   music: Music;
   onVideoChange: (on: boolean) => void;
   progress: { current: number; duration: number };
@@ -46,7 +51,7 @@ export function PocketPlayer({
     controls.step(event.key === "ArrowDown" ? 1 : -1);
   };
 
-  // The screen only shows, so a screen reader hears what the wheel lands on.
+  // A screen reader hears what the wheel lands on as it turns.
   const announcement = (() => {
     if (screen === "now") {
       return `${screenTitles.now}: ${music.track.title}, ${music.track.artist}`;
@@ -69,6 +74,8 @@ export function PocketPlayer({
           index={music.index}
           loading={music.status === "loading"}
           mode={music.mode}
+          onSeek={controls.seekTo}
+          onVolume={controls.setVolumeTo}
           overlay={pod.overlay}
           track={music.track}
           volume={music.volume}
@@ -79,6 +86,8 @@ export function PocketPlayer({
       return (
         <CoverFlow
           current={music.index}
+          onPick={(index) => controls.pick("covers", index)}
+          onStep={controls.step}
           selected={pod.selected.covers}
           tracks={music.playlist}
         />
@@ -87,6 +96,8 @@ export function PocketPlayer({
     const list = (
       <PodList
         label={screenTitles[screen]}
+        onHover={(index) => controls.hover(screen, index)}
+        onPick={(index) => controls.pick(screen, index)}
         rows={pod.rows[screen]}
         selected={pod.selected[screen]}
       />
@@ -118,6 +129,7 @@ export function PocketPlayer({
         held={pod.held}
         lit={pod.lit}
         lockShown={pod.lockShown}
+        onBack={pod.canGoBack ? controls.back : undefined}
         screen={screen}
         state={
           music.status === "playing"
@@ -140,6 +152,7 @@ export function PocketPlayer({
           playing={music.status === "playing"}
         />
       </div>
+      {movable ? <DragHandle /> : null}
     </div>
   );
 }

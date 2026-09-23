@@ -38,33 +38,35 @@ Mediaforge release manifest and displays the responsive images described by it.
   playlist as background music. The player is made like the pocket music
   players of the 2000s, in silver, graphite, or rose aluminium. Its colour
   screen has a menu (Cover Flow, Songs, Shuffle Songs, Settings, Now Playing),
-  and, as on the original, the screen only shows while the click wheel does
-  everything: circle a thumb or the pointer around the wheel, or scroll over
-  the player, to move through lists and flip through covers. On Now Playing
-  the wheel sets the volume, and the centre button brings up a scrubber for
-  the wheel to seek with. Menu goes back (and does nothing at the top menu, so
-  pressing it repeatedly is safe), and the wheel's other buttons are previous,
-  next, and play or pause. The hold switch on the top edge locks every control
-  and shows a padlock. The screen dims ten seconds after the last touch, and
-  the battery shows the viewer's own where the browser shares it. Settings
-  holds the play mode (repeat all, repeat one, or shuffle), the backlight
-  timer, the clicker (the wheel's ticks), the video, the finish, and a link to
-  the song on YouTube. Minimize and close sit in a small pill under the device
-  and come and go with the rest of the controls. Minimized (the default on
-  phones), it becomes a small square player showing the cover. On wider
-  screens it can be dragged to any corner, where it stays; on phones the full
-  player rises from the bottom edge. Songs YouTube refuses to embed are
-  skipped. Starting the music mutes clip sound, and turning clip sound on
-  pauses the music. YouTube's player stays mounted but hidden by default; it
-  covers the display when YouTube needs a tap or a sign-in, or when the video
-  is turned on in Settings. Hiding a playing embed goes against YouTube's API
-  policies (III.I.9), so YouTube could stop the songs playing here. The player
-  uses youtube.com rather than youtube-nocookie.com, because a YouTube sign-in
-  in the same browser is what clears YouTube's "confirm you're not a bot"
-  check. The code lives in `src/components/gallery/music`: playback in
-  `use-music.ts`, the playlist in `music-track.ts`, the widget in
-  `music-player.tsx`, and the device in `pod/` (its rules in `menu.ts` and
-  `use-pod.ts`, its screens in `pod/screen`).
+  and both the click wheel and the touch screen drive it. Circle a thumb or
+  the pointer around the wheel, or scroll over the player, to move through
+  lists and flip through covers; on the screen, tap a row, swipe or tap the
+  covers, press or drag along the progress bar to seek, and tap the title bar
+  to go back. On Now Playing the wheel sets the volume, and the centre button
+  brings up a scrubber for the wheel to seek with. Menu goes back (and does
+  nothing at the top menu, so pressing it repeatedly is safe), and the wheel's
+  other buttons are previous, next, and play or pause. The hold switch on the
+  top edge locks every control and shows a padlock. The screen dims ten
+  seconds after the last touch, and the battery shows the viewer's own where
+  the browser shares it. Settings holds the play mode (repeat all, repeat one,
+  or shuffle), the backlight timer, the clicker (the wheel's ticks), the
+  video, the finish, and a link to the song on YouTube. Minimize and close sit
+  in a small pill under the device and come and go with the rest of the
+  controls. Minimized (the default on phones), it becomes a small square
+  player showing the cover. On wider screens it can be dragged to any corner
+  by the grip at the bottom of its body (the small player from anywhere),
+  where it stays; on phones the full player rises from the bottom edge. Songs
+  YouTube refuses to embed are skipped. Starting the music mutes clip sound,
+  and turning clip sound on pauses the music. YouTube's player stays mounted
+  but hidden by default; it covers the display when YouTube needs a tap or a
+  sign-in, or when the video is turned on in Settings. Hiding a playing embed
+  goes against YouTube's API policies (III.I.9), so YouTube could stop the
+  songs playing here. The player uses youtube.com rather than
+  youtube-nocookie.com, because a YouTube sign-in in the same browser is what
+  clears YouTube's "confirm you're not a bot" check. The code lives in
+  `src/components/gallery/music`: playback in `use-music.ts`, the playlist in
+  `music-track.ts`, the widget in `music-player.tsx`, and the device in `pod/`
+  (its rules in `menu.ts` and `use-pod.ts`, its screens in `pod/screen`).
 - **Interface sounds.** Soft clicks, ticks, and chimes answer the controls.
   They are on by default and can be turned off with the switch in the
   slideshow settings; once the sound button is pressed, turning sound off

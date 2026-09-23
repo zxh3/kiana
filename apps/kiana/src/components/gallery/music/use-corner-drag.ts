@@ -19,9 +19,12 @@ const SNAP_TRANSITION = "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)";
  */
 export function useCornerDrag<T extends HTMLElement>({
   corner,
+  handle,
   onCornerChange,
 }: {
   corner: Corner;
+  /** When set, only a press inside an element matching this selector drags. */
+  handle?: string;
   onCornerChange: (corner: Corner) => void;
 }) {
   const ref = useRef<T>(null);
@@ -58,7 +61,9 @@ export function useCornerDrag<T extends HTMLElement>({
 
   const onPointerDown = (event: PointerEvent<T>) => {
     if (event.button !== 0) return;
-    if ((event.target as Element).closest("input, a, iframe")) return;
+    const target = event.target as Element;
+    if (handle && !target.closest(handle)) return;
+    if (target.closest("input, a, iframe")) return;
     press.current = {
       id: event.pointerId,
       x: event.clientX,

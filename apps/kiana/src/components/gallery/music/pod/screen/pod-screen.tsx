@@ -17,9 +17,9 @@ const slide: Variants = {
 };
 
 /**
- * The glass window and the colour display set inside it. It only shows;
- * the click wheel does everything. Inside: the status bar, the current
- * screen sliding in and out, the padlock that answers a touch
+ * The glass window and the colour display set inside it, a touch screen
+ * that answers taps as well as the click wheel. Inside: the status bar,
+ * the current screen sliding in and out, the padlock that answers a touch
  * while the hold switch is on, and the backlight dimming when idle.
  */
 export function PodScreen({
@@ -30,6 +30,7 @@ export function PodScreen({
   held,
   lit,
   lockShown,
+  onBack,
   screen,
   state,
 }: {
@@ -41,6 +42,8 @@ export function PodScreen({
   held: boolean;
   lit: boolean;
   lockShown: boolean;
+  /** Set when there is somewhere to go back to. */
+  onBack?: () => void;
   screen: Screen;
   state: PlayState;
 }) {
@@ -60,6 +63,7 @@ export function PodScreen({
         <StatusBar
           battery={battery}
           held={held}
+          onBack={onBack}
           state={state}
           title={screenTitles[screen]}
         />

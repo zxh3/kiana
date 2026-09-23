@@ -7,6 +7,7 @@ import { MusicNoteIcon } from "../icons";
 import { useStoredState } from "../use-stored-state";
 import { type Corner, parseCorner, parsePlayerSize } from "./music-layout";
 import { MusicNotice } from "./music-notice";
+import { DRAG_HANDLE } from "./pod/drag-handle";
 import { finishStyles } from "./pod/finishes";
 import {
   BODY_PADDING,
@@ -89,15 +90,17 @@ export function MusicPlayer({
   const [corner, setCorner] = useStoredState(CORNER_KEY, parseCorner);
   const settings = usePodSettings();
   const phone = useMediaQuery(PHONE_QUERY);
-  const drag = useCornerDrag<HTMLElement>({
-    corner,
-    onCornerChange: setCorner,
-  });
-
   const idle = music.status === "idle";
   const needsVideo = music.status === "blocked" || music.status === "error";
   const mini = size === "mini" && !needsVideo;
   const docked = phone && !mini;
+  // The small player drags from anywhere; the full one only by its handle,
+  // so its screen and wheel are free for touch.
+  const drag = useCornerDrag<HTMLElement>({
+    corner,
+    handle: mini ? undefined : `[${DRAG_HANDLE}]`,
+    onCornerChange: setCorner,
+  });
   const showVideo = !mini && (videoOpen || needsVideo);
   const progress = useMusicProgress(
     music.readProgress,
@@ -115,14 +118,15 @@ export function MusicPlayer({
             docked
               ? "inset-x-0 bottom-[max(12px,env(safe-area-inset-bottom))] mx-auto flex w-fit flex-col items-center"
               : cx(
-                  "touch-none select-none",
+                  "select-none",
                   cornerClasses[corner],
-                  drag.dragging ? "cursor-grabbing" : "cursor-grab",
+                  mini && "touch-none",
+                  mini && (drag.dragging ? "cursor-grabbing" : "cursor-grab"),
                 ),
           )}
           data-raised={raised || undefined}
           ref={drag.ref}
-          title={docked || drag.dragging ? undefined : "Drag to move"}
+          title={mini && !drag.dragging ? "Drag to move" : undefined}
           {...(docked ? {} : drag.handlers)}
         >
           {/* The body, in the chosen finish. */}
@@ -163,6 +167,7 @@ export function MusicPlayer({
               ) : (
                 <motion.div key="pocket" {...faceMotion}>
                   <PocketPlayer
+                    movable={!docked}
                     music={music}
                     onVideoChange={setVideoOpen}
                     progress={progress}

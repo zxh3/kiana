@@ -23,15 +23,20 @@ export type PodRow = {
 };
 
 /**
- * A menu list. Like the rest of the screen it only shows: the wheel moves
- * the highlight and the centre button picks the row.
+ * A menu list. The wheel moves the highlight and the centre button picks
+ * the row; on the touch screen a tap picks it, and with a mouse the
+ * highlight follows the pointer.
  */
 export function PodList({
   label,
+  onHover,
+  onPick,
   rows,
   selected,
 }: {
   label: string;
+  onHover: (index: number) => void;
+  onPick: (index: number) => void;
   rows: ReadonlyArray<PodRow>;
   selected: number;
 }) {
@@ -51,14 +56,21 @@ export function PodList({
         {rows.map((row, index) => {
           const active = index === selected;
           return (
-            <li aria-current={active || undefined} key={row.key}>
-              <div
+            <li key={row.key}>
+              <button
+                aria-current={active || undefined}
                 className={cx(
-                  "flex w-full items-center gap-1.5 pr-1.5 pl-2 text-left text-[12px] leading-none outline-none",
+                  "flex w-full cursor-pointer items-center gap-1.5 pr-1.5 pl-2 text-left text-[12px] leading-none outline-none",
                   scrolls && "pr-3",
                   active ? highlight : "text-[#141414]",
                 )}
+                onClick={() => onPick(index)}
+                onFocus={() => onHover(index)}
+                onPointerMove={(event) => {
+                  if (event.pointerType === "mouse" && !active) onHover(index);
+                }}
                 style={{ height: ROW_HEIGHT }}
+                type="button"
               >
                 <span
                   className="min-w-0 flex-1 truncate font-semibold"
@@ -92,7 +104,7 @@ export function PodList({
                     ›
                   </span>
                 ) : null}
-              </div>
+              </button>
             </li>
           );
         })}

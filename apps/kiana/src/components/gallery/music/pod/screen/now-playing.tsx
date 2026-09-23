@@ -1,3 +1,5 @@
+import { type PointerEvent, type ReactNode, useRef } from "react";
+
 import { cx } from "../../../../../lib/class-names";
 import {
   RepeatIcon,
@@ -11,6 +13,53 @@ import { type Track, trackArt } from "../../music-track";
 import { formatPodTime } from "../format";
 
 export type NowOverlay = "volume" | "scrub" | null;
+
+/**
+ * A bar the touch screen can set: press or drag along it, and `onChange`
+ * hears where, as a fraction, with `done` on release.
+ */
+function TouchBar({
+  children,
+  onChange,
+}: {
+  children: ReactNode;
+  onChange: (fraction: number, done: boolean) => void;
+}) {
+  const pressed = useRef<number | null>(null);
+  const fraction = (event: PointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return (event.clientX - rect.left) / rect.width;
+  };
+  return (
+    // A touch shortcut, hidden from assistive technology: the wheel and the
+    // arrow keys set the same value.
+    <div
+      aria-hidden="true"
+      className="-my-2 cursor-pointer touch-none py-2"
+      onPointerCancel={() => {
+        pressed.current = null;
+      }}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        pressed.current = event.pointerId;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        onChange(fraction(event), false);
+      }}
+      onPointerMove={(event) => {
+        if (pressed.current === event.pointerId) {
+          onChange(fraction(event), false);
+        }
+      }}
+      onPointerUp={(event) => {
+        if (pressed.current !== event.pointerId) return;
+        pressed.current = null;
+        onChange(fraction(event), true);
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 function Bar({ percent, marker }: { percent: number; marker?: boolean }) {
   return (
@@ -39,7 +88,8 @@ function Bar({ percent, marker }: { percent: number; marker?: boolean }) {
 /**
  * Now Playing: the cover with its reflection, the song, and a progress bar.
  * Turning the wheel here shows the volume instead; the centre button swaps
- * in the scrubber.
+ * in the scrubber. On the touch screen, pressing or dragging along the bar
+ * seeks, or sets the volume while that is showing.
  */
 export function NowPlaying({
   count,
@@ -48,6 +98,8 @@ export function NowPlaying({
   index,
   loading,
   mode,
+  onSeek,
+  onVolume,
   overlay,
   track,
   volume,
@@ -58,6 +110,8 @@ export function NowPlaying({
   index: number;
   loading: boolean;
   mode: PlayMode;
+  onSeek: (fraction: number, done: boolean) => void;
+  onVolume: (fraction: number) => void;
   overlay: NowOverlay;
   track: Track;
   volume: number;
@@ -112,13 +166,17 @@ export function NowPlaying({
           <div className="flex items-center gap-1.5 pb-1 text-[#777]">
             <SoundOffIcon size={13} />
             <div className="flex-1">
-              <Bar percent={volume} />
+              <TouchBar onChange={(fraction) => onVolume(fraction)}>
+                <Bar percent={volume} />
+              </TouchBar>
             </div>
             <SoundOnIcon size={13} />
           </div>
         ) : (
           <>
-            <Bar marker={overlay === "scrub"} percent={percent} />
+            <TouchBar onChange={onSeek}>
+              <Bar marker={overlay === "scrub"} percent={percent} />
+            </TouchBar>
             <div className="mt-1 flex justify-between text-[10px] leading-none text-[#333] tabular-nums">
               <span>{loading ? "Loading…" : formatPodTime(current)}</span>
               <span>-{formatPodTime(Math.max(0, duration - current))}</span>
