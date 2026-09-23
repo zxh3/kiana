@@ -34,23 +34,30 @@ Mediaforge release manifest and displays the responsive images described by it.
   tabs.
 - **Share.** Copies a link that opens the current photo. The server renders
   that photo as the link preview image.
-- **Music.** The Music button in the top bar loops a YouTube track as background
-  music. The now-playing widget is a small pill (the default on phones) that
-  opens into a card with play, pause, volume, and a link to YouTube. Drag it
-  anywhere; it snaps to the nearest corner and stays there. Starting the music
-  mutes clip sound, and turning clip sound on pauses the music. YouTube's player
-  stays mounted at full size but is collapsed and transparent by default; it
-  opens by itself when YouTube needs a tap or a sign-in, and a toggle shows it
-  on demand. Hiding a playing embed goes against YouTube's API policies
-  (III.I.9), so YouTube could stop the track playing here. The player uses
-  youtube.com rather than youtube-nocookie.com, because a YouTube sign-in in the
-  same browser is what clears YouTube's "confirm you're not a bot" check. The
-  track is set in `src/components/gallery/music-track.ts`.
+- **Music.** The Music button in the top bar plays a five-song YouTube playlist
+  as background music. The now-playing widget is a small pill (the default on
+  phones) that opens into a deck in the spirit of the classic desktop players:
+  an amber display with the time, track number, play mode, a scrolling title,
+  and a spectrum; a seek bar; previous, play, and next; repeat all, repeat one,
+  or shuffle; volume; and a docked playlist. On wider screens the widget can be
+  dragged to any corner, where it stays; on phones the deck rises as a bottom
+  sheet that a swipe down tucks away. Songs YouTube refuses to embed are
+  skipped. The spectrum is decorative, because the audio plays inside YouTube's
+  frame and cannot be measured. Starting the music mutes clip sound, and turning
+  clip sound on pauses the music. YouTube's player stays mounted at full size
+  but is collapsed and transparent by default; it opens by itself when YouTube
+  needs a tap or a sign-in, and a toggle shows it on demand. Hiding a playing
+  embed goes against YouTube's API policies (III.I.9), so YouTube could stop the
+  songs playing here. The player uses youtube.com rather than
+  youtube-nocookie.com, because a YouTube sign-in in the same browser is what
+  clears YouTube's "confirm you're not a bot" check. The playlist is set in
+  `src/components/gallery/music-track.ts`.
 - **Keep screen awake.** An optional setting that holds a screen wake lock
   while photos play.
 
-Preferences, favorites, date-order positions, and the music volume, widget
-size, and corner are stored in local storage under `kiana.*` keys. The desktop
+Preferences, favorites, date-order positions, and the music volume, song,
+play mode, widget size, corner, and playlist panel are stored in local storage
+under `kiana.*` keys. The desktop
 wallpaper app writes `kiana.frame` on every launch, and the library is rendered
 outside `<main>` because that app stretches every image inside `<main>` to cover
 the screen.

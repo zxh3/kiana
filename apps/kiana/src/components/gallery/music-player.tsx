@@ -1,5 +1,10 @@
-import type { CSSProperties } from "react";
-import { useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type PointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { cx } from "../../lib/class-names";
 import { ControlButton, focusRing } from "./control-button";
@@ -7,19 +12,36 @@ import {
   CloseIcon,
   EqualizerIcon,
   ExternalIcon,
+  GripIcon,
+  ListIcon,
   MinimizeIcon,
   MusicNoteIcon,
   PauseIcon,
   PlayIcon,
+  RepeatIcon,
   ScreenIcon,
+  ShuffleIcon,
+  SkipBackIcon,
+  SkipForwardIcon,
   SoundOffIcon,
   SoundOnIcon,
 } from "./icons";
+import { Marquee } from "./marquee";
 import { type Corner, parseCorner, parsePlayerSize } from "./music-layout";
-import { backgroundTrack } from "./music-track";
+import { playModeLabels } from "./music-queue";
+import { trackThumbnail, trackUrl } from "./music-track";
+import { parseFlag } from "./preferences";
+import { Spectrum } from "./spectrum";
 import { useCornerDrag } from "./use-corner-drag";
+import { useMediaQuery } from "./use-media-query";
 import type { Music, MusicStatus } from "./use-music";
 import { useStoredState } from "./use-stored-state";
+
+const SIZE_KEY = "kiana.music-size";
+const CORNER_KEY = "kiana.music-corner";
+const LIST_KEY = "kiana.music-list";
+const PHONE_QUERY = "(max-width: 639px)";
+const SWIPE_TO_MINIMIZE = 48;
 
 const statusLabels: Record<MusicStatus, string> = {
   idle: "Music",
@@ -30,15 +52,23 @@ const statusLabels: Record<MusicStatus, string> = {
   error: "Unavailable",
 };
 
+/** "03:07", the way a player's display reads. */
+function formatClock(seconds: number) {
+  const total =
+    Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+  const minutes = String(Math.floor(total / 60)).padStart(2, "0");
+  return `${minutes}:${String(total % 60).padStart(2, "0")}`;
+}
+
 /** The top-bar switch: starts the music, then pauses and resumes it. */
 export function MusicButton({ music }: { music: Music }) {
   const playing = music.status === "playing";
   const label =
     music.status === "idle"
-      ? `Play background music: ${backgroundTrack.title}`
+      ? `Play background music: ${music.track.title}`
       : playing
-        ? "Pause the music"
-        : "Play the music";
+        ? `Pause ${music.track.title}`
+        : `Play ${music.track.title}`;
 
   return (
     <button
@@ -65,8 +95,30 @@ export function MusicButton({ music }: { music: Music }) {
   );
 }
 
-const SIZE_KEY = "kiana.music-size";
-const CORNER_KEY = "kiana.music-corner";
+function PlayPause({ music, size }: { music: Music; size: "small" | "large" }) {
+  const playing = music.status === "playing";
+  return (
+    <button
+      aria-label={playing ? "Pause the music" : "Play the music"}
+      className={cx(
+        "grid shrink-0 cursor-pointer place-items-center rounded-full bg-paper text-ink transition-[background-color,scale,box-shadow] duration-200 hover:bg-white active:scale-92",
+        size === "small"
+          ? "size-9"
+          : "size-14 shadow-[0_10px_30px_-10px_rgba(244,198,124,.55)]",
+        focusRing,
+      )}
+      onClick={music.toggle}
+      title={playing ? "Pause" : "Play"}
+      type="button"
+    >
+      {playing ? (
+        <PauseIcon size={size === "small" ? 16 : 22} />
+      ) : (
+        <PlayIcon size={size === "small" ? 16 : 22} />
+      )}
+    </button>
+  );
+}
 
 /**
  * Where each corner sits: clear of the top bar, the dock, and the caption
@@ -83,38 +135,19 @@ const cornerClasses: Record<Corner, string> = {
     "bottom-[calc(max(16px,env(safe-area-inset-bottom))+76px)] right-[max(12px,env(safe-area-inset-right))] sm:bottom-24 sm:right-7 lg:bottom-6 lg:data-raised:bottom-[92px] xl:data-raised:bottom-6",
 };
 
-function PlayPause({ music, small }: { music: Music; small?: boolean }) {
-  const playing = music.status === "playing";
-  return (
-    <button
-      aria-label={playing ? "Pause the music" : "Play the music"}
-      className={cx(
-        "grid shrink-0 cursor-pointer place-items-center rounded-full bg-paper text-ink transition-[background-color,scale] duration-200 hover:bg-white active:scale-92",
-        small ? "size-9" : "size-10",
-        focusRing,
-      )}
-      onClick={music.toggle}
-      title={playing ? "Pause" : "Play"}
-      type="button"
-    >
-      {playing ? (
-        <PauseIcon size={small ? 16 : 18} />
-      ) : (
-        <PlayIcon size={small ? 16 : 18} />
-      )}
-    </button>
-  );
-}
-
 /**
- * The now-playing widget, above the photos, menus, and library. It is a
- * small pill (the default on phones) or a card with every control, and it
- * can be dragged to any corner, where it stays.
+ * The now-playing widget, above the photos, menus, and library: a modern
+ * take on the classic desktop music players, with an amber display, a
+ * spectrum, transport controls, and a docked playlist.
  *
- * YouTube's player stays mounted at full size in both forms so playback
- * keeps going, collapsed and transparent until needed. It opens by itself
- * when YouTube needs a tap or a sign-in, and a toggle shows it on demand.
- * Hiding a playing embed goes against YouTube's API policies (III.I.9); that
+ * It is a small pill (the default on phones) or the full deck. On wider
+ * screens the deck can be dragged to any corner, where it stays; on phones
+ * it rises as a bottom sheet that a swipe down tucks away.
+ *
+ * YouTube's player stays mounted at full size throughout, so playback never
+ * stops, collapsed and transparent until needed. It opens by itself when
+ * YouTube needs a tap or a sign-in, and a toggle shows it on demand. Hiding
+ * a playing embed goes against YouTube's API policies (III.I.9); that
  * trade-off was the site owner's choice.
  */
 export function MusicPlayer({
@@ -128,64 +161,160 @@ export function MusicPlayer({
   const [videoOpen, setVideoOpen] = useState(false);
   const [size, setSize] = useStoredState(SIZE_KEY, parsePlayerSize);
   const [corner, setCorner] = useStoredState(CORNER_KEY, parseCorner);
+  const [listOpen, setListOpen] = useStoredState(LIST_KEY, parseFlag);
+  const phone = useMediaQuery(PHONE_QUERY);
   const drag = useCornerDrag<HTMLElement>({
     corner,
     onCornerChange: setCorner,
   });
-  if (music.status === "idle") return null;
+  const [progress, setProgress] = useState({ current: 0, duration: 0 });
+  const [scrub, setScrub] = useState<number | null>(null);
+  const swipe = useRef<number | null>(null);
 
+  const idle = music.status === "idle";
   const playing = music.status === "playing";
   const needsVideo = music.status === "blocked" || music.status === "error";
   const mini = size === "mini" && !needsVideo;
+  const sheet = phone && !mini;
+
+  // Poll the clock only while the deck shows it, and only re-render here.
+  const { readProgress } = music;
+  useEffect(() => {
+    if (idle || mini) return;
+    const tick = () =>
+      setProgress((previous) => {
+        const next = readProgress();
+        return Math.abs(next.current - previous.current) < 0.2 &&
+          next.duration === previous.duration
+          ? previous
+          : next;
+      });
+    tick();
+    const interval = window.setInterval(tick, 250);
+    return () => window.clearInterval(interval);
+  }, [idle, mini, readProgress]);
+
+  if (idle) return null;
+
   const showVideo = !mini && (videoOpen || needsVideo);
   const muted = music.volume === 0;
+  const { track } = music;
+  const shown = scrub ?? progress.current;
+  const percent =
+    progress.duration > 0
+      ? Math.min(100, (shown / progress.duration) * 100)
+      : 0;
+  const commitScrub = () => {
+    if (scrub === null) return;
+    music.seek(scrub);
+    setScrub(null);
+  };
+  const modeLabel = playModeLabels[music.mode];
+
+  const handleSwipeStart = (event: PointerEvent<HTMLButtonElement>) => {
+    swipe.current = event.clientY;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const handleSwipeEnd = (event: PointerEvent<HTMLButtonElement>) => {
+    const start = swipe.current;
+    swipe.current = null;
+    if (start !== null && event.clientY - start > SWIPE_TO_MINIMIZE) {
+      setSize("mini");
+    }
+  };
 
   return (
     <aside
       aria-label="Music"
       className={cx(
-        "fixed z-50 touch-none transition-[bottom,opacity,translate] duration-500 ease-soft select-none starting:translate-y-3 starting:opacity-0",
-        cornerClasses[corner],
-        drag.dragging ? "cursor-grabbing" : "cursor-grab",
+        "fixed z-50 transition-[bottom,opacity,translate] duration-500 ease-soft starting:translate-y-3 starting:opacity-0",
+        sheet
+          ? "inset-x-2 bottom-[max(8px,env(safe-area-inset-bottom))]"
+          : cx(
+              "touch-none select-none",
+              cornerClasses[corner],
+              drag.dragging ? "cursor-grabbing" : "cursor-grab",
+            ),
       )}
       data-raised={raised || undefined}
       ref={drag.ref}
-      title={drag.dragging ? undefined : "Drag to move"}
-      {...drag.handlers}
+      title={sheet || drag.dragging ? undefined : "Drag to move"}
+      {...(sheet ? {} : drag.handlers)}
     >
       <div
         className={cx(
-          "glass bg-night/82 text-paper transition-[scale,box-shadow] duration-300 ease-soft",
+          "glass text-paper transition-[scale,box-shadow] duration-300 ease-soft",
           mini
-            ? "rounded-full p-1"
-            : "w-[272px] rounded-[22px] p-2.5 sm:w-[320px]",
+            ? "rounded-full bg-night/82 p-1"
+            : cx(
+                "overflow-y-auto overscroll-contain rounded-[26px] bg-night/88 p-3 scrollbar-none sm:w-[344px]",
+                // Never taller than the room between the top bar and the
+                // lowest corner offset; the deck scrolls inside instead.
+                sheet
+                  ? "max-h-[calc(100dvh-24px)]"
+                  : "max-h-[calc(100dvh-212px)]",
+              ),
           drag.dragging &&
             "scale-[1.03] shadow-[0_30px_80px_-24px_rgba(0,0,0,.85)]",
         )}
       >
+        {sheet ? (
+          <button
+            aria-label="Minimize the music player"
+            className="mx-auto -mt-1 mb-1 flex h-5 w-16 cursor-pointer touch-none items-center justify-center"
+            onClick={() => setSize("mini")}
+            onPointerDown={handleSwipeStart}
+            onPointerUp={handleSwipeEnd}
+            type="button"
+          >
+            <span className="h-1 w-9 rounded-full bg-paper/25" />
+          </button>
+        ) : null}
+
+        {mini ? null : (
+          <div className="flex animate-toast-in items-center gap-1.5 pb-2.5 pl-1.5">
+            {sheet ? null : (
+              <GripIcon className="-ml-1 shrink-0 text-paper/25" size={16} />
+            )}
+            <p className="label flex-1 text-paper/45">Now playing</p>
+            <ControlButton
+              className="size-8"
+              disabled={needsVideo}
+              label="Minimize the music player"
+              onClick={() => setSize("mini")}
+            >
+              <MinimizeIcon size={17} />
+            </ControlButton>
+            <ControlButton
+              className="size-8"
+              label="Close the music player"
+              onClick={music.stop}
+            >
+              <CloseIcon size={17} />
+            </ControlButton>
+          </div>
+        )}
+
         {/* The player: one element for the widget's whole life, so switching
-            between pill and card never interrupts the music. */}
+            between pill, deck, and sheet never interrupts the music. */}
         <div
           className={cx(
             "relative transition-[height,margin] duration-500 ease-soft motion-reduce:transition-none",
-            showVideo ? "mb-1 h-[200px]" : "h-0",
+            showVideo ? "mb-2.5 h-[200px]" : "h-0",
           )}
         >
           <div
             className={cx(
-              "absolute top-0 h-[200px] overflow-hidden rounded-[12px] bg-black transition-opacity duration-300",
+              "absolute top-0 h-[200px] overflow-hidden rounded-[16px] bg-black transition-opacity duration-300",
               mini ? "left-0 w-[200px]" : "inset-x-0",
               showVideo ? "opacity-100" : "pointer-events-none -z-10 opacity-0",
             )}
             inert={!showVideo}
           >
-            {/* Behind the player while it loads: the track's own thumbnail. */}
             <div
               aria-hidden="true"
               className="absolute inset-0 scale-110 bg-cover bg-center opacity-60 blur-xl"
-              style={{
-                backgroundImage: `url("https://i.ytimg.com/vi/${backgroundTrack.videoId}/hqdefault.jpg")`,
-              }}
+              style={{ backgroundImage: `url("${trackThumbnail(track)}")` }}
             />
             {music.status === "loading" ? (
               <div className="absolute inset-0 grid place-items-center">
@@ -201,7 +330,7 @@ export function MusicPlayer({
         {mini ? (
           <div className="flex animate-toast-in items-center gap-1">
             <button
-              aria-label="Open the music player"
+              aria-label={`Open the music player: ${track.title}`}
               className={cx(
                 "flex min-w-0 cursor-pointer items-center gap-2.5 rounded-full py-2 pr-1.5 pl-3 text-left",
                 focusRing,
@@ -211,93 +340,137 @@ export function MusicPlayer({
               type="button"
             >
               <EqualizerIcon
-                className="shrink-0 text-paper/85"
+                className="shrink-0 text-amber"
                 playing={playing}
               />
               <span
-                className="max-w-[7.5rem] truncate font-serif text-[17px] leading-none"
-                lang="zh-Hant"
+                className="max-w-[6rem] truncate font-serif text-[17px] leading-none sm:max-w-[8rem]"
+                lang="zh"
               >
-                {backgroundTrack.title}
+                {track.title}
               </span>
             </button>
-            <PlayPause music={music} small />
+            <PlayPause music={music} size="small" />
+            <ControlButton
+              className="size-9"
+              label="Next song"
+              onClick={music.next}
+            >
+              <SkipForwardIcon size={16} />
+            </ControlButton>
           </div>
         ) : (
           <div className="animate-toast-in">
-            <div className="flex items-center gap-2 pt-1.5 pr-0.5 pl-2">
-              <EqualizerIcon
-                className="shrink-0 text-paper/80"
+            {/* The display: an old player's screen, lit in amber. */}
+            <div className="relative overflow-hidden rounded-[18px] border border-paper/8 bg-[radial-gradient(120%_90%_at_0%_0%,rgba(244,198,124,.09),transparent_55%),linear-gradient(180deg,#0c0908,#15100d)] px-4 pt-3.5 pb-3 shadow-[inset_0_1px_0_rgba(246,240,230,.05),inset_0_14px_34px_rgba(0,0,0,.5)]">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-[.06] [background-image:radial-gradient(rgba(246,240,230,.9)_0.6px,transparent_0.8px)] [background-size:3px_3px]"
+              />
+              <div className="relative flex items-end justify-between gap-3">
+                <div className="flex items-baseline gap-2 text-amber [text-shadow:0_0_16px_rgba(244,198,124,.45)]">
+                  <span className="self-center">
+                    {playing ? <PlayIcon size={12} /> : <PauseIcon size={12} />}
+                  </span>
+                  <span className="font-mono text-[32px] leading-none font-light tracking-[-.02em] tabular-nums">
+                    {formatClock(shown)}
+                  </span>
+                  <span className="font-mono text-[11px] text-amber/50 tabular-nums">
+                    / {formatClock(progress.duration)}
+                  </span>
+                </div>
+                <div className="pb-0.5 text-right">
+                  <p className="font-mono text-[11px] tracking-[.14em] text-amber/80 tabular-nums">
+                    {String(music.index + 1).padStart(2, "0")}
+                    <span className="text-amber/35">
+                      {" "}
+                      / {String(music.playlist.length).padStart(2, "0")}
+                    </span>
+                  </p>
+                  <p className="label mt-1.5 text-paper/40">{modeLabel}</p>
+                </div>
+              </div>
+              <Marquee className="relative mt-3">
+                <span
+                  className="font-serif text-[20px] leading-tight"
+                  lang="zh"
+                >
+                  {track.title}
+                </span>
+                <span className="label ml-3 text-paper/45" lang="zh">
+                  {track.artist}
+                </span>
+              </Marquee>
+              <Spectrum
+                active={!mini}
+                className="relative mt-2.5 h-11 w-full"
                 playing={playing}
               />
-              <div className="min-w-0 flex-1">
-                <p
-                  className="truncate font-serif text-[21px] leading-none"
-                  lang="zh-Hant"
-                >
-                  {backgroundTrack.title}
-                </p>
-                <p className="label mt-2 truncate text-paper/45">
-                  {backgroundTrack.artist}
-                </p>
-              </div>
+            </div>
+
+            <input
+              aria-label="Seek"
+              aria-valuetext={`${formatClock(shown)} of ${formatClock(progress.duration)}`}
+              className="range mt-3 w-full px-1"
+              disabled={progress.duration <= 0}
+              max={progress.duration || 1}
+              min={0}
+              onBlur={commitScrub}
+              onChange={(event) => setScrub(Number(event.target.value))}
+              onKeyUp={commitScrub}
+              onPointerUp={commitScrub}
+              step={0.5}
+              style={
+                {
+                  "--value": `${percent}%`,
+                  "--fill": "var(--color-amber)",
+                } as CSSProperties
+              }
+              type="range"
+              value={shown}
+            />
+
+            <div className="mt-1.5 flex items-center justify-between px-1">
               <ControlButton
-                className="size-9"
-                disabled={needsVideo}
-                label="Minimize the music player"
-                onClick={() => setSize("mini")}
+                className="size-10 text-amber hover:text-amber"
+                label={`Play mode: ${modeLabel}. Change it`}
+                onClick={music.cycleMode}
               >
-                <MinimizeIcon size={18} />
+                {music.mode === "shuffle" ? (
+                  <ShuffleIcon size={19} />
+                ) : (
+                  <RepeatIcon one={music.mode === "one"} size={19} />
+                )}
               </ControlButton>
               <ControlButton
-                className="-ml-1 size-9"
-                label="Close the music player"
-                onClick={music.stop}
+                className="size-11"
+                label="Previous song"
+                onClick={music.previous}
               >
-                <CloseIcon size={18} />
+                <SkipBackIcon size={20} />
+              </ControlButton>
+              <PlayPause music={music} size="large" />
+              <ControlButton
+                className="size-11"
+                label="Next song"
+                onClick={music.next}
+              >
+                <SkipForwardIcon size={20} />
+              </ControlButton>
+              <ControlButton
+                aria-pressed={listOpen}
+                className={cx(
+                  "size-10",
+                  listOpen && "text-amber hover:text-amber",
+                )}
+                label={listOpen ? "Hide the playlist" : "Show the playlist"}
+                onClick={() => setListOpen(!listOpen)}
+              >
+                <ListIcon size={19} />
               </ControlButton>
             </div>
 
-            {music.status === "blocked" ? (
-              <p className="px-2 pt-2 text-[11px] leading-snug text-paper/60">
-                Your browser needs a tap on the video to start the sound.
-              </p>
-            ) : null}
-            {music.status === "error" ? (
-              <div className="px-2 pt-2">
-                <p className="text-[11px] leading-snug text-paper/60">
-                  YouTube wouldn’t play the song here. If it asks you to sign
-                  in, sign in on youtube.com in this browser, then try again.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    className={cx(
-                      "label cursor-pointer rounded-full bg-paper px-3.5 py-2.5 text-ink transition-colors hover:bg-white",
-                      focusRing,
-                    )}
-                    onClick={music.start}
-                    type="button"
-                  >
-                    Try again
-                  </button>
-                  <a
-                    className={cx(
-                      "label flex items-center gap-1.5 rounded-full border border-paper/15 px-3.5 py-2.5 text-paper/75 transition-colors hover:border-paper/40 hover:text-paper",
-                      focusRing,
-                    )}
-                    href={backgroundTrack.url}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Open on YouTube
-                    <ExternalIcon size={12} />
-                  </a>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="flex items-center gap-1.5 pt-2.5 pr-1 pl-1 sm:gap-2">
-              <PlayPause music={music} />
+            <div className="mt-1 flex items-center gap-1.5 px-1 sm:gap-2">
               <ControlButton
                 className="size-8"
                 label={muted ? "Unmute the music" : "Mute the music"}
@@ -335,18 +508,135 @@ export function MusicPlayer({
                 <ScreenIcon size={16} />
               </ControlButton>
               <a
-                aria-label="Open on YouTube"
+                aria-label="Open this song on YouTube"
                 className={cx(
                   "grid size-8 shrink-0 place-items-center rounded-full text-paper/45 transition-colors hover:text-paper",
                   focusRing,
                 )}
-                href={backgroundTrack.url}
+                href={trackUrl(track)}
                 rel="noreferrer"
                 target="_blank"
                 title="Open on YouTube"
               >
                 <ExternalIcon size={14} />
               </a>
+            </div>
+
+            {music.status === "blocked" ? (
+              <p className="px-2 pt-2 text-[11px] leading-snug text-paper/60">
+                Your browser needs a tap on the video to start the sound.
+              </p>
+            ) : null}
+            {music.status === "error" ? (
+              <div className="px-2 pt-2">
+                <p className="text-[11px] leading-snug text-paper/60">
+                  YouTube wouldn’t play the playlist here. If it asks you to
+                  sign in, sign in on youtube.com in this browser, then try
+                  again.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    className={cx(
+                      "label cursor-pointer rounded-full bg-paper px-3.5 py-2.5 text-ink transition-colors hover:bg-white",
+                      focusRing,
+                    )}
+                    onClick={music.start}
+                    type="button"
+                  >
+                    Try again
+                  </button>
+                  <a
+                    className={cx(
+                      "label flex items-center gap-1.5 rounded-full border border-paper/15 px-3.5 py-2.5 text-paper/75 transition-colors hover:border-paper/40 hover:text-paper",
+                      focusRing,
+                    )}
+                    href={trackUrl(track)}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Open on YouTube
+                    <ExternalIcon size={12} />
+                  </a>
+                </div>
+              </div>
+            ) : null}
+
+            {/* The docked playlist, folded away until asked for. */}
+            <div
+              className={cx(
+                "grid transition-[grid-template-rows] duration-500 ease-soft motion-reduce:transition-none",
+                listOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+              )}
+              inert={!listOpen}
+            >
+              <div className="min-h-0 overflow-hidden">
+                <div className="mt-2.5 border-t border-paper/8 pt-2.5">
+                  <div className="flex items-baseline justify-between px-2 pb-1.5">
+                    <p className="label text-paper/45">Playlist</p>
+                    <p className="label text-paper/30">
+                      {music.playlist.length} songs
+                    </p>
+                  </div>
+                  <ol
+                    aria-label="Playlist"
+                    className="max-h-[min(236px,32dvh)] overflow-y-auto overscroll-contain scrollbar-none"
+                  >
+                    {music.playlist.map((item, position) => {
+                      const current = position === music.index;
+                      return (
+                        <li key={item.videoId}>
+                          <button
+                            aria-current={current || undefined}
+                            className={cx(
+                              "flex w-full cursor-pointer items-center gap-3 rounded-[12px] px-2.5 py-1.5 text-left transition-colors duration-150",
+                              current ? "bg-amber/[.09]" : "hover:bg-paper/6",
+                              focusRing,
+                              "focus-visible:ring-offset-0",
+                            )}
+                            onClick={() => music.playTrack(position)}
+                            type="button"
+                          >
+                            <span
+                              className={cx(
+                                "grid w-5 shrink-0 place-items-center font-mono text-[11px] tabular-nums",
+                                current ? "text-amber" : "text-paper/35",
+                              )}
+                            >
+                              {current && playing ? (
+                                <EqualizerIcon className="h-3! w-3!" playing />
+                              ) : (
+                                String(position + 1).padStart(2, "0")
+                              )}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span
+                                className={cx(
+                                  "block truncate font-serif text-[16px] leading-tight",
+                                  current ? "text-amber" : "text-paper/90",
+                                )}
+                                lang="zh"
+                              >
+                                {item.title}
+                              </span>
+                              <span
+                                className="label mt-1 block truncate text-paper/40"
+                                lang="zh"
+                              >
+                                {item.artist}
+                              </span>
+                            </span>
+                            {current && progress.duration > 0 ? (
+                              <span className="font-mono text-[10px] text-amber/70 tabular-nums">
+                                {formatClock(progress.duration)}
+                              </span>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -321,3 +321,84 @@ export function EqualizerIcon({
     </span>
   );
 }
+
+export function SkipBackIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5.5 5v10" strokeWidth={1.8} />
+      <path
+        d="M15 5.6v8.8a.7.7 0 0 1-1.06.6L7.7 10.6a.7.7 0 0 1 0-1.2l6.24-4.4A.7.7 0 0 1 15 5.6Z"
+        fill="currentColor"
+        stroke="none"
+      />
+    </Icon>
+  );
+}
+
+export function SkipForwardIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14.5 5v10" strokeWidth={1.8} />
+      <path
+        d="M5 5.6v8.8a.7.7 0 0 0 1.06.6l6.24-4.4a.7.7 0 0 0 0-1.2L6.06 5a.7.7 0 0 0-1.06.6Z"
+        fill="currentColor"
+        stroke="none"
+      />
+    </Icon>
+  );
+}
+
+export function RepeatIcon({
+  one = false,
+  ...props
+}: IconProps & { one?: boolean }) {
+  return (
+    <Icon {...props}>
+      <path d="M4 9.5V8.25A2.25 2.25 0 0 1 6.25 6H15" />
+      <path d="m13 3.75 2.25 2.25L13 8.25" />
+      <path d="M16 10.5v1.25A2.25 2.25 0 0 1 13.75 14H5" />
+      <path d="m7 16.25-2.25-2.25L7 11.75" />
+      {one ? <path d="M9.4 9.1 10.4 8.5v3.4" strokeWidth={1.4} /> : null}
+    </Icon>
+  );
+}
+
+export function ShuffleIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.75 6.25h1.9c1.1 0 2.13.54 2.76 1.44l3.18 4.62a3.35 3.35 0 0 0 2.76 1.44h1.9" />
+      <path d="M3.75 13.75h1.9c1.1 0 2.13-.54 2.76-1.44l.4-.58M11.2 8.27l.39-.58a3.35 3.35 0 0 1 2.76-1.44h1.9" />
+      <path d="m14.5 4.25 2 2-2 2M14.5 11.75l2 2-2 2" />
+    </Icon>
+  );
+}
+
+export function ListIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M8 6h8.25M8 10h8.25M8 14h5.5" />
+      <circle cx="4.75" cy="6" fill="currentColor" r="1" stroke="none" />
+      <circle cx="4.75" cy="10" fill="currentColor" r="1" stroke="none" />
+      <circle cx="4.75" cy="14" fill="currentColor" r="1" stroke="none" />
+    </Icon>
+  );
+}
+
+export function GripIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      {[7.5, 12.5].flatMap((x) =>
+        [6, 10, 14].map((y) => (
+          <circle
+            cx={x}
+            cy={y}
+            fill="currentColor"
+            key={`${x}-${y}`}
+            r="1.1"
+            stroke="none"
+          />
+        )),
+      )}
+    </Icon>
+  );
+}
