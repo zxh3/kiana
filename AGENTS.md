@@ -6,8 +6,6 @@
 
 - `apps/kiana`: the photo gallery at kiana.me. TanStack Start, React 19,
   Tailwind v4, and `motion`, deployed to Cloudflare Workers.
-- `apps/kiana-desktop`: a macOS app that shows kiana.me as a live desktop
-  wallpaper. An Xcode project, outside the JavaScript workspace.
 - `packages/mediaforge`: the Python CLI that prepares the photo releases.
 - Setup, checks, and workflows are in [`docs/development.md`](docs/development.md).
 
@@ -49,9 +47,6 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
   handler for something the viewer did, never from a timer. Reuse the small
   set of sounds in `lib/sounds/cues.ts` rather than adding new ones. Use the
   `springs` and `fades` presets for animation.
-- **The wallpaper app stretches every image and video inside `<main>`** to
-  cover the screen, and writes `kiana.frame=fill` on launch. Render overlays
-  such as the library, dialogs, and the music player outside `<main>`.
 - **Browser autoplay.** Clips start muted, and video sound is not kept
   between visits, so unmuted autoplay never gets blocked.
 - **Deliberate choices; ask before changing them.** The YouTube embed uses

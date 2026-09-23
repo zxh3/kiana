@@ -4,8 +4,7 @@ const IDLE_TIMEOUT = 2_800;
 
 /**
  * Controls appear on pointer movement or key presses and fade after a quiet
- * moment. `hold` keeps them up while a menu is open or they have focus. A
- * click-through wallpaper never receives events, so it stays clean.
+ * moment. `hold` keeps them up while a menu is open or they have focus.
  */
 export function useChromeVisibility(hold: boolean) {
   const [awake, setAwake] = useState(false);

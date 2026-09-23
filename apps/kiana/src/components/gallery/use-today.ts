@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { localDateKey } from "./model";
 
-/** Today's date, rolling over at local midnight for long-running wallpapers. */
+/** Today's date, rolling over at local midnight for a page left running. */
 export function useToday() {
   const [today, setToday] = useState(localDateKey);
 

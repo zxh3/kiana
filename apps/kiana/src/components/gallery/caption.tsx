@@ -51,7 +51,7 @@ export function Caption({
       className={cx(
         "pointer-events-none absolute inset-x-0 bottom-[calc(30px+env(safe-area-inset-bottom))] z-10 flex flex-col items-center px-6 text-center transition-[translate,color] duration-500 ease-soft",
         // Wide screens hang the caption bottom-left like a wall label, clear
-        // of the centered controls (and of the macOS Dock on the wallpaper).
+        // of the centered controls.
         "lg:right-auto lg:bottom-[30px] lg:left-[max(28px,env(safe-area-inset-left))] lg:max-w-[min(420px,calc(50vw-252px))] lg:items-start lg:px-0 lg:text-left",
         expanded && "-translate-y-[76px] lg:translate-y-0",
         mat
