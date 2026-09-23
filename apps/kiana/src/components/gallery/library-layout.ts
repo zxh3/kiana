@@ -22,7 +22,7 @@ export type MonthGroup = {
   key: string;
   year: number | null;
   month: number | null;
-  /** Asset indexes, newest first. */
+  /** Asset indexes, oldest first. */
   items: number[];
 };
 
@@ -32,7 +32,7 @@ export type LibraryRow =
   | { kind: "month"; key: string; group: MonthGroup }
   | { kind: "tiles"; key: string; group: MonthGroup; items: number[] };
 
-/** Filtered asset indexes, newest first, with undated assets last. */
+/** Filtered asset indexes, oldest first, with undated assets last. */
 export function libraryIndexes(
   assets: ReadonlyArray<GalleryAsset>,
   chronological: ReadonlyArray<number>,
@@ -49,7 +49,7 @@ export function libraryIndexes(
     if (!matches(asset)) continue;
     (asset.date ? dated : undated).push(index);
   }
-  return [...dated.reverse(), ...undated];
+  return [...dated, ...undated];
 }
 
 export function groupByMonth(
@@ -121,7 +121,7 @@ export function rowContaining(rows: ReadonlyArray<LibraryRow>, index: number) {
   );
 }
 
-/** The first row of each year, newest year first. */
+/** The first row of each year, in the order the years appear. */
 export function yearAnchors(rows: ReadonlyArray<LibraryRow>) {
   const anchors: Array<{ year: number; row: number }> = [];
   rows.forEach((row, position) => {

@@ -34,9 +34,9 @@ const assets = [
 const chronological = chronologicalIndexes(assets);
 
 describe("library layout", () => {
-  it("lists newest first with undated assets at the end", () => {
+  it("lists oldest first with undated assets at the end", () => {
     expect(libraryIndexes(assets, chronological, "all", new Set())).toEqual([
-      3, 0, 4, 1, 2,
+      1, 4, 0, 3, 2,
     ]);
   });
 
@@ -53,9 +53,9 @@ describe("library layout", () => {
     const indexes = libraryIndexes(assets, chronological, "all", new Set());
     const groups = groupByMonth(assets, indexes);
     expect(groups.map((group) => group.key)).toEqual([
-      "2024-10",
-      "2024-09",
       "2023-01",
+      "2024-09",
+      "2024-10",
       "undated",
     ]);
 
@@ -64,18 +64,18 @@ describe("library layout", () => {
       "intro",
       "month",
       "tiles",
-      "tiles",
       "month",
       "tiles",
       "month",
+      "tiles",
       "tiles",
       "month",
       "tiles",
     ]);
-    expect(rowContaining(rows, 0)).toBe(3);
+    expect(rowContaining(rows, 0)).toBe(6);
     expect(yearAnchors(rows)).toEqual([
-      { year: 2024, row: 1 },
-      { year: 2023, row: 6 },
+      { year: 2023, row: 1 },
+      { year: 2024, row: 3 },
     ]);
   });
 

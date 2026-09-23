@@ -26,10 +26,10 @@ Mediaforge release manifest and displays the responsive images described by it.
   next always move to the neighbouring photo by date, including after jumping
   to a photo from the library, and each collection resumes where you left it.
 - **Frames.** Fill, backdrop, or mat, each with its own transition.
-- **Library.** A month-by-month grid of every asset with filters for photos,
-  Live Photos, videos, and favorites, plus a year rail. It opens centred on
-  the playing photo, marked "Now playing". Selecting a tile plays from that
-  photo; each month has a Play button.
+- **Library.** A month-by-month grid of every asset, oldest at the top, with
+  filters for photos, Live Photos, videos, and favorites, plus a year rail. It
+  opens centred on the playing photo, marked "Now playing". Selecting a tile
+  plays from that photo; each month has a Play button.
 - **Favorites.** Stored in this browser's local storage and synced between its
   tabs.
 - **Share.** Copies a link that opens the current photo. The server renders

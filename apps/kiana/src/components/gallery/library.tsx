@@ -318,7 +318,7 @@ export function Library({
 
   // Open centred on the photo that was playing. The offset is worked out
   // from the known row heights before the first paint, so the grid starts
-  // there instead of rendering the newest months and then jumping.
+  // there instead of rendering the first months and then jumping.
   const openingOffset = useRef<number | null>(null);
   if (openingOffset.current === null && width > 0) {
     const row = rowContaining(rows, currentIndex);
