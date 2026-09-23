@@ -161,28 +161,41 @@ export const recipes = {
     }),
 
   /**
-   * A soft, round pluck for choosing an option: a pure tone that settles
-   * onto its pitch, with a faint octave shimmer and no noise.
+   * A fine notch, like a small selector switch, for choosing an option: the
+   * knob detent's smaller sibling, a single dry snap with a brief bright ring
+   * and no lead-in tick.
    */
-  pluck: (context, output, at) =>
-    Math.max(
-      tone(context, output, {
+  notch: (context, output, at) => {
+    const vary = 1 + (Math.random() - 0.5) * 0.06;
+    return Math.max(
+      noise(context, output, {
         at,
-        from: 1108,
-        to: 1046.5,
-        glide: 0.02,
-        attack: 0.003,
-        decay: 0.12,
-        gain: 0.17,
+        duration: 0.004,
+        filter: "highpass",
+        from: 3600,
+        attack: 0.0003,
+        gain: 0.2,
       }),
-      tone(context, output, {
+      noise(context, output, {
         at,
-        from: 2093,
-        attack: 0.002,
-        decay: 0.04,
-        gain: 0.035,
+        duration: 0.016,
+        filter: "bandpass",
+        from: 4300 * vary,
+        q: 6,
+        attack: 0.0003,
+        gain: 0.38,
       }),
-    ),
+      noise(context, output, {
+        at,
+        duration: 0.008,
+        filter: "bandpass",
+        from: 1100 * vary,
+        q: 1.2,
+        attack: 0.0004,
+        gain: 0.1,
+      }),
+    );
+  },
 
   /** Air sweeping upward, like a sheet of paper lifted, for the library. */
   sweepUp: (context, output, at) =>
