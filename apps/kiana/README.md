@@ -41,7 +41,9 @@ Mediaforge release manifest and displays the responsive images described by it.
   embedded player to stay visible at 200 × 200 pixels or larger, so the player
   sits in a card above the photos, menus, and library while music is on, and
   nothing is drawn over it. The track is set in
-  `src/components/gallery/music-track.ts`.
+  `src/components/gallery/music-track.ts`. The player uses youtube.com rather
+  than youtube-nocookie.com, because a YouTube sign-in in the same browser is
+  what clears YouTube's "confirm you're not a bot" check.
 - **Keep screen awake.** An optional setting that holds a screen wake lock
   while photos play.
 

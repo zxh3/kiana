@@ -80,9 +80,7 @@ export function MusicPlayer({
   const hint =
     music.status === "blocked"
       ? "Your browser needs a tap on the video to start the sound."
-      : music.status === "error"
-        ? "This song can’t play here right now."
-        : null;
+      : null;
 
   return (
     <aside
@@ -155,6 +153,38 @@ export function MusicPlayer({
           <p className="px-2 pt-2 text-[11px] leading-snug text-paper/60">
             {hint}
           </p>
+        ) : null}
+        {music.status === "error" ? (
+          <div className="px-2 pt-2">
+            <p className="text-[11px] leading-snug text-paper/60">
+              YouTube wouldn’t play the song here. If it asks you to sign in,
+              sign in on youtube.com in this browser, then try again.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                className={cx(
+                  "label cursor-pointer rounded-full bg-paper px-3.5 py-2.5 text-ink transition-colors hover:bg-white",
+                  focusRing,
+                )}
+                onClick={music.start}
+                type="button"
+              >
+                Try again
+              </button>
+              <a
+                className={cx(
+                  "label flex items-center gap-1.5 rounded-full border border-paper/15 px-3.5 py-2.5 text-paper/75 transition-colors hover:border-paper/40 hover:text-paper",
+                  focusRing,
+                )}
+                href={backgroundTrack.url}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open on YouTube
+                <ExternalIcon size={12} />
+              </a>
+            </div>
+          </div>
         ) : null}
 
         <div className="flex items-center gap-2 pt-1 pr-1 pl-0.5">

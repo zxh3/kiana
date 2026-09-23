@@ -75,7 +75,11 @@ export function useMusic() {
           videoId,
           width: "100%",
           height: "100%",
-          host: "https://www.youtube-nocookie.com",
+          // Not youtube-nocookie.com: privacy-enhanced mode ignores the
+          // viewer's YouTube sign-in, which is what clears YouTube's
+          // "confirm you're not a bot" check. The API loads only after a
+          // click on Music, so the page sets no YouTube cookies before that.
+          host: "https://www.youtube.com",
           playerVars: {
             autoplay: 1,
             controls: 0,
