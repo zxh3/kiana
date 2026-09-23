@@ -1,12 +1,27 @@
 {
-	"version": "0.0.1",
-	"configurations": [
-		{
-			"name": "kitchen",
-			"runtimeExecutable": "npm",
-			"runtimeArgs": ["run", "dev", "-w", "apps/kitchen", "--", "--port", "5199"],
-			"port": 5199,
-			"autoPort": false
-		}
-	]
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "kiana",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "apps/kiana"],
+      "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "kitchen",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "-w",
+        "apps/kitchen",
+        "--",
+        "--port",
+        "5199"
+      ],
+      "port": 5199,
+      "autoPort": false
+    }
+  ]
 }

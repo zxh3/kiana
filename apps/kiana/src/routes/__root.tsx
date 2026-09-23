@@ -10,7 +10,7 @@ export const Route = createRootRoute({
       },
       {
         name: "viewport",
-        content: "width=device-width, initial-scale=1",
+        content: "width=device-width, initial-scale=1, viewport-fit=cover",
       },
       {
         title: "Kiana",
@@ -18,6 +18,10 @@ export const Route = createRootRoute({
       {
         name: "theme-color",
         content: "#17120f",
+      },
+      {
+        name: "color-scheme",
+        content: "dark",
       },
     ],
     links: [
@@ -45,7 +49,7 @@ export const Route = createRootRoute({
       },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500&display=swap",
       },
     ],
   }),

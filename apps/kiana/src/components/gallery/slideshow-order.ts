@@ -1,3 +1,5 @@
+import type { Order } from "./model";
+
 export function shuffledIndexes(
   length: number,
   random: () => number = Math.random,
@@ -19,11 +21,41 @@ export function shuffledIndexes(
   return order;
 }
 
-export function upcomingIndexes(
-  order: ReadonlyArray<number>,
-  nextOrder: ReadonlyArray<number>,
-  cursor: number,
-  count: number,
+/**
+ * The assets to play after `current`, covering every other member once.
+ * Shuffled queues never start with `current`; chronological queues continue
+ * from it and wrap around to the oldest member.
+ */
+export function buildQueue(
+  members: ReadonlyArray<number>,
+  order: Order,
+  current: number | undefined,
+  random: () => number = Math.random,
 ) {
-  return [...order.slice(cursor + 1), ...nextOrder].slice(0, count);
+  if (order === "chronological") {
+    const position = current === undefined ? -1 : members.indexOf(current);
+    const rotated = [
+      ...members.slice(position + 1),
+      ...members.slice(0, position + 1),
+    ];
+    return rotated.filter((index) => index !== current);
+  }
+
+  const others = members.filter((index) => index !== current);
+  return shuffledIndexes(others.length, random).map((index) => others[index]);
+}
+
+/**
+ * The member next to `current` in date order, wrapping around at either end.
+ * An asset outside the collection steps to the collection's first or last.
+ */
+export function neighborMember(
+  members: ReadonlyArray<number>,
+  current: number,
+  direction: 1 | -1,
+) {
+  if (members.length === 0) return undefined;
+  const position = members.indexOf(current);
+  if (position === -1) return direction === 1 ? members[0] : members.at(-1);
+  return members[(position + direction + members.length) % members.length];
 }

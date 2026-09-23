@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
+import { PlayIcon } from "./icons";
 import { type LayerDirection, mediaTransition } from "./media-transition";
 import type { Frame, Transition } from "./model";
 import { PhotoBackdrop } from "./photo-backdrop";
@@ -18,6 +19,7 @@ export function VideoLayer({
   muted,
   onEnded,
   onProgress,
+  paused,
   transition,
 }: {
   asset?: GalleryAsset;
@@ -26,10 +28,13 @@ export function VideoLayer({
   muted: boolean;
   onEnded: () => void;
   onProgress: (progress: number) => void;
+  paused: boolean;
   transition: Transition;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const currentRef = useRef(direction === "enter");
+  const pausedRef = useRef(paused);
+  const lastPaused = useRef(paused);
   const finished = useRef(false);
   const playAttempt = useRef(0);
   const promptTimer = useRef<number>(undefined);
@@ -40,6 +45,7 @@ export function VideoLayer({
   const current = direction === "enter";
   const mat = frame === "mat";
   currentRef.current = current;
+  pausedRef.current = paused;
 
   const clearRecoveryTimers = useCallback(() => {
     window.clearTimeout(promptTimer.current);
@@ -111,9 +117,25 @@ export function VideoLayer({
 
     onProgress(0);
     setPlaybackState("loading");
-    void playVideo();
+    if (pausedRef.current) element.pause();
+    else void playVideo();
     return clearRecoveryTimers;
   }, [clearRecoveryTimers, current, onProgress, playVideo, video]);
+
+  // Follow the slideshow's pause without restarting the clip.
+  useEffect(() => {
+    if (lastPaused.current === paused) return;
+    lastPaused.current = paused;
+    const element = videoRef.current;
+    if (!element || !video || !currentRef.current) return;
+    if (paused) {
+      playAttempt.current += 1;
+      clearRecoveryTimers();
+      element.pause();
+    } else if (!finished.current) {
+      void playVideo();
+    }
+  }, [clearRecoveryTimers, paused, playVideo, video]);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -153,7 +175,7 @@ export function VideoLayer({
         >
           <video
             aria-label={current ? "Kiana video" : undefined}
-            autoPlay={current}
+            autoPlay={current && !paused}
             className={cx(
               "block h-auto w-auto object-contain",
               mat
@@ -182,10 +204,11 @@ export function VideoLayer({
           />
           {current && playbackState === "needs-action" ? (
             <button
-              className="absolute inset-0 m-auto h-fit w-fit touch-manipulation cursor-pointer rounded-full border border-white/20 bg-black/55 px-5 py-3 text-[10px] font-medium tracking-[.2em] text-white uppercase shadow-lg backdrop-blur-md transition-colors hover:bg-black/70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+              className="glass label absolute inset-0 m-auto flex h-fit w-fit cursor-pointer touch-manipulation items-center gap-2 rounded-full px-5 py-3.5 text-paper transition-colors hover:bg-night/75 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-paper"
               onClick={retryVideo}
               type="button"
             >
+              <PlayIcon size={14} />
               Tap to play
             </button>
           ) : null}

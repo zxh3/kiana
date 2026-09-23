@@ -44,9 +44,11 @@ describe("parseMediaforgeManifest", () => {
     );
 
     expect(assets[0].date).toBeNull();
+    expect(assets[0].time).toBeNull();
     expect(assets[1]).toMatchObject({
       type: "live_photo",
       date: "2026-07-14",
+      time: "13:09",
       video: {
         src: "https://media.kiana.me/releases/current/videos/example.mp4",
         durationMs: 2950,

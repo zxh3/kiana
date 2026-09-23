@@ -5,12 +5,68 @@ Mediaforge release manifest and displays the responsive images described by it.
 
 ## Playback
 
-- Photos remain on screen for 10 seconds.
-- Live Photos loop their video for the same 10-second slide.
+- Photos stay on screen for 10 seconds by default; the slideshow settings offer
+  5 seconds, 20 seconds, or a minute.
+- Live Photos play their motion once during the slide.
 - Regular videos play once at their full duration; the bottom bar follows video
   progress instead of the photo timer.
-- The global sound button controls both Live Photos and regular videos. Playback
+- The sound button controls both Live Photos and regular videos. Playback
   starts muted so browser autoplay remains reliable.
+- Controls appear when the pointer moves or a key is pressed and fade after a
+  few seconds, so the page stays clean as a wallpaper or photo frame. On touch
+  screens, tap to show them and swipe sideways to move between photos.
+
+## Features
+
+- **Collections.** Play everything, photos taken on today's date in past years
+  ("On this day", widened to the surrounding week when a date is sparse),
+  favorites, a single year, or a single month from the library.
+- **Order.** Shuffle, or play by date. In shuffle, previous steps back through
+  what was shown, and every visit starts a fresh shuffle. By date, previous and
+  next always move to the neighbouring photo by date, including after jumping
+  to a photo from the library, and each collection resumes where you left it.
+- **Frames.** Fill, backdrop, or mat, each with its own transition.
+- **Library.** A month-by-month grid of every asset, oldest at the top, with
+  filters for photos, Live Photos, videos, and favorites, plus a year rail. It
+  opens centred on the playing photo, marked "Now playing". Selecting a tile
+  plays from that photo; each month has a Play button.
+- **Favorites.** Stored in this browser's local storage and synced between its
+  tabs.
+- **Share.** Copies a link that opens the current photo. The server renders
+  that photo as the link preview image.
+- **Music.** The Music button in the top bar loops a YouTube track as
+  background music. A compact now-playing card offers play, pause, volume, and
+  a link to YouTube. Starting the music mutes clip sound, and turning clip
+  sound on pauses the music. YouTube's player stays mounted at full size but
+  is collapsed and transparent by default; it opens by itself when YouTube
+  needs a tap or a sign-in, and a toggle shows it on demand. Hiding a playing
+  embed goes against YouTube's API policies (III.I.9), so YouTube could stop
+  the track playing here. The player uses youtube.com rather than
+  youtube-nocookie.com, because a YouTube sign-in in the same browser is what
+  clears YouTube's "confirm you're not a bot" check. The track is set in
+  `src/components/gallery/music-track.ts`.
+- **Keep screen awake.** An optional setting that holds a screen wake lock
+  while photos play.
+
+Preferences, favorites, date-order positions, and the music volume are
+stored in local storage under `kiana.*` keys. The desktop
+wallpaper app writes `kiana.frame` on every launch, and the library is rendered
+outside `<main>` because that app stretches every image inside `<main>` to cover
+the screen.
+
+### Keyboard shortcuts
+
+| Key | Action |
+| --- | --- |
+| Space | Play or pause |
+| ← → | Previous or next |
+| L | Favorite |
+| S | Share a link |
+| M | Sound on or off |
+| G | Open the library |
+| F | Full screen |
+| 1 2 3 | Fill, backdrop, or mat |
+| ? | Show shortcuts |
 
 ## Development
 

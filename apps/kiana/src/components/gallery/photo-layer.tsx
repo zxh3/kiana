@@ -45,11 +45,13 @@ function PhotoContent({
   className,
   current,
   muted,
+  paused,
 }: {
   asset: GalleryAsset;
   className: string;
   current: boolean;
   muted: boolean;
+  paused: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [livePhotoPlaying, setLivePhotoPlaying] = useState(false);
@@ -65,12 +67,19 @@ function PhotoContent({
       setLivePhotoPlaying(false);
       return;
     }
+    if (paused) {
+      element.pause();
+      return;
+    }
+    // A Live Photo plays once per slide; resuming continues a paused clip.
+    if (element.ended) return;
 
+    const delay = element.currentTime > 0 ? 0 : LIVE_PHOTO_DELAY;
     const timeout = window.setTimeout(() => {
       void element.play().catch(() => undefined);
-    }, LIVE_PHOTO_DELAY);
+    }, delay);
     return () => window.clearTimeout(timeout);
-  }, [current, livePhoto]);
+  }, [current, livePhoto, paused]);
 
   if (!livePhoto || !video) {
     return <Picture asset={asset} className={className} current={current} />;
@@ -109,16 +118,18 @@ export function PhotoLayer({
   transition,
   direction,
   muted,
+  paused,
 }: {
   asset: GalleryAsset;
   frame: Frame;
   transition: Transition;
   direction: LayerDirection;
   muted: boolean;
+  paused: boolean;
 }) {
   const current = direction === "enter";
   const presentation = mediaTransition(transition, direction);
-  const mediaProps = { asset, current, muted };
+  const mediaProps = { asset, current, muted, paused };
 
   if (frame !== "mat") {
     return (
