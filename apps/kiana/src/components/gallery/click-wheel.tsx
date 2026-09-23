@@ -220,7 +220,7 @@ export function ClickWheel({
           )}
           data-zone="menu"
           onClick={onMenu}
-          title="Menu (back)"
+          title="Menu"
           type="button"
         >
           <span className="font-pod text-[10.5px] font-bold tracking-[.06em]">

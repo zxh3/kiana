@@ -34,27 +34,29 @@ Mediaforge release manifest and displays the responsive images described by it.
   tabs.
 - **Share.** Copies a link that opens the current photo. The server renders
   that photo as the link preview image.
-- **Music.** The Music button in the top bar plays a five-song YouTube playlist
-  as background music. The player is made like the pocket music players of
-  the 2000s, in silver, graphite, or rose aluminium. Its colour screen has a
-  menu (Now Playing, Songs, Shuffle Songs, Settings, Turn Off), and a click
+- **Music.** The Music button in the top bar plays a five-song YouTube
+  playlist as background music. The player is made like the pocket music
+  players of the 2000s, in silver, graphite, or rose aluminium. Its colour
+  screen has a menu (Now Playing, Songs, Shuffle Songs, Settings), and a click
   wheel drives it: circle a thumb or the pointer around the wheel, or scroll
   over the player, to move through lists. On Now Playing the wheel sets the
   volume, and the centre button brings up a scrubber for the wheel to seek
-  with. Menu goes back, and the wheel's other buttons are previous, next, and
-  play or pause. Settings holds the play mode (repeat all, repeat one, or
-  shuffle), the video, the finish, and a link to the song on YouTube.
-  Minimized (the default on phones), it becomes a small square player showing
-  the cover. On wider screens it can be dragged to any corner, where it stays;
-  on phones the full player rises from the bottom edge. Songs YouTube refuses
-  to embed are skipped. Starting the music mutes clip sound, and turning clip
-  sound on pauses the music. YouTube's player stays mounted but hidden by
-  default; it covers the screen when YouTube needs a tap or a sign-in, or when
-  the video is turned on in Settings. Hiding a playing embed goes against
-  YouTube's API policies (III.I.9), so YouTube could stop the songs playing
-  here. The player uses youtube.com rather than youtube-nocookie.com, because
-  a YouTube sign-in in the same browser is what clears YouTube's "confirm
-  you're not a bot" check. The playlist is set in
+  with. Menu goes back (and does nothing at the top menu, so pressing it
+  repeatedly is safe), and the wheel's other buttons are previous, next, and
+  play or pause. Minimize and close sit outside the device and come and go
+  with the rest of the controls. Settings holds the play mode (repeat all,
+  repeat one, or shuffle), the video, the finish, and a link to the song on
+  YouTube. Minimized (the default on phones), it becomes a small square player
+  showing the cover. On wider screens it can be dragged to any corner, where
+  it stays; on phones the full player rises from the bottom edge. Songs
+  YouTube refuses to embed are skipped. Starting the music mutes clip sound,
+  and turning clip sound on pauses the music. YouTube's player stays mounted
+  but hidden by default; it covers the screen when YouTube needs a tap or a
+  sign-in, or when the video is turned on in Settings. Hiding a playing embed
+  goes against YouTube's API policies (III.I.9), so YouTube could stop the
+  songs playing here. The player uses youtube.com rather than
+  youtube-nocookie.com, because a YouTube sign-in in the same browser is what
+  clears YouTube's "confirm you're not a bot" check. The playlist is set in
   `src/components/gallery/music-track.ts`.
 - **Interface sounds.** Soft clicks, ticks, and chimes answer the controls.
   They are on by default and can be turned off with the switch in the

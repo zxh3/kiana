@@ -13,7 +13,10 @@ export const screenTitles: Record<Screen, string> = {
   now: "Now Playing",
 };
 
-/** Where Menu goes back to; the top menu has nowhere left to go. */
+/**
+ * Where Menu goes back to. The top menu has nowhere left to go, so Menu does
+ * nothing there, as on the original: pressing it repeatedly is always safe.
+ */
 export const parentScreen: Record<Screen, Screen | null> = {
   menu: null,
   songs: "menu",
@@ -21,13 +24,11 @@ export const parentScreen: Record<Screen, Screen | null> = {
   now: "menu",
 };
 
-export const menuItems = [
-  "now",
-  "songs",
-  "shuffle",
-  "settings",
-  "off",
-] as const;
+/**
+ * The top menu holds only music. Putting the player away belongs to the
+ * widget's own minimize and close buttons, not to the device's menus.
+ */
+export const menuItems = ["now", "songs", "shuffle", "settings"] as const;
 export type MenuItem = (typeof menuItems)[number];
 
 export const menuLabels: Record<MenuItem, string> = {
@@ -35,7 +36,6 @@ export const menuLabels: Record<MenuItem, string> = {
   songs: "Songs",
   shuffle: "Shuffle Songs",
   settings: "Settings",
-  off: "Turn Off",
 };
 
 export const settingsItems = ["mode", "video", "finish", "youtube"] as const;

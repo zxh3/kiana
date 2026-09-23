@@ -224,9 +224,12 @@ function NanoPlayer({
  * the site owner's choice.
  */
 export function MusicPlayer({
+  chromeVisible,
   music,
   raised,
 }: {
+  /** Whether the gallery's controls are showing; the widget's follow them. */
+  chromeVisible: boolean;
   music: Music;
   raised: boolean;
 }) {
@@ -332,12 +335,20 @@ export function MusicPlayer({
                     finish={finish}
                     music={music}
                     onFinishChange={setFinish}
-                    onMinimize={() => setSize("mini")}
                     onVideoChange={setVideoOpen}
                     progress={progress}
                     videoOn={videoOpen}
                   />
-                  <div className="absolute -top-2.5 -right-2.5 z-30 flex gap-1 opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+                  {/* Minimize and close act on the widget, so they sit outside
+                  the device. They come and go with the gallery's controls,
+                  stay while the pointer is over the player, and always show
+                  on touch screens. */}
+                  <div
+                    className={cx(
+                      "absolute -top-2.5 -right-2.5 z-30 flex gap-1 transition-opacity duration-300 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
+                      chromeVisible ? "opacity-100" : "opacity-0",
+                    )}
+                  >
                     <button
                       aria-label="Minimize the music player"
                       className={cx(

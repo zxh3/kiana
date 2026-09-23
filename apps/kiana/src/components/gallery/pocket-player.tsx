@@ -87,7 +87,6 @@ export function PocketPlayer({
   finish,
   music,
   onFinishChange,
-  onMinimize,
   onVideoChange,
   progress,
   videoOn,
@@ -95,7 +94,6 @@ export function PocketPlayer({
   finish: Finish;
   music: Music;
   onFinishChange: (finish: Finish) => void;
-  onMinimize: () => void;
   onVideoChange: (on: boolean) => void;
   progress: { current: number; duration: number };
   videoOn: boolean;
@@ -188,8 +186,7 @@ export function PocketPlayer({
         music.setMode("shuffle");
         music.next();
         go("now", 1);
-      } else if (item === "settings") go("settings", 1);
-      else music.stop();
+      } else go("settings", 1);
       return;
     }
     const item = settingsItems[index];
@@ -258,7 +255,6 @@ export function PocketPlayer({
     }
     const parent = parentScreen[screen];
     if (parent) go(parent, -1);
-    else onMinimize();
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

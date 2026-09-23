@@ -544,7 +544,11 @@ export function Gallery({
           />
         ) : null}
       </AnimatePresence>
-      <MusicPlayer music={music} raised={chrome.visible && !libraryOpen} />
+      <MusicPlayer
+        chromeVisible={chrome.visible}
+        music={music}
+        raised={chrome.visible && !libraryOpen}
+      />
       <ShortcutsDialog onClose={() => setHelpOpen(false)} open={helpOpen} />
     </MotionConfig>
   );
