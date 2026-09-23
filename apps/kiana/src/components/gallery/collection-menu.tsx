@@ -12,6 +12,7 @@ import {
   StackIcon,
 } from "./icons";
 import { Popover } from "./popover";
+import { Swap } from "./swap";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
@@ -116,9 +117,11 @@ export function CollectionMenu({
           title="Choose what to play"
           type="button"
         >
-          <span className="label max-w-[40vw] truncate text-paper/90">
-            {collection.label}
-          </span>
+          <Swap className="min-w-0" id={collection.id}>
+            <span className="label block max-w-[40vw] truncate text-paper/90">
+              {collection.label}
+            </span>
+          </Swap>
           <span className="text-[10px] tabular-nums text-paper/45">
             {numberFormatter.format(collection.members.length)}
           </span>

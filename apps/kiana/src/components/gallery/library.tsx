@@ -1,8 +1,10 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { motion } from "motion/react";
 import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
+import { fades, springs } from "../../lib/motion";
 import { cue } from "../../lib/sounds";
 import { ControlButton, focusRing } from "./control-button";
 import { CloseIcon, HeartIcon, LiveIcon, PlayIcon } from "./icons";
@@ -369,10 +371,13 @@ export function Library({
   const activeYear = topGroup?.year ?? anchors[0]?.year;
 
   return (
-    <dialog
+    <motion.dialog
+      animate={{ opacity: 1, y: 0, transition: springs.glide }}
       aria-label="Library"
       aria-modal="true"
-      className="fixed inset-0 z-40 m-0 h-dvh max-h-none w-screen max-w-none overflow-hidden border-0 bg-night p-0 text-paper outline-none transition-[opacity,translate] duration-300 ease-soft starting:translate-y-3 starting:opacity-0"
+      className="fixed inset-0 z-40 m-0 h-dvh max-h-none w-screen max-w-none overflow-hidden border-0 bg-night p-0 text-paper outline-none"
+      exit={{ opacity: 0, y: 14, transition: { ...fades.out, duration: 0.22 } }}
+      initial={{ opacity: 0, y: 18 }}
       ref={dialogRef}
     >
       <div className="flex h-full flex-col">
@@ -396,9 +401,9 @@ export function Library({
               <button
                 aria-pressed={option === filter}
                 className={cx(
-                  "flex shrink-0 cursor-pointer items-center gap-2 rounded-full px-3.5 py-2 text-[11px] tracking-[.06em] transition-colors duration-150 max-sm:bg-paper/6",
+                  "relative isolate flex shrink-0 cursor-pointer items-center gap-2 rounded-full px-3.5 py-2 text-[11px] tracking-[.06em] transition-colors duration-150 max-sm:bg-paper/6",
                   option === filter
-                    ? "bg-paper! text-ink"
+                    ? "text-ink"
                     : "text-paper/65 hover:text-paper",
                   focusRing,
                   "focus-visible:ring-offset-0",
@@ -407,6 +412,14 @@ export function Library({
                 onClick={() => pickFilter(option)}
                 type="button"
               >
+                {/* The selection slides between filters rather than jumping. */}
+                {option === filter ? (
+                  <motion.span
+                    className="absolute inset-0 -z-10 rounded-full bg-paper"
+                    layoutId="library-filter"
+                    transition={springs.snappy}
+                  />
+                ) : null}
                 {option === "favorites" ? (
                   <HeartIcon filled={option === filter} size={13} />
                 ) : null}
@@ -533,9 +546,9 @@ export function Library({
                 <button
                   aria-current={year === activeYear ? "true" : undefined}
                   className={cx(
-                    "cursor-pointer rounded-full px-2 py-1.5 text-[10px] tabular-nums tracking-[.08em] transition-colors duration-200 sm:px-2.5",
+                    "relative isolate cursor-pointer rounded-full px-2 py-1.5 text-[10px] tabular-nums tracking-[.08em] transition-colors duration-200 sm:px-2.5",
                     year === activeYear
-                      ? "bg-paper text-ink"
+                      ? "text-ink"
                       : "text-paper/40 hover:text-paper",
                     focusRing,
                     "focus-visible:ring-offset-0",
@@ -548,6 +561,14 @@ export function Library({
                   title={`Jump to ${year}`}
                   type="button"
                 >
+                  {/* The current year's marker glides along as you scroll. */}
+                  {year === activeYear ? (
+                    <motion.span
+                      className="absolute inset-0 -z-10 rounded-full bg-paper"
+                      layoutId="library-year"
+                      transition={springs.gentle}
+                    />
+                  ) : null}
                   {compact ? `’${String(year).slice(2)}` : year}
                 </button>
               ))}
@@ -555,6 +576,6 @@ export function Library({
           ) : null}
         </div>
       </div>
-    </dialog>
+    </motion.dialog>
   );
 }

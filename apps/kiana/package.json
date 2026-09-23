@@ -21,6 +21,7 @@
     "@tanstack/react-router-devtools": "^1.167.1",
     "@tanstack/react-start": "^1.168.46",
     "@tanstack/react-virtual": "^3.14.13",
+    "motion": "^13.4.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tailwindcss": "^4.3.3"

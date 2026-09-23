@@ -1,6 +1,8 @@
+import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
 import { cx } from "../../lib/class-names";
+import { springs } from "../../lib/motion";
 import { ControlButton, focusRing } from "./control-button";
 import { KeyboardIcon, SlidersIcon } from "./icons";
 import {
@@ -56,11 +58,14 @@ function Section({ children, title }: { children: ReactNode; title: string }) {
 }
 
 function Segmented<T extends string | number>({
+  id,
   onPick,
   options,
   render,
   value,
 }: {
+  /** Names the sliding highlight, unique per control. */
+  id: string;
   onPick: (value: T) => void;
   options: ReadonlyArray<T>;
   render: (value: T) => string;
@@ -72,10 +77,8 @@ function Segmented<T extends string | number>({
         <button
           aria-pressed={option === value}
           className={cx(
-            "flex-1 cursor-pointer rounded-full px-2 py-2 text-[11px] tracking-[.06em] transition-colors duration-150",
-            option === value
-              ? "bg-paper text-ink"
-              : "text-paper/65 hover:text-paper",
+            "relative isolate flex-1 cursor-pointer rounded-full px-2 py-2 text-[11px] tracking-[.06em] transition-colors duration-150",
+            option === value ? "text-ink" : "text-paper/65 hover:text-paper",
             focusRing,
             "focus-visible:ring-offset-0",
           )}
@@ -83,6 +86,13 @@ function Segmented<T extends string | number>({
           onClick={() => onPick(option)}
           type="button"
         >
+          {option === value ? (
+            <motion.span
+              className="absolute inset-0 -z-10 rounded-full bg-paper"
+              layoutId={id}
+              transition={springs.snappy}
+            />
+          ) : null}
           {render(option)}
         </button>
       ))}
@@ -201,15 +211,18 @@ export function DisplayMenu({
               title={`${frameLabels[option]} (${index + 1})`}
               type="button"
             >
-              <span
-                className={cx(
-                  "relative block aspect-[3/2] overflow-hidden rounded-[9px] ring-1 transition-shadow",
-                  option === frame
-                    ? "ring-paper/80"
-                    : "ring-paper/10 group-hover:ring-paper/25",
-                )}
-              >
-                <FramePreview frame={option} />
+              <span className="relative block">
+                <span className="relative block aspect-[3/2] overflow-hidden rounded-[9px] ring-1 ring-paper/10 transition-shadow group-hover:ring-paper/25">
+                  <FramePreview frame={option} />
+                </span>
+                {/* The chosen frame's outline moves between the previews. */}
+                {option === frame ? (
+                  <motion.span
+                    className="pointer-events-none absolute inset-0 rounded-[9px] ring-[1.5px] ring-paper/85"
+                    layoutId="settings-frame"
+                    transition={springs.snappy}
+                  />
+                ) : null}
               </span>
               <span
                 className={cx(
@@ -226,6 +239,7 @@ export function DisplayMenu({
 
       <Section title="Each photo stays">
         <Segmented
+          id="settings-duration"
           onPick={onDurationChange}
           options={durations}
           render={formatDurationLabel}
@@ -235,6 +249,7 @@ export function DisplayMenu({
 
       <Section title="Order">
         <Segmented
+          id="settings-order"
           onPick={onOrderChange}
           options={orders}
           render={(value) => orderLabels[value]}

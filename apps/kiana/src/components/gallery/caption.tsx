@@ -1,5 +1,8 @@
+import { AnimatePresence, motion } from "motion/react";
+
 import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
+import { fades } from "../../lib/motion";
 import { PauseIcon } from "./icons";
 import {
   formatAgo,
@@ -66,23 +69,52 @@ export function Caption({
         <PauseIcon size={10} />
         Paused
       </p>
-      <p
-        aria-live="polite"
-        className={cx(
-          "font-serif text-[23px] leading-none italic sm:text-[27px]",
-          mat ? "opacity-80" : "opacity-92",
-        )}
-      >
+      {/* Screen readers hear the date once; the animated copies are silent. */}
+      <span aria-live="polite" className="sr-only">
         {date || "Undated"}
-      </p>
-      <p
-        className={cx(
-          "label mt-3 min-h-[10px] whitespace-pre-wrap leading-[1.6] transition-opacity duration-500 max-sm:text-[9px] max-sm:tracking-[.16em]",
-          expanded ? "opacity-62" : "opacity-0",
-        )}
+      </span>
+      {/* The caption fades over with the photo, arriving just after it. */}
+      <div
+        aria-hidden="true"
+        className="relative flex flex-col items-center lg:items-start"
       >
-        {describe(asset, today)}
-      </p>
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.div
+            animate={{
+              opacity: 1,
+              y: 0,
+              filter: "blur(0px)",
+              transition: { ...fades.caption, delay: 0.12 },
+            }}
+            className="flex flex-col items-center lg:items-start"
+            exit={{
+              opacity: 0,
+              y: -4,
+              filter: "blur(2px)",
+              transition: { ...fades.caption, duration: 0.35 },
+            }}
+            initial={{ opacity: 0, y: 6, filter: "blur(4px)" }}
+            key={asset.id}
+          >
+            <p
+              className={cx(
+                "font-serif text-[23px] leading-none italic sm:text-[27px]",
+                mat ? "opacity-80" : "opacity-92",
+              )}
+            >
+              {date || "Undated"}
+            </p>
+            <p
+              className={cx(
+                "label mt-3 min-h-[10px] whitespace-pre-wrap leading-[1.6] transition-opacity duration-500 max-sm:text-[9px] max-sm:tracking-[.16em]",
+                expanded ? "opacity-62" : "opacity-0",
+              )}
+            >
+              {describe(asset, today)}
+            </p>
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

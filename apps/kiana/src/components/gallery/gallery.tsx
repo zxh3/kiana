@@ -1,3 +1,4 @@
+import { AnimatePresence, MotionConfig } from "motion/react";
 import {
   type PointerEvent,
   useCallback,
@@ -350,7 +351,7 @@ export function Gallery({
     .filter((upcoming) => upcoming.id !== asset.id);
 
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       {preloads.map((upcoming) => (
         <link
           as="image"
@@ -516,19 +517,22 @@ export function Gallery({
 
       {/* Kept outside <main>: the desktop wallpaper app stretches every image
           inside it to cover the screen. */}
-      {libraryOpen ? (
-        <Library
-          assets={assets}
-          chronological={chronological}
-          currentIndex={slideshow.index}
-          favorites={favorites}
-          onClose={closeLibrary}
-          onOpenAsset={openAsset}
-          onPlayMonth={playMonth}
-        />
-      ) : null}
+      <AnimatePresence>
+        {libraryOpen ? (
+          <Library
+            key="library"
+            assets={assets}
+            chronological={chronological}
+            currentIndex={slideshow.index}
+            favorites={favorites}
+            onClose={closeLibrary}
+            onOpenAsset={openAsset}
+            onPlayMonth={playMonth}
+          />
+        ) : null}
+      </AnimatePresence>
       <MusicPlayer music={music} raised={chrome.visible && !libraryOpen} />
       <ShortcutsDialog onClose={() => setHelpOpen(false)} open={helpOpen} />
-    </>
+    </MotionConfig>
   );
 }
