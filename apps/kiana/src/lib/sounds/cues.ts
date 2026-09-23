@@ -13,10 +13,15 @@ type Cue = {
 export const cues = {
   /** Play or pause, full screen, and other plain buttons. */
   press: { recipe: "press" },
-  /** Next photo or song. Arrow keys repeat, so it is rate-limited. */
-  next: { recipe: "tickForward", every: 45 },
-  /** Previous photo or song. */
-  previous: { recipe: "tickBack", every: 45 },
+  /**
+   * Next and previous photo: the detent of a rotary knob. Arrow keys repeat,
+   * so it is rate-limited, which also paces the clicks like a turned dial.
+   */
+  next: { recipe: "detentForward", every: 45 },
+  previous: { recipe: "detentBack", every: 45 },
+  /** Next and previous song in the music player: a lighter tick. */
+  songNext: { recipe: "tickForward", every: 45 },
+  songPrevious: { recipe: "tickBack", every: 45 },
   /** A menu, dialog, or the full music player opening. */
   open: { recipe: "pop" },
   /** An option chosen in a menu, a filter, or a list. */

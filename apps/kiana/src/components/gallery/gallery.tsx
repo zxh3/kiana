@@ -199,9 +199,11 @@ export function Gallery({
     return () => window.clearTimeout(timeout);
   }, [toast]);
 
+  // The sound button governs every sound the page makes itself: clip audio
+  // and interface sounds alike.
   useEffect(() => {
-    setSoundsEnabled(preferences.uiSounds);
-  }, [preferences.uiSounds]);
+    setSoundsEnabled(preferences.uiSounds && !muted);
+  }, [muted, preferences.uiSounds]);
 
   // Actions the viewer takes make a sound; the timer and song ends do not.
   const togglePause = useCallback(() => {
@@ -224,17 +226,23 @@ export function Gallery({
     cue("open");
     setHelpOpen(true);
   }, []);
-  // Background music and clip sound take turns: starting the music mutes
-  // clips, and turning clip sound on pauses the music.
+  // Background music and clip sound take turns: clips stay quiet while the
+  // music plays, and turning sound on pauses the music. The viewer's own
+  // mute choice is kept, so interface sounds still play under the music.
   const music = useMusic();
-  useEffect(() => {
-    if (music.status === "playing") setMuted(true);
-  }, [music.status]);
+  const clipsMuted = muted || music.status === "playing";
   const toggleMute = useCallback(() => {
-    cue(muted ? "switchOn" : "switchOff");
-    if (muted && music.status === "playing") music.pause();
+    if (muted) {
+      // Unmute first so the switch can be heard; mute after it plays.
+      setSoundsEnabled(preferences.uiSounds);
+      cue("switchOn");
+      if (music.status === "playing") music.pause();
+    } else {
+      cue("switchOff");
+      setSoundsEnabled(false);
+    }
     setMuted(!muted);
-  }, [music.pause, music.status, muted]);
+  }, [music.pause, music.status, muted, preferences.uiSounds]);
   const toggleFavorite = useCallback(() => {
     cue(favorite ? "unfavorite" : "favorite");
     toggleFavoriteId(asset.id);
@@ -384,7 +392,7 @@ export function Gallery({
           assets={assets}
           frame={preferences.frame}
           index={slideshow.index}
-          muted={muted}
+          muted={clipsMuted}
           onVideoEnded={slideshow.next}
           onVideoProgress={videoProgress.set}
           paused={paused}
@@ -490,10 +498,11 @@ export function Gallery({
               onUiSoundsChange={(on) => {
                 // Turning sounds on plays the first one; turning them off
                 // plays the last.
-                if (on) setSoundsEnabled(true);
+                if (on) setSoundsEnabled(!muted);
                 cue(on ? "switchOn" : "switchOff");
                 if (!on) setSoundsEnabled(false);
                 preferences.setUiSounds(on);
+                if (on && muted) showToast("Turn sound on to hear them");
               }}
               uiSounds={soundsSupported() ? preferences.uiSounds : null}
               open={menu === "display"}

@@ -31,7 +31,55 @@ function bell(
   );
 }
 
+/**
+ * One detent of a rotary knob, like an old car stereo's volume dial: a hard
+ * snap, the short metallic ring of the detent, and a faint low knock from
+ * the body. Each click varies slightly, as a real mechanism does.
+ */
+function detent(
+  context: BaseAudioContext,
+  output: AudioNode,
+  at: number,
+  ring: number,
+) {
+  const vary = 1 + (Math.random() - 0.5) * 0.06;
+  return Math.max(
+    noise(context, output, {
+      at,
+      duration: 0.006,
+      filter: "highpass",
+      from: 3200,
+      attack: 0.0005,
+      gain: 0.24,
+    }),
+    noise(context, output, {
+      at,
+      duration: 0.035,
+      filter: "bandpass",
+      from: ring * vary,
+      q: 14,
+      attack: 0.0008,
+      gain: 0.5,
+    }),
+    tone(context, output, {
+      at,
+      from: 210 * vary,
+      to: 150,
+      glide: 0.02,
+      attack: 0.001,
+      decay: 0.022,
+      gain: 0.12,
+    }),
+  );
+}
+
 export const recipes = {
+  /** A knob turned clockwise: the detent rings a little higher. */
+  detentForward: (context, output, at) => detent(context, output, at, 2300),
+
+  /** A knob turned back: the same detent, a little lower. */
+  detentBack: (context, output, at) => detent(context, output, at, 1950),
+
   /** A rounded click with a tiny breath of air, for primary buttons. */
   press: (context, output, at) =>
     Math.max(

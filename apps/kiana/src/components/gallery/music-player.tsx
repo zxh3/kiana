@@ -407,7 +407,7 @@ export function MusicPlayer({
                     className="size-9"
                     label="Next song"
                     onClick={() => {
-                      cue("next");
+                      cue("songNext");
                       music.next();
                     }}
                   >
@@ -539,7 +539,7 @@ export function MusicPlayer({
                       className="size-11"
                       label="Previous song"
                       onClick={() => {
-                        cue("previous");
+                        cue("songPrevious");
                         music.previous();
                       }}
                     >
@@ -550,7 +550,7 @@ export function MusicPlayer({
                       className="size-11"
                       label="Next song"
                       onClick={() => {
-                        cue("next");
+                        cue("songNext");
                         music.next();
                       }}
                     >

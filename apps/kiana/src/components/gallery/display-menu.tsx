@@ -261,7 +261,7 @@ export function DisplayMenu({
         <div className="px-1">
           <Switch
             checked={uiSounds}
-            description="Soft clicks and chimes when you use the controls."
+            description="Soft clicks and chimes when you use the controls. The sound button mutes them."
             label="Interface sounds"
             onChange={onUiSoundsChange}
           />
