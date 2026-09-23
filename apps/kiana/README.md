@@ -52,12 +52,20 @@ Mediaforge release manifest and displays the responsive images described by it.
   youtube-nocookie.com, because a YouTube sign-in in the same browser is what
   clears YouTube's "confirm you're not a bot" check. The playlist is set in
   `src/components/gallery/music-track.ts`.
+- **Interface sounds.** An optional switch in the slideshow settings, off by
+  default, adds soft clicks, ticks, and chimes to the controls. The sounds are
+  generated in code with the Web Audio API, so there are no audio files and
+  nothing to license, and they only ever answer something the viewer did: the
+  slide timer, song endings, and the wallpaper stay silent. The module lives in
+  `src/lib/sounds`: building blocks in `synth.ts`, named sounds in `recipes.ts`,
+  the sound for each action in `cues.ts`, rate limits in `gate.ts`, and the
+  audio context and switch in `engine.ts`.
 - **Keep screen awake.** An optional setting that holds a screen wake lock
   while photos play.
 
 Preferences, favorites, date-order positions, and the music volume, song,
-play mode, widget size, corner, and playlist panel are stored in local storage
-under `kiana.*` keys. The desktop
+play mode, widget size, corner, and playlist panel, and the interface sounds
+switch are stored in local storage under `kiana.*` keys. The desktop
 wallpaper app writes `kiana.frame` on every launch, and the library is rendered
 outside `<main>` because that app stretches every image inside `<main>` to cover
 the screen.

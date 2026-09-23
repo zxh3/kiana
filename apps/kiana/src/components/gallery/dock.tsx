@@ -14,6 +14,7 @@ import {
   SoundOffIcon,
   SoundOnIcon,
 } from "./icons";
+import { Swap } from "./swap";
 import type { ChromeHoldProps } from "./use-chrome-hold";
 
 function Divider() {
@@ -123,7 +124,9 @@ export function Dock({
           title={`${paused ? "Play" : "Pause"} (Space)`}
           type="button"
         >
-          {paused ? <PlayIcon /> : <PauseIcon />}
+          <Swap id={paused ? "play" : "pause"}>
+            {paused ? <PlayIcon /> : <PauseIcon />}
+          </Swap>
         </button>
         <ControlButton label="Next" onClick={onNext} shortcut="ArrowRight">
           <ChevronRightIcon />
@@ -137,7 +140,9 @@ export function Dock({
           onClick={onToggleMute}
           shortcut="M"
         >
-          {muted ? <SoundOffIcon /> : <SoundOnIcon />}
+          <Swap id={muted ? "muted" : "sound"}>
+            {muted ? <SoundOffIcon /> : <SoundOnIcon />}
+          </Swap>
         </ControlButton>
         {fullscreen.supported ? (
           <ControlButton
@@ -146,7 +151,9 @@ export function Dock({
             onClick={onToggleFullscreen}
             shortcut="F"
           >
-            {fullscreen.active ? <CollapseIcon /> : <ExpandIcon />}
+            <Swap id={fullscreen.active ? "collapse" : "expand"}>
+              {fullscreen.active ? <CollapseIcon /> : <ExpandIcon />}
+            </Swap>
           </ControlButton>
         ) : null}
         {settings}

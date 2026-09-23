@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "motion/react";
 import {
   type ReactNode,
   type RefObject,
@@ -7,6 +8,7 @@ import {
 } from "react";
 
 import { cx } from "../../lib/class-names";
+import { fades, springs } from "../../lib/motion";
 
 export type PopoverTriggerProps = {
   "aria-controls": string;
@@ -105,14 +107,25 @@ export function Popover({
     };
   }, [open]);
 
+  // Panels grow out of their trigger and shrink back into it.
+  const rise = placement.startsWith("top") ? 6 : -6;
   const panelProps = {
     "aria-label": label,
+    animate: { opacity: 1, scale: 1, y: 0, transition: springs.gentle },
     className: cx(
-      "glass absolute z-40 rounded-[22px] bg-night/80 p-2 text-paper transition-[opacity,scale] duration-200 ease-soft starting:scale-96 starting:opacity-0",
+      "glass absolute z-40 rounded-[22px] bg-night/80 p-2 text-paper",
       placements[placement],
       className,
     ),
+    exit: {
+      opacity: 0,
+      scale: 0.97,
+      y: rise / 2,
+      pointerEvents: "none" as const,
+      transition: fades.out,
+    },
     id,
+    initial: { opacity: 0, scale: 0.96, y: rise },
     ref: panelRef,
   };
 
@@ -125,16 +138,18 @@ export function Popover({
         onClick: () => onOpenChange(!open),
         ref: triggerRef,
       })}
-      {open && kind === "menu" ? (
-        <div role="menu" {...panelProps}>
-          {children}
-        </div>
-      ) : null}
-      {open && kind === "dialog" ? (
-        <div role="dialog" {...panelProps}>
-          {children}
-        </div>
-      ) : null}
+      <AnimatePresence>
+        {open && kind === "menu" ? (
+          <motion.div key="menu" role="menu" {...panelProps}>
+            {children}
+          </motion.div>
+        ) : null}
+        {open && kind === "dialog" ? (
+          <motion.div key="dialog" role="dialog" {...panelProps}>
+            {children}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
