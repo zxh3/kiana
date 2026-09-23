@@ -19,6 +19,8 @@ export const cues = {
    */
   next: { recipe: "detentForward", every: 45 },
   previous: { recipe: "detentBack", every: 45 },
+  /** A photo picked in the library: the same detent, a dial set to it. */
+  pickPhoto: { recipe: "detentForward" },
   /** Next and previous song in the music player: a lighter tick. */
   songNext: { recipe: "tickForward", every: 45 },
   songPrevious: { recipe: "tickBack", every: 45 },

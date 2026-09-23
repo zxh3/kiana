@@ -278,7 +278,7 @@ export function Gallery({
 
   const openAsset = useCallback(
     (index: number) => {
-      cue("select");
+      cue("pickPhoto");
       if (!collection.members.includes(index)) setCollectionId("all");
       slideshow.jumpTo(index);
       onCloseLibrary();
