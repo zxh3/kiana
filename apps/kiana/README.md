@@ -52,8 +52,10 @@ Mediaforge release manifest and displays the responsive images described by it.
   youtube-nocookie.com, because a YouTube sign-in in the same browser is what
   clears YouTube's "confirm you're not a bot" check. The playlist is set in
   `src/components/gallery/music-track.ts`.
-- **Interface sounds.** An optional switch in the slideshow settings, off by
-  default, adds soft clicks, ticks, and chimes to the controls. The sounds are
+- **Interface sounds.** Soft clicks, ticks, and chimes answer the controls.
+  They are on by default and can be turned off with the switch in the
+  slideshow settings; once the sound button is pressed, turning sound off
+  silences them along with clip audio. The sounds are
   generated in code with the Web Audio API, so there are no audio files and
   nothing to license, and they only ever answer something the viewer did: the
   slide timer, song endings, and the wallpaper stay silent. The module lives in

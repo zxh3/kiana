@@ -43,6 +43,11 @@ export function parseFlag(raw: string | null) {
   return raw === "true";
 }
 
+/** A flag that is on unless it was turned off. */
+export function parseFlagOn(raw: string | null) {
+  return raw !== "false";
+}
+
 export function useGalleryPreferences() {
   const [frame, setFrame] = useStoredState(FRAME_KEY, parseFrame);
   const [duration, setDuration] = useStoredState(DURATION_KEY, parseDuration);
@@ -52,7 +57,7 @@ export function useGalleryPreferences() {
     parseStoredCollection,
   );
   const [keepAwake, setKeepAwake] = useStoredState(AWAKE_KEY, parseFlag);
-  const [uiSounds, setUiSounds] = useStoredState(SOUNDS_KEY, parseFlag);
+  const [uiSounds, setUiSounds] = useStoredState(SOUNDS_KEY, parseFlagOn);
   return {
     collectionId,
     keepAwake,

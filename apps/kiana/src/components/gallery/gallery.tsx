@@ -68,7 +68,10 @@ export function Gallery({
   const { favorites, toggle: toggleFavoriteId } = useFavorites();
   const today = useToday();
   const fullscreen = useFullscreen();
+  // Clips start muted so browser autoplay stays reliable. Interface sounds
+  // play from the start and fall silent only once the viewer turns sound off.
   const [muted, setMuted] = useState(true);
+  const [quiet, setQuiet] = useState(false);
   const [pausedByUser, setPausedByUser] = useState(false);
   const [videoProgress] = useState(createProgressChannel);
   const [menu, setMenu] = useState<Menu>(null);
@@ -199,11 +202,11 @@ export function Gallery({
     return () => window.clearTimeout(timeout);
   }, [toast]);
 
-  // The sound button governs every sound the page makes itself: clip audio
-  // and interface sounds alike.
+  // After its first press, the sound button governs every sound the page
+  // makes itself: clip audio and interface sounds alike.
   useEffect(() => {
-    setSoundsEnabled(preferences.uiSounds && !muted);
-  }, [muted, preferences.uiSounds]);
+    setSoundsEnabled(preferences.uiSounds && !quiet);
+  }, [preferences.uiSounds, quiet]);
 
   // Actions the viewer takes make a sound; the timer and song ends do not.
   const togglePause = useCallback(() => {
@@ -242,6 +245,7 @@ export function Gallery({
       setSoundsEnabled(false);
     }
     setMuted(!muted);
+    setQuiet(!muted);
   }, [music.pause, music.status, muted, preferences.uiSounds]);
   const toggleFavorite = useCallback(() => {
     cue(favorite ? "unfavorite" : "favorite");
@@ -498,11 +502,11 @@ export function Gallery({
               onUiSoundsChange={(on) => {
                 // Turning sounds on plays the first one; turning them off
                 // plays the last.
-                if (on) setSoundsEnabled(!muted);
+                if (on) setSoundsEnabled(!quiet);
                 cue(on ? "switchOn" : "switchOff");
                 if (!on) setSoundsEnabled(false);
                 preferences.setUiSounds(on);
-                if (on && muted) showToast("Turn sound on to hear them");
+                if (on && quiet) showToast("Turn sound on to hear them");
               }}
               uiSounds={soundsSupported() ? preferences.uiSounds : null}
               open={menu === "display"}
