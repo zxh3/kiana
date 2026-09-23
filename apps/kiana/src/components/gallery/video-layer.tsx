@@ -6,6 +6,7 @@ import { PlayIcon } from "./icons";
 import { type LayerDirection, mediaTransition } from "./media-transition";
 import type { Frame, Transition } from "./model";
 import { PhotoBackdrop } from "./photo-backdrop";
+import { useMediaVolume } from "./use-media-volume";
 
 const VIDEO_PROMPT_DELAY = 2_000;
 const VIDEO_RECOVERY_TIMEOUT = 10_000;
@@ -21,6 +22,7 @@ export function VideoLayer({
   onProgress,
   paused,
   transition,
+  volume,
 }: {
   asset?: GalleryAsset;
   direction: LayerDirection;
@@ -30,8 +32,10 @@ export function VideoLayer({
   onProgress: (progress: number) => void;
   paused: boolean;
   transition: Transition;
+  volume: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  useMediaVolume(videoRef, volume);
   const currentRef = useRef(direction === "enter");
   const pausedRef = useRef(paused);
   const lastPaused = useRef(paused);

@@ -10,7 +10,7 @@ import {
 
 import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
-import { cue, setSoundsEnabled, soundsSupported } from "../../lib/sounds";
+import { cue } from "../../lib/sounds";
 import { Caption } from "./caption";
 import { CollectionMenu } from "./collection-menu";
 import {
@@ -25,12 +25,14 @@ import { DisplayMenu } from "./display-menu";
 import { Dock } from "./dock";
 import { Library } from "./library";
 import { frameLabels } from "./model";
-import { MusicButton, MusicPlayer } from "./music-player";
+import { MusicButton, MusicPlayer, useMusic } from "./music";
 import { useGalleryPreferences } from "./preferences";
 import { ProgressBar } from "./progress-bar";
 import { createProgressChannel } from "./progress-channel";
 import { parseResume, type ResumePositions, resumeKey } from "./resume";
 import { ShortcutsDialog } from "./shortcuts-dialog";
+import { SoundMenu } from "./sound/sound-menu";
+import { useSoundMix } from "./sound/use-sound-mix";
 import { Stage } from "./stage";
 import { Toast, type ToastMessage } from "./toast";
 import { TopBar } from "./top-bar";
@@ -39,7 +41,6 @@ import { useChromeVisibility } from "./use-chrome-visibility";
 import { useFavorites } from "./use-favorites";
 import { useFullscreen } from "./use-fullscreen";
 import { useGalleryShortcuts } from "./use-gallery-shortcuts";
-import { useMusic } from "./use-music";
 import { useSlideshow } from "./use-slideshow";
 import { useStoredState } from "./use-stored-state";
 import { useToday } from "./use-today";
@@ -49,7 +50,7 @@ const NO_FAVORITES: ReadonlySet<string> = new Set();
 const SWIPE_DISTANCE = 48;
 const TAP_SLOP = 10;
 
-type Menu = "collection" | "display" | null;
+type Menu = "collection" | "display" | "sound" | null;
 
 export function Gallery({
   assets,
@@ -68,10 +69,6 @@ export function Gallery({
   const { favorites, toggle: toggleFavoriteId } = useFavorites();
   const today = useToday();
   const fullscreen = useFullscreen();
-  // Clips start muted so browser autoplay stays reliable. Interface sounds
-  // play from the start and fall silent only once the viewer turns sound off.
-  const [muted, setMuted] = useState(true);
-  const [quiet, setQuiet] = useState(false);
   const [pausedByUser, setPausedByUser] = useState(false);
   const [videoProgress] = useState(createProgressChannel);
   const [menu, setMenu] = useState<Menu>(null);
@@ -202,12 +199,6 @@ export function Gallery({
     return () => window.clearTimeout(timeout);
   }, [toast]);
 
-  // After its first press, the sound button governs every sound the page
-  // makes itself: clip audio and interface sounds alike.
-  useEffect(() => {
-    setSoundsEnabled(preferences.uiSounds && !quiet);
-  }, [preferences.uiSounds, quiet]);
-
   // Actions the viewer takes make a sound; the timer and song ends do not.
   const togglePause = useCallback(() => {
     cue("press");
@@ -229,24 +220,15 @@ export function Gallery({
     cue("open");
     setHelpOpen(true);
   }, []);
-  // Background music and clip sound take turns: clips stay quiet while the
-  // music plays, and turning sound on pauses the music. The viewer's own
-  // mute choice is kept, so interface sounds still play under the music.
+  // Three independent sound channels: videos and interface sounds here,
+  // music in useMusic. The dock's Sound menu mixes them.
   const music = useMusic();
-  const clipsMuted = muted || music.status === "playing";
-  const toggleMute = useCallback(() => {
-    if (muted) {
-      // Unmute first so the switch can be heard; mute after it plays.
-      setSoundsEnabled(preferences.uiSounds);
-      cue("switchOn");
-      if (music.status === "playing") music.pause();
-    } else {
-      cue("switchOff");
-      setSoundsEnabled(false);
-    }
-    setMuted(!muted);
-    setQuiet(!muted);
-  }, [music.pause, music.status, muted, preferences.uiSounds]);
+  const sound = useSoundMix();
+  const { on: videosOn, setOn: setVideosOn } = sound.videos;
+  const toggleVideoSound = useCallback(() => {
+    cue(videosOn ? "switchOff" : "switchOn");
+    setVideosOn(!videosOn);
+  }, [setVideosOn, videosOn]);
   const toggleFavorite = useCallback(() => {
     cue(favorite ? "unfavorite" : "favorite");
     toggleFavoriteId(asset.id);
@@ -313,7 +295,7 @@ export function Gallery({
     onShare: () => void share(),
     onToggleFavorite: toggleFavorite,
     onToggleFullscreen: toggleFullscreen,
-    onToggleMute: toggleMute,
+    onToggleMute: toggleVideoSound,
     onTogglePause: togglePause,
   });
 
@@ -396,11 +378,12 @@ export function Gallery({
           assets={assets}
           frame={preferences.frame}
           index={slideshow.index}
-          muted={clipsMuted}
+          muted={!sound.videos.on}
           onVideoEnded={slideshow.next}
           onVideoProgress={videoProgress.set}
           paused={paused}
           previousIndex={slideshow.previousIndex}
+          volume={sound.videos.volume / 100}
         />
 
         <div
@@ -464,15 +447,24 @@ export function Gallery({
           favorite={favorite}
           fullscreen={fullscreen}
           holdProps={holdProps}
-          muted={muted}
           onNext={goNext}
           onPrevious={goPrevious}
           onShare={() => void share()}
           onToggleFavorite={toggleFavorite}
           onToggleFullscreen={toggleFullscreen}
-          onToggleMute={toggleMute}
           onTogglePause={togglePause}
           paused={pausedByUser}
+          sound={
+            <SoundMenu
+              mix={sound}
+              music={music}
+              onOpenChange={(open) => {
+                if (open) cue("open");
+                setMenu(open ? "sound" : null);
+              }}
+              open={menu === "sound"}
+            />
+          }
           settings={
             <DisplayMenu
               duration={preferences.duration}
@@ -499,16 +491,6 @@ export function Gallery({
                 cue("select");
                 preferences.setOrder(order);
               }}
-              onUiSoundsChange={(on) => {
-                // Turning sounds on plays the first one; turning them off
-                // plays the last.
-                if (on) setSoundsEnabled(!quiet);
-                cue(on ? "switchOn" : "switchOff");
-                if (!on) setSoundsEnabled(false);
-                preferences.setUiSounds(on);
-                if (on && quiet) showToast("Turn sound on to hear them");
-              }}
-              uiSounds={soundsSupported() ? preferences.uiSounds : null}
               open={menu === "display"}
               order={preferences.order}
             />
@@ -544,7 +526,11 @@ export function Gallery({
           />
         ) : null}
       </AnimatePresence>
-      <MusicPlayer music={music} raised={chrome.visible && !libraryOpen} />
+      <MusicPlayer
+        chromeVisible={chrome.visible}
+        music={music}
+        raised={chrome.visible && !libraryOpen}
+      />
       <ShortcutsDialog onClose={() => setHelpOpen(false)} open={helpOpen} />
     </MotionConfig>
   );

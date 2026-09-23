@@ -33,6 +33,8 @@ export const cues = {
   pickPhoto: { recipe: "detentForward" },
   songNext: { recipe: "detentForward", every: 45 },
   songPrevious: { recipe: "detentBack", every: 45 },
+  // The music player's click wheel: a fine tick for every click of travel.
+  wheel: { recipe: "notch", every: 30 },
 
   // Keeping something.
   favorite: { recipe: "chime" },

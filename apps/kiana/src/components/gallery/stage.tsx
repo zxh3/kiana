@@ -18,6 +18,7 @@ export function Stage({
   onVideoProgress,
   paused,
   previousIndex,
+  volume,
 }: {
   assets: ReadonlyArray<GalleryAsset>;
   frame: Frame;
@@ -27,6 +28,8 @@ export function Stage({
   onVideoProgress: (progress: number) => void;
   paused: boolean;
   previousIndex: number | null;
+  /** Clip sound's level, from 0 to 1. */
+  volume: number;
 }) {
   const current = assets[index];
   const previous =
@@ -54,6 +57,7 @@ export function Stage({
           frame={frame}
           key={previous.id}
           muted={muted}
+          volume={volume}
           paused={paused}
           transition={transition}
         />
@@ -64,6 +68,7 @@ export function Stage({
         frame={frame}
         key="persistent-video"
         muted={muted}
+        volume={volume}
         onEnded={onVideoEnded}
         onProgress={onVideoProgress}
         paused={paused}
@@ -76,6 +81,7 @@ export function Stage({
           frame={frame}
           key={current.id}
           muted={muted}
+          volume={volume}
           paused={paused}
           transition={transition}
         />

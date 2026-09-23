@@ -15,7 +15,6 @@ const DURATION_KEY = "kiana.duration";
 const ORDER_KEY = "kiana.order";
 const COLLECTION_KEY = "kiana.collection";
 const AWAKE_KEY = "kiana.keep-awake";
-const SOUNDS_KEY = "kiana.ui-sounds";
 
 export function parseFrame(raw: string | null): Frame {
   const normalized = raw === "bleed" ? "fill" : raw;
@@ -43,11 +42,6 @@ export function parseFlag(raw: string | null) {
   return raw === "true";
 }
 
-/** A flag that is on unless it was turned off. */
-export function parseFlagOn(raw: string | null) {
-  return raw !== "false";
-}
-
 export function useGalleryPreferences() {
   const [frame, setFrame] = useStoredState(FRAME_KEY, parseFrame);
   const [duration, setDuration] = useStoredState(DURATION_KEY, parseDuration);
@@ -57,11 +51,9 @@ export function useGalleryPreferences() {
     parseStoredCollection,
   );
   const [keepAwake, setKeepAwake] = useStoredState(AWAKE_KEY, parseFlag);
-  const [uiSounds, setUiSounds] = useStoredState(SOUNDS_KEY, parseFlagOn);
   return {
     collectionId,
     keepAwake,
-    uiSounds,
     duration,
     frame,
     order,
@@ -69,7 +61,6 @@ export function useGalleryPreferences() {
     setDuration,
     setFrame,
     setKeepAwake,
-    setUiSounds,
     setOrder,
   };
 }

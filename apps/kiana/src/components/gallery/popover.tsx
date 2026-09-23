@@ -70,6 +70,8 @@ export function Popover({
     preferred?.focus({ preventScroll: true });
 
     const moveFocus = (event: globalThis.KeyboardEvent) => {
+      // Sliders keep their arrow keys.
+      if ((event.target as Element).matches('input[type="range"]')) return;
       const step =
         event.key === "ArrowDown" || event.key === "ArrowRight"
           ? 1

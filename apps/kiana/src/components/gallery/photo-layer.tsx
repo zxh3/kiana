@@ -10,6 +10,7 @@ import {
   type Transition,
 } from "./model";
 import { PhotoBackdrop } from "./photo-backdrop";
+import { useMediaVolume } from "./use-media-volume";
 
 const LIVE_PHOTO_DELAY = TRANSITION_DURATION;
 
@@ -46,14 +47,17 @@ function PhotoContent({
   current,
   muted,
   paused,
+  volume,
 }: {
   asset: GalleryAsset;
   className: string;
   current: boolean;
   muted: boolean;
   paused: boolean;
+  volume: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  useMediaVolume(videoRef, volume);
   const [livePhotoPlaying, setLivePhotoPlaying] = useState(false);
   const video = asset.video;
   const livePhoto = asset.type === "live_photo";
@@ -119,6 +123,7 @@ export function PhotoLayer({
   direction,
   muted,
   paused,
+  volume,
 }: {
   asset: GalleryAsset;
   frame: Frame;
@@ -126,10 +131,11 @@ export function PhotoLayer({
   direction: LayerDirection;
   muted: boolean;
   paused: boolean;
+  volume: number;
 }) {
   const current = direction === "enter";
   const presentation = mediaTransition(transition, direction);
-  const mediaProps = { asset, current, muted, paused };
+  const mediaProps = { asset, current, muted, paused, volume };
 
   if (frame !== "mat") {
     return (

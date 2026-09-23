@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-
+import { useStoredState } from "../use-stored-state";
 import {
-  nextPlayMode,
   nextTrackIndex,
-  type PlayMode,
-  parsePlayMode,
+  parseRepeat,
+  parseShuffle,
   previousTrackIndex,
+  type Repeat,
 } from "./music-queue";
 import { playlist } from "./music-track";
-import { useStoredState } from "./use-stored-state";
 import { loadYouTubeApi, PlayerState, type YouTubePlayer } from "./youtube-api";
 
 /**
@@ -26,14 +25,16 @@ export type MusicStatus =
 
 const VOLUME_KEY = "kiana.music-volume";
 const TRACK_KEY = "kiana.music-track";
-const MODE_KEY = "kiana.music-mode";
+const SHUFFLE_KEY = "kiana.music-shuffle";
+const REPEAT_KEY = "kiana.music-repeat";
+const MUTED_KEY = "kiana.music-muted";
 const DEFAULT_VOLUME = 60;
 const BLOCKED_AFTER = 2_500;
 /** Past this many seconds, previous restarts the song instead. */
 const RESTART_AFTER = 3;
 const SHUFFLE_MEMORY = 50;
 
-export function parseVolume(raw: string | null) {
+function parseVolume(raw: string | null) {
   const value = Number(raw);
   return raw !== null && raw !== "" && value >= 0 && value <= 100
     ? Math.round(value)
@@ -41,17 +42,21 @@ export function parseVolume(raw: string | null) {
 }
 
 /** The saved track is stored by video id, so reordering keeps the place. */
-export function parseTrackIndex(raw: string | null) {
+function parseTrackIndex(raw: string | null) {
   const index = playlist.findIndex(({ videoId }) => videoId === raw);
   return index >= 0 ? index : 0;
+}
+
+function parseMuted(raw: string | null) {
+  return raw === "true";
 }
 
 function serializeTrackIndex(index: number) {
   return playlist[index]?.videoId ?? "";
 }
 
-function applyVolume(player: YouTubePlayer, volume: number) {
-  if (volume === 0) {
+function applyVolume(player: YouTubePlayer, volume: number, muted: boolean) {
+  if (muted || volume === 0) {
     player.mute();
     return;
   }
@@ -72,7 +77,10 @@ export function useMusic() {
     parseTrackIndex,
     serializeTrackIndex,
   );
-  const [mode, saveMode] = useStoredState(MODE_KEY, parsePlayMode);
+  const [shuffle, saveShuffle] = useStoredState(SHUFFLE_KEY, parseShuffle);
+  const [repeat, saveRepeat] = useStoredState(REPEAT_KEY, parseRepeat);
+  // Muting keeps the volume, so unmuting returns to the same level.
+  const [muted, saveMuted] = useStoredState(MUTED_KEY, parseMuted);
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const blockedTimer = useRef<number>(undefined);
@@ -80,10 +88,14 @@ export function useMusic() {
   const shuffleHistory = useRef<number[]>([]);
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
   const indexRef = useRef(index);
   indexRef.current = index;
-  const modeRef = useRef<PlayMode>(mode);
-  modeRef.current = mode;
+  const shuffleRef = useRef(shuffle);
+  shuffleRef.current = shuffle;
+  const repeatRef = useRef<Repeat>(repeat);
+  repeatRef.current = repeat;
 
   const destroy = useCallback(() => {
     window.clearTimeout(blockedTimer.current);
@@ -95,7 +107,7 @@ export function useMusic() {
   /** Switch to a track; the player keeps running, so sound never stops. */
   const load = useCallback(
     (next: number, remember = true) => {
-      if (remember && modeRef.current === "shuffle") {
+      if (remember && shuffleRef.current) {
         shuffleHistory.current = [
           ...shuffleHistory.current,
           indexRef.current,
@@ -143,7 +155,7 @@ export function useMusic() {
           },
           events: {
             onReady: ({ target: player }) => {
-              applyVolume(player, volumeRef.current);
+              applyVolume(player, volumeRef.current, mutedRef.current);
               player.playVideo();
               blockedTimer.current = window.setTimeout(() => {
                 const state = player.getPlayerState();
@@ -163,7 +175,7 @@ export function useMusic() {
               } else if (data === PlayerState.paused) {
                 setStatus("paused");
               } else if (data === PlayerState.ended) {
-                if (modeRef.current === "one") {
+                if (repeatRef.current === "one") {
                   player.seekTo(0, true);
                   player.playVideo();
                 } else {
@@ -171,7 +183,7 @@ export function useMusic() {
                     nextTrackIndex(
                       indexRef.current,
                       playlist.length,
-                      modeRef.current,
+                      shuffleRef.current,
                     ),
                   );
                 }
@@ -226,7 +238,7 @@ export function useMusic() {
   }, [destroy]);
 
   const next = useCallback(() => {
-    load(nextTrackIndex(indexRef.current, playlist.length, modeRef.current));
+    load(nextTrackIndex(indexRef.current, playlist.length, shuffleRef.current));
   }, [load]);
 
   const previous = useCallback(() => {
@@ -235,8 +247,9 @@ export function useMusic() {
       player.seekTo(0, true);
       return;
     }
-    const remembered =
-      modeRef.current === "shuffle" ? shuffleHistory.current.pop() : undefined;
+    const remembered = shuffleRef.current
+      ? shuffleHistory.current.pop()
+      : undefined;
     load(
       remembered ?? previousTrackIndex(indexRef.current, playlist.length),
       false,
@@ -255,17 +268,44 @@ export function useMusic() {
     [load],
   );
 
-  const cycleMode = useCallback(() => {
-    shuffleHistory.current = [];
-    saveMode(nextPlayMode(modeRef.current));
-  }, [saveMode]);
+  const setShuffle = useCallback(
+    (next: boolean) => {
+      shuffleHistory.current = [];
+      shuffleRef.current = next;
+      saveShuffle(next);
+    },
+    [saveShuffle],
+  );
 
+  const setRepeat = useCallback(
+    (next: Repeat) => {
+      repeatRef.current = next;
+      saveRepeat(next);
+    },
+    [saveRepeat],
+  );
+
+  /** Setting a level also unmutes, as turning a volume knob would. */
   const setVolume = useCallback(
     (value: number) => {
+      volumeRef.current = value;
+      mutedRef.current = false;
       saveVolume(value);
-      if (playerRef.current) applyVolume(playerRef.current, value);
+      saveMuted(false);
+      if (playerRef.current) applyVolume(playerRef.current, value, false);
     },
-    [saveVolume],
+    [saveMuted, saveVolume],
+  );
+
+  const setMuted = useCallback(
+    (value: boolean) => {
+      mutedRef.current = value;
+      saveMuted(value);
+      if (playerRef.current) {
+        applyVolume(playerRef.current, volumeRef.current, value);
+      }
+    },
+    [saveMuted],
   );
 
   /** Read on demand so time updates never re-render the whole gallery. */
@@ -287,10 +327,9 @@ export function useMusic() {
   }, []);
 
   return {
-    cycleMode,
     hostRef,
     index,
-    mode,
+    muted,
     next,
     pause,
     playTrack,
@@ -298,9 +337,14 @@ export function useMusic() {
     preload,
     previous,
     readProgress,
+    repeat,
     seek,
+    setRepeat,
+    setShuffle,
+    setMuted,
     setVolume,
     start,
+    shuffle,
     status,
     stop,
     toggle,
