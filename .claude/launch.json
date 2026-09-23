@@ -4,23 +4,13 @@
     {
       "name": "kiana",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "-w", "apps/kiana"],
-      "port": 3000,
-      "autoPort": false
-    },
-    {
-      "name": "kitchen",
-      "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",
         "dev",
         "-w",
-        "apps/kitchen",
-        "--",
-        "--port",
-        "5199"
+        "apps/kiana"
       ],
-      "port": 5199,
+      "port": 3000,
       "autoPort": false
     }
   ]

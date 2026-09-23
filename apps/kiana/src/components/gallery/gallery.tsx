@@ -510,8 +510,6 @@ export function Gallery({
         <Toast message={toast} />
       </main>
 
-      {/* Kept outside <main>: the desktop wallpaper app stretches every image
-          inside it to cover the screen. */}
       <AnimatePresence>
         {libraryOpen ? (
           <Library

@@ -9,7 +9,6 @@ import {
 } from "./model";
 import { useStoredState } from "./use-stored-state";
 
-// The desktop wallpaper app writes "fill" to this key before the page loads.
 const FRAME_KEY = "kiana.frame";
 const DURATION_KEY = "kiana.duration";
 const ORDER_KEY = "kiana.order";
