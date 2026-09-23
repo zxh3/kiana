@@ -22,7 +22,7 @@ import { useCornerDrag } from "./use-corner-drag";
 import { useMediaQuery } from "./use-media-query";
 import type { Music } from "./use-music";
 import { useMusicProgress } from "./use-music-progress";
-import { WidgetButtons } from "./widget-buttons";
+import { WidgetActions } from "./widget-actions";
 
 const SIZE_KEY = "kiana.music-size";
 const CORNER_KEY = "kiana.music-corner";
@@ -111,7 +111,7 @@ export function MusicPlayer({
           aria-label="Music"
           key="music"
           className={cx(
-            "fixed z-50 transition-[bottom] duration-500 ease-soft",
+            "group/player fixed z-50 transition-[bottom] duration-500 ease-soft",
             docked
               ? "inset-x-0 bottom-[max(12px,env(safe-area-inset-bottom))] mx-auto flex w-fit flex-col items-center"
               : cx(
@@ -129,7 +129,7 @@ export function MusicPlayer({
           <motion.div
             animate={{ opacity: 1, y: 0, scale: 1 }}
             className={cx(
-              "group relative isolate transition-[scale] duration-300 ease-soft",
+              "relative isolate transition-[scale] duration-300 ease-soft",
               drag.dragging && "scale-[1.03]",
             )}
             exit={{ opacity: 0, y: 10, scale: 0.96, transition: fades.out }}
@@ -169,12 +169,6 @@ export function MusicPlayer({
                     settings={settings}
                     videoOn={videoOpen}
                   />
-                  <WidgetButtons
-                    canMinimize={!needsVideo}
-                    onClose={music.stop}
-                    onMinimize={() => setSize("mini")}
-                    visible={chromeVisible}
-                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -212,7 +206,17 @@ export function MusicPlayer({
             )}
           </motion.div>
 
-          {mini ? null : <MusicNotice music={music} width={BODY_WIDTH} />}
+          {mini ? null : (
+            <>
+              <WidgetActions
+                canMinimize={!needsVideo}
+                onClose={music.stop}
+                onMinimize={() => setSize("mini")}
+                visible={chromeVisible}
+              />
+              <MusicNotice music={music} width={BODY_WIDTH} />
+            </>
+          )}
         </aside>
       )}
     </AnimatePresence>

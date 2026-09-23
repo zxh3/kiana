@@ -184,7 +184,6 @@ export function ClickWheel({
           )}
           data-zone="menu"
           onClick={onMenu}
-          title="Menu"
           type="button"
         >
           <span className="font-pod text-[10.5px] font-bold tracking-[.06em]">
@@ -199,7 +198,6 @@ export function ClickWheel({
           )}
           data-zone="previous"
           onClick={onPrevious}
-          title="Previous song"
           type="button"
         >
           <SkipGlyph direction="back" />
@@ -212,7 +210,6 @@ export function ClickWheel({
           )}
           data-zone="next"
           onClick={onNext}
-          title="Next song"
           type="button"
         >
           <SkipGlyph direction="forward" />
@@ -225,7 +222,6 @@ export function ClickWheel({
           )}
           data-zone="play"
           onClick={onPlayPause}
-          title={playing ? "Pause" : "Play"}
           type="button"
         >
           <PlayPauseGlyph />
@@ -240,7 +236,6 @@ export function ClickWheel({
           boxShadow:
             "0 0 0 1px var(--pod-wheel-edge), 0 1px 2px rgb(0 0 0 / 0.12), inset 0 1px 0 var(--pod-rim)",
         }}
-        title="Select"
         type="button"
       />
     </div>

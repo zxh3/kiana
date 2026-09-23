@@ -48,11 +48,11 @@ Mediaforge release manifest and displays the responsive images described by it.
   last touch, and the battery shows the viewer's own where the browser shares
   it. Settings holds the play mode (repeat all, repeat one, or shuffle), the
   backlight timer, the clicker (the wheel's ticks), the video, the finish, and
-  a link to the song on YouTube. Minimize and close sit outside the device and
-  come and go with the rest of the controls. Minimized (the default on
-  phones), it becomes a small square player showing the cover. On wider
-  screens it can be dragged to any corner, where it stays; on phones the full
-  player rises from the bottom edge. Songs YouTube refuses to embed are
+  a link to the song on YouTube. Minimize and close sit in a small pill under
+  the device and come and go with the rest of the controls. Minimized (the
+  default on phones), it becomes a small square player showing the cover. On
+  wider screens it can be dragged to any corner, where it stays; on phones the
+  full player rises from the bottom edge. Songs YouTube refuses to embed are
   skipped. Starting the music mutes clip sound, and turning clip sound on
   pauses the music. YouTube's player stays mounted but hidden by default; it
   covers the display when YouTube needs a tap or a sign-in, or when the video
