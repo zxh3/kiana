@@ -17,7 +17,12 @@ import {
 import { finishStyles, parseFinish } from "./ipod-finishes";
 import { type Corner, parseCorner, parsePlayerSize } from "./music-layout";
 import { trackArt, trackUrl } from "./music-track";
-import { glassFrame, PocketPlayer, videoFrame } from "./pocket-player";
+import {
+  BODY_PADDING,
+  glassFrame,
+  PocketPlayer,
+  videoFrame,
+} from "./pocket-player";
 import { Swap } from "./swap";
 import { useCornerDrag } from "./use-corner-drag";
 import { useMediaQuery } from "./use-media-query";
@@ -271,7 +276,6 @@ export function MusicPlayer({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             className={cx(
               "group relative isolate transition-[scale,box-shadow] duration-300 ease-soft",
-              mini ? "" : "w-[232px] px-[10px] pt-[10px] pb-[14px]",
               drag.dragging && "scale-[1.03]",
             )}
             exit={{ opacity: 0, y: 10, scale: 0.96, transition: fades.out }}
@@ -280,7 +284,9 @@ export function MusicPlayer({
             style={{
               ...finishStyles[finish],
               backgroundImage: "var(--pod-body)",
-              borderRadius: mini ? 17 : 30,
+              borderRadius: mini ? 17 : 32,
+              padding: mini ? 0 : BODY_PADDING,
+              width: mini ? undefined : glassFrame.width + BODY_PADDING * 2,
               boxShadow: drag.dragging
                 ? "inset 0 1px 0 var(--pod-rim), inset 0 -1px 1px rgb(0 0 0 / 0.18), 0 34px 80px -24px rgb(0 0 0 / 0.85)"
                 : "inset 0 1px 0 var(--pod-rim), inset 0 -1px 1px rgb(0 0 0 / 0.18), 0 22px 56px -20px rgb(0 0 0 / 0.75)",
@@ -402,12 +408,12 @@ export function MusicPlayer({
           </motion.div>
 
           {!mini && music.status === "blocked" ? (
-            <p className="glass mt-2 w-[232px] rounded-[16px] px-3.5 py-2.5 text-[11px] leading-snug text-paper/75">
+            <p className="glass mt-2 w-[248px] rounded-[16px] px-3.5 py-2.5 text-[11px] leading-snug text-paper/75">
               Your browser needs a tap on the video to start the sound.
             </p>
           ) : null}
           {!mini && music.status === "error" ? (
-            <div className="glass mt-2 w-[232px] rounded-[18px] p-3.5 text-paper">
+            <div className="glass mt-2 w-[248px] rounded-[18px] p-3.5 text-paper">
               <p className="text-[11px] leading-snug text-paper/70">
                 YouTube wouldn’t play the playlist here. If it asks you to sign
                 in, sign in on youtube.com in this browser, then try again.

@@ -39,11 +39,23 @@ const SEEK_AFTER = 250;
 const DISPLAY_INSET = 4;
 
 /**
- * Where the glass window and the display inside it sit within the player's
- * body (which has 10px of padding), so the video can cover the display
- * exactly and the glare can lie over both.
+ * The aluminium around the screen. A generous margin, as on the original,
+ * lets the window's small corners sit comfortably inside the body's large
+ * ones; a tight one makes the two curves fight.
  */
-export const glassFrame = { top: 10, left: 10, width: 212, height: 159 };
+export const BODY_PADDING = 18;
+
+/**
+ * Where the glass window and the display inside it sit within the player's
+ * body, so the video can cover the display exactly and the glare can lie
+ * over both.
+ */
+export const glassFrame = {
+  top: BODY_PADDING,
+  left: BODY_PADDING,
+  width: 212,
+  height: 159,
+};
 export const displayFrame = {
   top: glassFrame.top + DISPLAY_INSET,
   left: glassFrame.left + DISPLAY_INSET,
@@ -335,7 +347,7 @@ export function PocketPlayer({
         </div>
       </div>
 
-      <div className="mt-[18px]">
+      <div className="mt-[22px]">
         <ClickWheel
           onMenu={back}
           onNext={() => {
