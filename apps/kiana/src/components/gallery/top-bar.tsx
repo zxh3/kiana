@@ -9,12 +9,14 @@ export function TopBar({
   collectionMenu,
   holdProps,
   mat,
+  musicButton,
   onOpenLibrary,
   visible,
 }: {
   collectionMenu: ReactNode;
   holdProps: ChromeHoldProps;
   mat: boolean;
+  musicButton: ReactNode;
   onOpenLibrary: () => void;
   visible: boolean;
 }) {
@@ -52,6 +54,7 @@ export function TopBar({
         )}
         {...holdProps}
       >
+        {musicButton}
         <button
           aria-keyshortcuts="G"
           className={cx(

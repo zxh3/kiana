@@ -24,7 +24,7 @@ export function ShortcutsDialog({
     // biome-ignore lint/a11y/useKeyWithClickEvents: a click on the backdrop closes it; <dialog> already closes on Escape.
     <dialog
       aria-labelledby="shortcuts-title"
-      className="glass m-auto w-[min(420px,calc(100vw-32px))] rounded-[28px] bg-night/88 p-0 text-paper outline-none transition-[opacity,scale] duration-300 ease-soft backdrop:bg-night/40 backdrop:backdrop-blur-[2px] starting:scale-96 starting:opacity-0"
+      className="glass m-auto w-[min(420px,calc(100vw-32px))] rounded-[28px] bg-night/88 p-0 text-paper outline-none transition-[opacity,scale] duration-300 ease-soft shadow-[0_40px_120px_-20px_rgba(0,0,0,.85)] backdrop:bg-transparent starting:scale-96 starting:opacity-0"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}

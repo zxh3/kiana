@@ -247,3 +247,56 @@ export function KeyboardIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function MusicNoteIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M7.5 14.5V5.2l8-1.7v9.3" />
+      <circle cx="5.6" cy="14.6" fill="currentColor" r="1.9" stroke="none" />
+      <circle cx="13.6" cy="12.9" fill="currentColor" r="1.9" stroke="none" />
+    </Icon>
+  );
+}
+
+export function ExternalIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M8 5.25H5.75a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h7.5a1.5 1.5 0 0 0 1.5-1.5V12" />
+      <path d="M11 4.25h4.75V9M15.5 4.5 9.5 10.5" />
+    </Icon>
+  );
+}
+
+const equalizerRest = [0.35, 0.6, 0.45, 0.3];
+
+/** Four bars that dance while music plays and settle when it stops. */
+export function EqualizerIcon({
+  className,
+  playing,
+}: {
+  className?: string;
+  playing: boolean;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`flex h-4 w-4 items-end justify-center gap-[2px] ${className ?? ""}`}
+    >
+      {equalizerRest.map((rest, index) => (
+        <span
+          className="h-full w-[2.5px] origin-bottom animate-equalize rounded-full bg-current transition-transform duration-300 motion-reduce:animate-none"
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed decorative bars
+          key={index}
+          style={
+            playing
+              ? {
+                  animationDelay: `${-index * 0.23}s`,
+                  animationDuration: `${0.85 + index * 0.17}s`,
+                }
+              : { animation: "none", transform: `scaleY(${rest})` }
+          }
+        />
+      ))}
+    </span>
+  );
+}

@@ -34,11 +34,19 @@ Mediaforge release manifest and displays the responsive images described by it.
   tabs.
 - **Share.** Copies a link that opens the current photo. The server renders
   that photo as the link preview image.
+- **Music.** The Music button in the top bar loops a YouTube track as
+  background music, with play, pause, volume, and a link to YouTube. Starting
+  the music mutes clip sound, and turning clip sound on pauses the music.
+  YouTube's API policies forbid hidden or audio-only playback and require the
+  embedded player to stay visible at 200 × 200 pixels or larger, so the player
+  sits in a card above the photos, menus, and library while music is on, and
+  nothing is drawn over it. The track is set in
+  `src/components/gallery/music-track.ts`.
 - **Keep screen awake.** An optional setting that holds a screen wake lock
   while photos play.
 
-Preferences, favorites, and date-order positions are stored in local storage
-under `kiana.*` keys. The desktop
+Preferences, favorites, date-order positions, and the music volume are
+stored in local storage under `kiana.*` keys. The desktop
 wallpaper app writes `kiana.frame` on every launch, and the library is rendered
 outside `<main>` because that app stretches every image inside `<main>` to cover
 the screen.

@@ -23,6 +23,7 @@ import { DisplayMenu } from "./display-menu";
 import { Dock } from "./dock";
 import { Library } from "./library";
 import { frameLabels } from "./model";
+import { MusicButton, MusicPlayer } from "./music-player";
 import { useGalleryPreferences } from "./preferences";
 import { ProgressBar } from "./progress-bar";
 import { createProgressChannel } from "./progress-channel";
@@ -36,6 +37,7 @@ import { useChromeVisibility } from "./use-chrome-visibility";
 import { useFavorites } from "./use-favorites";
 import { useFullscreen } from "./use-fullscreen";
 import { useGalleryShortcuts } from "./use-gallery-shortcuts";
+import { useMusic } from "./use-music";
 import { useSlideshow } from "./use-slideshow";
 import { useStoredState } from "./use-stored-state";
 import { useToday } from "./use-today";
@@ -196,7 +198,16 @@ export function Gallery({
   }, [toast]);
 
   const togglePause = useCallback(() => setPausedByUser((value) => !value), []);
-  const toggleMute = useCallback(() => setMuted((value) => !value), []);
+  // Background music and clip sound take turns: starting the music mutes
+  // clips, and turning clip sound on pauses the music.
+  const music = useMusic();
+  useEffect(() => {
+    if (music.status === "playing") setMuted(true);
+  }, [music.status]);
+  const toggleMute = useCallback(() => {
+    if (muted && music.status === "playing") music.pause();
+    setMuted(!muted);
+  }, [music.pause, music.status, muted]);
   const toggleFavorite = useCallback(
     () => toggleFavoriteId(asset.id),
     [asset.id, toggleFavoriteId],
@@ -318,6 +329,7 @@ export function Gallery({
       ))}
       <main
         aria-label="Kiana photo gallery"
+        inert={libraryOpen}
         className={cx(
           "relative isolate h-dvh w-screen touch-pan-y overflow-hidden select-none transition-colors duration-500",
           mat ? "bg-mat" : "bg-ink",
@@ -383,6 +395,7 @@ export function Gallery({
           }
           holdProps={holdProps}
           mat={mat}
+          musicButton={<MusicButton music={music} />}
           onOpenLibrary={openLibrary}
           visible={chrome.visible}
         />
@@ -452,6 +465,7 @@ export function Gallery({
           onPlayMonth={playMonth}
         />
       ) : null}
+      <MusicPlayer music={music} raised={chrome.visible && !libraryOpen} />
       <ShortcutsDialog onClose={() => setHelpOpen(false)} open={helpOpen} />
     </>
   );

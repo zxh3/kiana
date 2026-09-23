@@ -214,18 +214,32 @@ export function Library({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const { width } = size;
 
-  // Open as a modal so the slideshow underneath is inert, and hand focus
-  // back to whatever opened the library when it goes away.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // A non-modal layer rather than a modal dialog: the gallery makes the
+  // slideshow inert while it is open, and the music player (whose YouTube
+  // frame must never be covered) can stay on top of it. Focus returns to
+  // whatever opened the library when it goes away.
   useLayoutEffect(() => {
     const dialog = dialogRef.current;
     const opener =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-    if (dialog && !dialog.open) dialog.showModal();
+    if (dialog && !dialog.open) dialog.show();
     // Start in the grid so arrow and Page keys scroll straight away.
     scrollRef.current?.focus({ preventScroll: true });
-    return () => opener?.focus({ preventScroll: true });
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      onCloseRef.current();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      opener?.focus({ preventScroll: true });
+    };
   }, []);
 
   useLayoutEffect(() => {
@@ -355,11 +369,8 @@ export function Library({
   return (
     <dialog
       aria-label="Library"
-      className="m-0 h-dvh max-h-none w-screen max-w-none overflow-hidden border-0 bg-night p-0 text-paper outline-none transition-[opacity,translate] duration-300 ease-soft backdrop:bg-transparent starting:translate-y-3 starting:opacity-0"
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
+      aria-modal="true"
+      className="fixed inset-0 z-40 m-0 h-dvh max-h-none w-screen max-w-none overflow-hidden border-0 bg-night p-0 text-paper outline-none transition-[opacity,translate] duration-300 ease-soft starting:translate-y-3 starting:opacity-0"
       ref={dialogRef}
     >
       <div className="flex h-full flex-col">
