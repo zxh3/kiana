@@ -32,9 +32,11 @@ function bell(
 }
 
 /**
- * One detent of a rotary knob, like an old car stereo's volume dial: a hard
- * snap, the short metallic ring of the detent, and a faint low knock from
- * the body. Each click varies slightly, as a real mechanism does.
+ * One detent of a rotary knob, like an old car stereo's volume dial: the
+ * ball bearing lifts out of one notch with a faint tick, then snaps into
+ * the next. The snap is all texture and no tone: a hard edge of air, two
+ * brief inharmonic metal resonances, and a dry, low scrape of the housing.
+ * Each click varies slightly, as a real mechanism does.
  */
 function detent(
   context: BaseAudioContext,
@@ -42,32 +44,54 @@ function detent(
   at: number,
   ring: number,
 ) {
-  const vary = 1 + (Math.random() - 0.5) * 0.06;
+  const vary = 1 + (Math.random() - 0.5) * 0.08;
+  const snap = at + 0.007 + Math.random() * 0.002;
   return Math.max(
+    // Lifting out of the notch.
     noise(context, output, {
       at,
-      duration: 0.006,
+      duration: 0.003,
       filter: "highpass",
-      from: 3200,
-      attack: 0.0005,
-      gain: 0.24,
+      from: 4200,
+      attack: 0.0004,
+      gain: 0.07,
     }),
+    // The snap's edge.
     noise(context, output, {
-      at,
-      duration: 0.035,
+      at: snap,
+      duration: 0.004,
+      filter: "highpass",
+      from: 2600,
+      attack: 0.0003,
+      gain: 0.26,
+    }),
+    // The detent spring and plate ringing, briefly and not in tune.
+    noise(context, output, {
+      at: snap,
+      duration: 0.018,
       filter: "bandpass",
       from: ring * vary,
-      q: 14,
-      attack: 0.0008,
-      gain: 0.5,
+      q: 7,
+      attack: 0.0004,
+      gain: 0.3,
     }),
-    tone(context, output, {
-      at,
-      from: 210 * vary,
-      to: 150,
-      glide: 0.02,
-      attack: 0.001,
-      decay: 0.022,
+    noise(context, output, {
+      at: snap,
+      duration: 0.012,
+      filter: "bandpass",
+      from: ring * 1.53 * vary,
+      q: 7,
+      attack: 0.0004,
+      gain: 0.18,
+    }),
+    // The housing: a dry, low scrape instead of a tone.
+    noise(context, output, {
+      at: snap,
+      duration: 0.01,
+      filter: "bandpass",
+      from: 700 * vary,
+      q: 1.4,
+      attack: 0.0005,
       gain: 0.12,
     }),
   );
@@ -75,10 +99,10 @@ function detent(
 
 export const recipes = {
   /** A knob turned clockwise: the detent rings a little higher. */
-  detentForward: (context, output, at) => detent(context, output, at, 2300),
+  detentForward: (context, output, at) => detent(context, output, at, 3100),
 
   /** A knob turned back: the same detent, a little lower. */
-  detentBack: (context, output, at) => detent(context, output, at, 1950),
+  detentBack: (context, output, at) => detent(context, output, at, 2700),
 
   /** A rounded click with a tiny breath of air, for primary buttons. */
   press: (context, output, at) =>
