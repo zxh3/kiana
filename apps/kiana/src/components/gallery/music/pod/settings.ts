@@ -1,8 +1,7 @@
 import { useStoredState } from "../../use-stored-state";
 import { type Finish, parseFinish } from "./finishes";
 
-export const backlights = ["timed", "always"] as const;
-export type Backlight = (typeof backlights)[number];
+export type Backlight = "timed" | "always";
 
 export const backlightLabels: Record<Backlight, string> = {
   timed: "10 Seconds",

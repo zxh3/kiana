@@ -22,7 +22,13 @@ export function useScrollSteps(
     let travel = 0;
     const handleWheel = (event: WheelEvent) => {
       event.preventDefault();
-      travel += event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+      // Whichever way the scroll mostly goes: down or right is forward,
+      // so a sideways trackpad swipe flips Cover Flow too.
+      const delta =
+        Math.abs(event.deltaX) > Math.abs(event.deltaY)
+          ? event.deltaX
+          : event.deltaY;
+      travel += event.deltaMode === 1 ? delta * 16 : delta;
       const { steps, rest } = takeSteps(travel, PIXELS_PER_STEP);
       travel = rest;
       if (steps !== 0) latest.current(steps);

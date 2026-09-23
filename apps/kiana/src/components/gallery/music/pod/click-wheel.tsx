@@ -1,6 +1,7 @@
 import { type CSSProperties, type PointerEvent, useRef, useState } from "react";
 
 import { cx } from "../../../../lib/class-names";
+import { useClickSwallow } from "../use-click-swallow";
 import { angleDelta, DEGREES_PER_STEP, takeSteps } from "./menu";
 
 type Zone = "menu" | "previous" | "next" | "play" | "center";
@@ -84,7 +85,7 @@ export function ClickWheel({
     travel: number;
     turned: boolean;
   } | null>(null);
-  const swallowClick = useRef(false);
+  const swallow = useClickSwallow();
   const [pressed, setPressed] = useState<Zone | null>(null);
 
   const locate = (event: PointerEvent) => {
@@ -99,8 +100,7 @@ export function ClickWheel({
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    // The wheel turns; it never drags the player around the screen.
-    event.stopPropagation();
+    swallow.disarm();
     if (event.button !== 0) return;
     const zone = (event.target as Element).closest<HTMLElement>("[data-zone]")
       ?.dataset.zone as Zone | undefined;
@@ -141,22 +141,14 @@ export function ClickWheel({
     const current = turn.current;
     turn.current = null;
     setPressed(null);
-    if (!current?.turned) return;
-    swallowClick.current = true;
-    window.setTimeout(() => {
-      swallowClick.current = false;
-    }, 0);
+    // A turn that began on a button does not press it.
+    if (current?.turned) swallow.arm();
   };
 
   return (
     <div
       className="relative size-[164px] touch-none select-none [perspective:420px]"
-      onClickCapture={(event) => {
-        if (!swallowClick.current) return;
-        swallowClick.current = false;
-        event.preventDefault();
-        event.stopPropagation();
-      }}
+      onClickCapture={swallow.onClickCapture}
       onPointerCancel={handlePointerEnd}
       onPointerDown={handlePointerDown}
       onPointerLeave={() => {

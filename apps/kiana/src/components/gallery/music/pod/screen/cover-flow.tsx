@@ -73,7 +73,8 @@ export function CoverFlow({
                 WebkitBoxReflect:
                   "below 1px linear-gradient(transparent 58%, rgb(255 255 255 / 0.3))",
               }}
-              tabIndex={distance > REACH ? -1 : undefined}
+              // For pointers; from the keyboard the wheel drives the display.
+              tabIndex={-1}
               type="button"
             >
               <img

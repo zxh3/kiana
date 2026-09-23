@@ -25,7 +25,7 @@ export const glassFrame = {
 export const BODY_WIDTH = glassFrame.width + BODY_PADDING * 2;
 
 /** The display inside the window. */
-export const displayFrame = {
+const displayFrame = {
   top: glassFrame.top + DISPLAY_INSET,
   left: glassFrame.left + DISPLAY_INSET,
   width: glassFrame.width - DISPLAY_INSET * 2,

@@ -1,12 +1,7 @@
-import {
-  type MouseEvent,
-  type PointerEvent,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { type PointerEvent, useLayoutEffect, useRef, useState } from "react";
 
 import { type Corner, nearestCorner } from "./music-layout";
+import { useClickSwallow } from "./use-click-swallow";
 
 const DRAG_THRESHOLD = 6;
 const SNAP_TRANSITION = "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)";
@@ -34,7 +29,7 @@ export function useCornerDrag<T extends HTMLElement>({
     y: number;
     moved: boolean;
   } | null>(null);
-  const swallowClick = useRef(false);
+  const swallow = useClickSwallow();
   const snapFrom = useRef<DOMRect | null>(null);
   const [snaps, setSnaps] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -60,6 +55,7 @@ export function useCornerDrag<T extends HTMLElement>({
   }, [corner, snaps]);
 
   const onPointerDown = (event: PointerEvent<T>) => {
+    swallow.disarm();
     if (event.button !== 0) return;
     const target = event.target as Element;
     if (handle && !target.closest(handle)) return;
@@ -100,10 +96,7 @@ export function useCornerDrag<T extends HTMLElement>({
     if (!current || !element || current.id !== event.pointerId) return;
     if (!current.moved) return;
     setDragging(false);
-    swallowClick.current = true;
-    window.setTimeout(() => {
-      swallowClick.current = false;
-    }, 0);
+    swallow.arm();
     const rect = element.getBoundingClientRect();
     snapFrom.current = rect;
     if (!cancelled) {
@@ -119,17 +112,10 @@ export function useCornerDrag<T extends HTMLElement>({
     setSnaps((count) => count + 1);
   };
 
-  const onClickCapture = (event: MouseEvent<T>) => {
-    if (!swallowClick.current) return;
-    swallowClick.current = false;
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
   return {
     dragging,
     handlers: {
-      onClickCapture,
+      onClickCapture: swallow.onClickCapture,
       onPointerCancel: (event: PointerEvent<T>) => finish(event, true),
       onPointerDown,
       onPointerMove,

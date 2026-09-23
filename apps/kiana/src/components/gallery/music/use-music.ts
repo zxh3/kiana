@@ -32,7 +32,7 @@ const BLOCKED_AFTER = 2_500;
 const RESTART_AFTER = 3;
 const SHUFFLE_MEMORY = 50;
 
-export function parseVolume(raw: string | null) {
+function parseVolume(raw: string | null) {
   const value = Number(raw);
   return raw !== null && raw !== "" && value >= 0 && value <= 100
     ? Math.round(value)
@@ -40,7 +40,7 @@ export function parseVolume(raw: string | null) {
 }
 
 /** The saved track is stored by video id, so reordering keeps the place. */
-export function parseTrackIndex(raw: string | null) {
+function parseTrackIndex(raw: string | null) {
   const index = playlist.findIndex(({ videoId }) => videoId === raw);
   return index >= 0 ? index : 0;
 }

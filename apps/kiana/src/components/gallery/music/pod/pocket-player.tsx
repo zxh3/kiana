@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useRef } from "react";
+import { type KeyboardEvent, useEffect, useRef } from "react";
 
 import type { Music } from "../use-music";
 import { ClickWheel } from "./click-wheel";
@@ -10,73 +10,79 @@ import { MenuPreview } from "./screen/menu-preview";
 import { NowPlaying } from "./screen/now-playing";
 import { PodList } from "./screen/pod-list";
 import { PodScreen } from "./screen/pod-screen";
-import type { PodSettings } from "./settings";
 import { useBattery } from "./use-battery";
-import { usePod } from "./use-pod";
+import type { Pod } from "./use-pod";
 import { useScrollSteps } from "./use-scroll-steps";
 
 /**
  * The full music player, after the classic pocket players: a colour touch
  * screen with menus, a click wheel that drives them too, a hold switch on
- * top, and a grip at the bottom for moving it. It
- * fills the space the player's body gives it; the YouTube frame sits over
- * the display when the video is on.
+ * top, and a grip at the bottom for moving it. It only draws; what every
+ * control does lives in `usePod`, which the widget owns.
+ *
+ * Keyboard: the wheel's buttons are ordinary buttons (Enter on the centre
+ * chooses, on Menu goes back). With focus anywhere in the player, ↑ and ↓
+ * turn the wheel (← and → too in Cover Flow, whose covers run sideways),
+ * and Escape goes back.
  */
 export function PocketPlayer({
+  covered,
   movable,
   music,
-  onVideoChange,
+  pod,
   progress,
-  settings,
-  videoOn,
 }: {
+  /** The video lies over the display. */
+  covered: boolean;
   /** Whether it can be dragged around the page, by its handle. */
   movable: boolean;
   music: Music;
-  onVideoChange: (on: boolean) => void;
+  pod: Pod;
   progress: { current: number; duration: number };
-  settings: PodSettings;
-  videoOn: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const battery = useBattery();
-  const pod = usePod({ music, onVideoChange, progress, settings, videoOn });
-  const { controls, screen } = pod;
+  const { controls, state } = pod;
+  const { screen } = state;
   useScrollSteps(rootRef, controls.step);
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    pod.wake();
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    event.preventDefault();
-    controls.step(event.key === "ArrowDown" ? 1 : -1);
-  };
+  // Opening the player lights its screen.
+  const { wake } = pod;
+  useEffect(() => wake(), [wake]);
 
-  // A screen reader hears what the wheel lands on as it turns.
-  const announcement = (() => {
-    if (screen === "now") {
-      return `${screenTitles.now}: ${music.track.title}, ${music.track.artist}`;
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      controls.back();
+      return;
     }
-    if (screen === "covers") {
-      const track = music.playlist[pod.selected.covers];
-      return `${track.title}, ${track.artist}`;
-    }
-    const row = pod.rows[screen][pod.selected[screen]];
-    return row.detail ? `${row.label}, ${row.detail}` : row.label;
-  })();
+    const sideways = screen === "covers";
+    const steps: Record<string, number | undefined> = {
+      ArrowDown: 1,
+      ArrowUp: -1,
+      ArrowRight: sideways ? 1 : undefined,
+      ArrowLeft: sideways ? -1 : undefined,
+    };
+    const step = steps[event.key];
+    if (step === undefined) return;
+    // Handled here, so the gallery's own arrow keys leave it alone.
+    event.preventDefault();
+    controls.step(step);
+  };
 
   const renderScreen = () => {
     if (screen === "now") {
       return (
         <NowPlaying
           count={music.playlist.length}
-          current={pod.scrubAt ?? progress.current}
+          current={state.scrubAt ?? progress.current}
           duration={progress.duration}
           index={music.index}
           loading={music.status === "loading"}
           mode={music.mode}
-          onSeek={controls.seekTo}
-          onVolume={controls.setVolumeTo}
-          overlay={pod.overlay}
+          onSeek={controls.scrubTo}
+          onVolume={controls.volumeTo}
+          overlay={state.overlay}
           track={music.track}
           volume={music.volume}
         />
@@ -88,7 +94,7 @@ export function PocketPlayer({
           current={music.index}
           onPick={(index) => controls.pick("covers", index)}
           onStep={controls.step}
-          selected={pod.selected.covers}
+          selected={state.selected.covers}
           tracks={music.playlist}
         />
       );
@@ -99,7 +105,7 @@ export function PocketPlayer({
         onHover={(index) => controls.hover(screen, index)}
         onPick={(index) => controls.pick(screen, index)}
         rows={pod.rows[screen]}
-        selected={pod.selected[screen]}
+        selected={state.selected[screen]}
       />
     );
     if (screen !== "menu") return list;
@@ -114,22 +120,24 @@ export function PocketPlayer({
   };
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: arrow keys turn the wheel for whichever control inside has focus
+    // biome-ignore lint/a11y/noStaticElementInteractions: arrow keys turn the wheel for whichever part of the player has focus
     <div
       className="relative flex flex-col items-center"
       onKeyDown={handleKeyDown}
       onPointerDownCapture={pod.wake}
       ref={rootRef}
     >
-      <HoldSwitch held={pod.held} onToggle={pod.toggleHold} />
+      <HoldSwitch held={state.held} onToggle={controls.toggleHold} />
       <PodScreen
-        announcement={announcement}
         battery={battery}
-        direction={pod.direction}
-        held={pod.held}
+        covered={covered}
+        description={pod.description}
+        direction={state.direction}
+        held={state.held}
         lit={pod.lit}
-        lockShown={pod.lockShown}
+        lockShown={state.lockShown}
         onBack={pod.canGoBack ? controls.back : undefined}
+        onWake={pod.wake}
         screen={screen}
         state={
           music.status === "playing"

@@ -65,8 +65,9 @@ Mediaforge release manifest and displays the responsive images described by it.
   youtube-nocookie.com, because a YouTube sign-in in the same browser is what
   clears YouTube's "confirm you're not a bot" check. The code lives in
   `src/components/gallery/music`: playback in `use-music.ts`, the playlist in
-  `music-track.ts`, the widget in `music-player.tsx`, and the device in `pod/`
-  (its rules in `menu.ts` and `use-pod.ts`, its screens in `pod/screen`).
+  `music-track.ts`, the widget in `music-player.tsx`, and the device in
+  `pod/`: its behaviour as a pure, tested state machine in `machine.ts`, run
+  by `use-pod.ts`, and its screens in `pod/screen`.
 - **Interface sounds.** Soft clicks, ticks, and chimes answer the controls.
   They are on by default and can be turned off with the switch in the
   slideshow settings; once the sound button is pressed, turning sound off

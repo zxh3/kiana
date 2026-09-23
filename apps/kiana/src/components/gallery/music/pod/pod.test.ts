@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { nextFinish, parseFinish } from "./finishes";
 import { formatPodTime } from "./format";
+import { initialPodState } from "./machine";
 import {
   angleDelta,
   menuItems,
@@ -10,9 +11,10 @@ import {
   scrollWindow,
   takeSteps,
 } from "./menu";
+import { describePod, type PodView, podRows } from "./rows";
 import { parseBacklight, parseClicker } from "./settings";
 
-describe("pocket player", () => {
+describe("pocket player rules", () => {
   it("measures wheel turns the short way round", () => {
     expect(angleDelta(10, 40)).toBe(30);
     expect(angleDelta(40, 10)).toBe(-30);
@@ -63,5 +65,44 @@ describe("pocket player", () => {
     expect(parseBacklight(null)).toBe("timed");
     expect(parseClicker(null)).toBe(true);
     expect(parseClicker("false")).toBe(false);
+  });
+
+  it("describes the screen for a screen reader", () => {
+    const view: PodView = {
+      playlist: [
+        { videoId: "a", title: "One", artist: "First" },
+        { videoId: "b", title: "Two", artist: "Second" },
+      ],
+      index: 1,
+      mode: "all",
+      backlight: "timed",
+      clicker: true,
+      finish: "silver",
+      videoOpen: false,
+      volume: 42,
+      current: 65,
+      duration: 200,
+    };
+    const rows = podRows(view);
+    const state = initialPodState(1);
+    expect(describePod(state, rows, view)).toBe("Now Playing: Two, Second");
+    expect(describePod({ ...state, overlay: "volume" }, rows, view)).toBe(
+      "Volume 42%",
+    );
+    expect(describePod({ ...state, overlay: "scrub" }, rows, view)).toBe(
+      "Position 1:05 of 3:20",
+    );
+    expect(
+      describePod(
+        {
+          ...state,
+          screen: "settings",
+          selected: { ...state.selected, settings: 2 },
+        },
+        rows,
+        view,
+      ),
+    ).toBe("Clicker, On");
+    expect(rows.songs[1].current).toBe(true);
   });
 });

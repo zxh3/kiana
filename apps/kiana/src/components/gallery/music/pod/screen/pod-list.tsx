@@ -1,7 +1,8 @@
-import { useRef } from "react";
+import { useState } from "react";
 
 import { cx } from "../../../../../lib/class-names";
 import { scrollWindow, VISIBLE_ROWS } from "../menu";
+import type { PodRow } from "../rows";
 import { SpeakerGlyph } from "./glyphs";
 
 const ROW_HEIGHT = 19;
@@ -9,18 +10,6 @@ const ROW_HEIGHT = 19;
 /** The glossy two-tone highlight of the selected row. */
 const highlight =
   "bg-[linear-gradient(180deg,#72b3f9_0%,#4390ee_48%,#2d7ae3_52%,#3584ea_100%)] text-white [text-shadow:0_-1px_0_rgb(0_0_0/.18)]";
-
-export type PodRow = {
-  key: string;
-  label: string;
-  /** A setting's current value, written on the right. */
-  detail?: string;
-  /** Opens another screen. */
-  opens?: boolean;
-  /** The song that is playing. */
-  current?: boolean;
-  lang?: string;
-};
 
 /**
  * A menu list. The wheel moves the highlight and the centre button picks
@@ -40,10 +29,11 @@ export function PodList({
   rows: ReadonlyArray<PodRow>;
   selected: number;
 }) {
-  // The window scrolls only when the highlight would leave it; recomputing
-  // it from the last window during render keeps it in step with the wheel.
-  const first = useRef(0);
-  first.current = scrollWindow(first.current, selected, rows.length);
+  // The window scrolls only when the highlight would leave it, so it is
+  // worked out from the last window, adjusting state during render.
+  const [first, setFirst] = useState(0);
+  const start = scrollWindow(first, selected, rows.length);
+  if (start !== first) setFirst(start);
   const scrolls = rows.length > VISIBLE_ROWS;
 
   return (
@@ -51,7 +41,7 @@ export function PodList({
       <ol
         aria-label={label}
         className="transition-transform duration-100 ease-out motion-reduce:transition-none"
-        style={{ transform: `translateY(${-first.current * ROW_HEIGHT}px)` }}
+        style={{ transform: `translateY(${-start * ROW_HEIGHT}px)` }}
       >
         {rows.map((row, index) => {
           const active = index === selected;
@@ -65,11 +55,12 @@ export function PodList({
                   active ? highlight : "text-[#141414]",
                 )}
                 onClick={() => onPick(index)}
-                onFocus={() => onHover(index)}
                 onPointerMove={(event) => {
                   if (event.pointerType === "mouse" && !active) onHover(index);
                 }}
                 style={{ height: ROW_HEIGHT }}
+                // For pointers; from the keyboard the wheel drives the display.
+                tabIndex={-1}
                 type="button"
               >
                 <span
@@ -114,7 +105,7 @@ export function PodList({
           <div
             className="absolute inset-x-[1px] rounded-[2px] bg-[linear-gradient(90deg,#7fb6f5,#3584ea)]"
             style={{
-              top: `${(first.current / rows.length) * 100}%`,
+              top: `${(start / rows.length) * 100}%`,
               height: `${(VISIBLE_ROWS / rows.length) * 100}%`,
             }}
           />

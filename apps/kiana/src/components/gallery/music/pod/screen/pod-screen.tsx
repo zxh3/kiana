@@ -1,8 +1,14 @@
-import { AnimatePresence, motion, type Variants } from "motion/react";
-import type { ReactNode } from "react";
+import {
+  AnimatePresence,
+  motion,
+  useIsPresent,
+  type Variants,
+} from "motion/react";
+import type { PointerEvent, ReactNode } from "react";
 
 import { cx } from "../../../../../lib/class-names";
 import { easeSoft, fades } from "../../../../../lib/motion";
+import { useClickSwallow } from "../../use-click-swallow";
 import { DISPLAY_INSET, glassFrame } from "../geometry";
 import { type Screen, screenTitles } from "../menu";
 import type { BatteryState } from "../use-battery";
@@ -16,37 +22,70 @@ const slide: Variants = {
   exit: (direction: number) => ({ x: `${direction * -100}%` }),
 };
 
+/** A screen on its way out keeps drawing but takes no more taps or focus. */
+function Pane({ children }: { children: ReactNode }) {
+  const present = useIsPresent();
+  return (
+    <div
+      className={cx("absolute inset-0", !present && "pointer-events-none")}
+      inert={!present}
+    >
+      {children}
+    </div>
+  );
+}
+
 /**
  * The glass window and the colour display set inside it, a touch screen
  * that answers taps as well as the click wheel. Inside: the status bar,
  * the current screen sliding in and out, the padlock that answers a touch
  * while the hold switch is on, and the backlight dimming when idle.
+ *
+ * Its rows and covers are for pointers; from the keyboard the wheel's
+ * buttons drive it, and a live region reads out what the wheel lands on.
+ * A touch on a dimmed display only wakes it, as on a real device, so a tap
+ * meant to light it never also jumps the song.
  */
 export function PodScreen({
-  announcement,
   battery,
   children,
+  covered,
+  description,
   direction,
   held,
   lit,
   lockShown,
   onBack,
+  onWake,
   screen,
   state,
 }: {
-  /** What the highlight is on, read out as the wheel moves. */
-  announcement: string;
   battery: BatteryState | null;
   children: ReactNode;
+  /** The video lies over the display, so it takes no focus or taps. */
+  covered: boolean;
+  /** What the display shows, in words, read out as it changes. */
+  description: string;
   direction: 1 | -1;
   held: boolean;
   lit: boolean;
   lockShown: boolean;
   /** Set when there is somewhere to go back to. */
   onBack?: () => void;
+  onWake: () => void;
   screen: Screen;
   state: PlayState;
 }) {
+  const swallow = useClickSwallow();
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    swallow.disarm();
+    if (lit) return;
+    event.stopPropagation();
+    swallow.arm();
+    onWake();
+  };
+
   return (
     <div
       className="rounded-[9px] bg-[#0a0a0b] shadow-[0_0_0_1px_rgb(0_0_0/.28),inset_0_0_0_1px_rgb(255_255_255/.05)]"
@@ -56,9 +95,14 @@ export function PodScreen({
         height: glassFrame.height,
       }}
     >
-      <div className="relative flex h-full flex-col overflow-hidden rounded-[2px] bg-white font-pod select-none">
+      <div
+        className="relative flex h-full flex-col overflow-hidden rounded-[2px] bg-white font-pod select-none"
+        inert={covered}
+        onClickCapture={swallow.onClickCapture}
+        onPointerDownCapture={handlePointerDown}
+      >
         <p aria-live="polite" className="sr-only">
-          {announcement}
+          {description}
         </p>
         <StatusBar
           battery={battery}
@@ -79,7 +123,7 @@ export function PodScreen({
               transition={{ duration: 0.26, ease: easeSoft }}
               variants={slide}
             >
-              {children}
+              <Pane>{children}</Pane>
             </motion.div>
           </AnimatePresence>
           <AnimatePresence>
@@ -102,7 +146,7 @@ export function PodScreen({
           aria-hidden="true"
           className={cx(
             "pointer-events-none absolute inset-0 bg-black transition-opacity ease-out",
-            lit ? "opacity-0 duration-150" : "opacity-45 duration-[1200ms]",
+            lit ? "opacity-0 duration-150" : "opacity-40 duration-[1200ms]",
           )}
         />
       </div>

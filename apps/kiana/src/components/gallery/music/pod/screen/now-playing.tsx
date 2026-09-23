@@ -11,8 +11,7 @@ import { Marquee } from "../../marquee";
 import type { PlayMode } from "../../music-queue";
 import { type Track, trackArt } from "../../music-track";
 import { formatPodTime } from "../format";
-
-export type NowOverlay = "volume" | "scrub" | null;
+import type { Overlay } from "../machine";
 
 /**
  * A bar the touch screen can set: press or drag along it, and `onChange`
@@ -111,8 +110,8 @@ export function NowPlaying({
   loading: boolean;
   mode: PlayMode;
   onSeek: (fraction: number, done: boolean) => void;
-  onVolume: (fraction: number) => void;
-  overlay: NowOverlay;
+  onVolume: (fraction: number, done: boolean) => void;
+  overlay: Overlay | null;
   track: Track;
   volume: number;
 }) {
@@ -166,7 +165,7 @@ export function NowPlaying({
           <div className="flex items-center gap-1.5 pb-1 text-[#777]">
             <SoundOffIcon size={13} />
             <div className="flex-1">
-              <TouchBar onChange={(fraction) => onVolume(fraction)}>
+              <TouchBar onChange={onVolume}>
                 <Bar percent={volume} />
               </TouchBar>
             </div>

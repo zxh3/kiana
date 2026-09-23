@@ -1,335 +1,217 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cue } from "../../../../lib/sounds";
-import { playModeLabels } from "../music-queue";
 import { trackUrl } from "../music-track";
 import type { Music } from "../use-music";
-import { finishLabels, nextFinish } from "./finishes";
+import { nextFinish } from "./finishes";
 import {
-  type ChoiceScreen,
-  clamp,
-  type ListScreen,
-  menuItems,
-  menuLabels,
-  menuOpens,
-  moveSelection,
-  parentScreen,
-  type Screen,
-  settingsItems,
-  settingsLabels,
-} from "./menu";
-import type { NowOverlay } from "./screen/now-playing";
-import type { PodRow } from "./screen/pod-list";
-import {
-  BACKLIGHT_TIMEOUT,
-  backlightLabels,
-  type PodSettings,
-} from "./settings";
+  initialPodState,
+  LOCK_SHOWS_FOR,
+  overlayDurations,
+  type PodAction,
+  type PodContext,
+  type PodEffect,
+  podReducer,
+  SEEK_SETTLE,
+} from "./machine";
+import { type ChoiceScreen, parentScreen, type SettingsItem } from "./menu";
+import { describePod, type PodView, podRows } from "./rows";
+import { BACKLIGHT_TIMEOUT, type PodSettings } from "./settings";
 import { useBacklight } from "./use-backlight";
 
-const VOLUME_STEP = 3;
-const SCRUB_STEP = 3;
-const VOLUME_SHOWS_FOR = 1_600;
-const SCRUBBER_SHOWS_FOR = 3_500;
-const LOCK_SHOWS_FOR = 1_100;
-const SEEK_AFTER = 250;
-
-type Progress = { current: number; duration: number };
-
 /**
- * Everything the pocket player does, apart from how it looks: which screen
- * is showing, what the wheel and the touch screen do there, the hold
- * switch, and the backlight. The components only draw what this returns.
+ * Runs the pocket player's state machine (`machine.ts`) against the real
+ * music and settings: each action is applied to the latest state at once,
+ * its effects carried out, and its timers kept. Lives in the widget, above
+ * the switch between the full and the small player, so minimizing keeps
+ * the screen, the highlight, and the hold switch where they were.
  */
 export function usePod({
   music,
   onVideoChange,
   progress,
   settings,
-  videoOn,
+  videoCovers,
+  videoOpen,
 }: {
   music: Music;
   onVideoChange: (on: boolean) => void;
-  progress: Progress;
+  progress: { current: number; duration: number };
   settings: PodSettings;
-  videoOn: boolean;
+  /** The video covers the display (turned on, or YouTube needs a tap). */
+  videoCovers: boolean;
+  /** The viewer turned the video on. */
+  videoOpen: boolean;
 }) {
-  const [screen, setScreen] = useState<Screen>("now");
-  const [direction, setDirection] = useState<1 | -1>(1);
-  const [selected, setSelected] = useState<Record<ChoiceScreen, number>>({
-    menu: 0,
-    covers: music.index,
-    songs: music.index,
-    settings: 0,
-  });
-  const [overlay, setOverlay] = useState<NowOverlay>(null);
-  const [scrubAt, setScrubAt] = useState<number | null>(null);
-  const [held, setHeld] = useState(false);
-  const [lockShown, setLockShown] = useState(false);
+  const [state, setState] = useState(() => initialPodState(music.index));
+  const stateRef = useRef(state);
   const backlight = useBacklight(
-    settings.backlight === "timed" && !videoOn ? BACKLIGHT_TIMEOUT : null,
-  );
-  const overlayTimer = useRef<number>(undefined);
-  const seekTimer = useRef<number>(undefined);
-  const lockTimer = useRef<number>(undefined);
-
-  // When the song changes (the wheel's ⏮ ⏭, a song ending, shuffle), the
-  // song lists follow it, so Cover Flow's middle cover is what is playing.
-  useEffect(() => {
-    setSelected((previous) => ({
-      ...previous,
-      covers: music.index,
-      songs: music.index,
-    }));
-  }, [music.index]);
-
-  useEffect(
-    () => () => {
-      window.clearTimeout(overlayTimer.current);
-      window.clearTimeout(seekTimer.current);
-      window.clearTimeout(lockTimer.current);
-    },
-    [],
+    settings.backlight === "timed" && !videoCovers ? BACKLIGHT_TIMEOUT : null,
   );
 
-  const rows: Record<ListScreen, PodRow[]> = {
-    menu: menuItems.map((item) => ({
-      key: item,
-      label: menuLabels[item],
-      opens: menuOpens[item],
-    })),
-    songs: music.playlist.map((song, position) => ({
-      key: song.videoId,
-      label: song.title,
-      current: position === music.index,
-      lang: "zh",
-    })),
-    settings: settingsItems.map((item) => ({
-      key: item,
-      label: settingsLabels[item],
-      detail: {
-        mode: playModeLabels[music.mode],
-        backlight: backlightLabels[settings.backlight],
-        clicker: settings.clicker ? "On" : "Off",
-        video: videoOn ? "On" : "Off",
-        finish: finishLabels[settings.finish],
-        youtube: undefined,
-      }[item],
-      opens: item === "youtube",
-    })),
-  };
-  const choiceCount = (on: ChoiceScreen) =>
-    on === "covers" ? music.playlist.length : rows[on].length;
-
-  /** The wheel's own tick, unless the clicker is off. */
-  const click = () => {
-    if (settings.clicker) cue("wheel");
+  // The latest facts, read by actions between renders. The volume is also
+  // updated the moment the machine sets it, so fast turns build on it.
+  const context = useRef<PodContext>(null as unknown as PodContext);
+  context.current = {
+    count: music.playlist.length,
+    index: music.index,
+    volume: music.volume,
+    current: progress.current,
+    duration: progress.duration,
+    clicker: settings.clicker,
+    videoOpen,
+    videoCovers,
   };
 
-  const choose = (on: ChoiceScreen, index: number) =>
-    setSelected((previous) => ({ ...previous, [on]: index }));
-
-  const go = (to: Screen, towards: 1 | -1) => {
-    window.clearTimeout(overlayTimer.current);
-    setOverlay(null);
-    setScrubAt(null);
-    setDirection(towards);
-    setScreen(to);
-  };
-
-  const showOverlay = (kind: Exclude<NowOverlay, null>, duration: number) => {
-    setOverlay(kind);
-    window.clearTimeout(overlayTimer.current);
-    overlayTimer.current = window.setTimeout(() => {
-      setOverlay(null);
-      setScrubAt(null);
-    }, duration);
-  };
-
-  /** With the hold switch on, controls only show the padlock. */
-  const unlessHeld =
-    <Args extends unknown[]>(action: (...args: Args) => void) =>
-    (...args: Args) => {
-      backlight.wake();
-      if (!held) {
-        action(...args);
-        return;
-      }
-      setLockShown(true);
-      window.clearTimeout(lockTimer.current);
-      lockTimer.current = window.setTimeout(
-        () => setLockShown(false),
-        LOCK_SHOWS_FOR,
-      );
-    };
-
-  const playSong = (index: number) => {
-    music.playTrack(index);
-    go("now", 1);
-  };
-
-  const activate = (on: ChoiceScreen, index: number) => {
-    cue("select");
-    choose(on, index);
-    if (on === "songs" || on === "covers") {
-      playSong(index);
-      return;
-    }
-    if (on === "menu") {
-      const item = menuItems[index];
-      if (item === "covers" || item === "songs") {
-        choose(item, music.index);
-        go(item, 1);
-      } else if (item === "shuffle") {
-        music.setMode("shuffle");
-        music.next();
-        go("now", 1);
-      } else go(item, 1);
-      return;
-    }
-    const item = settingsItems[index];
+  const applySetting = (item: SettingsItem) => {
     if (item === "mode") music.cycleMode();
     else if (item === "backlight") {
       settings.setBacklight(
         settings.backlight === "timed" ? "always" : "timed",
       );
     } else if (item === "clicker") settings.setClicker(!settings.clicker);
-    else if (item === "video") onVideoChange(!videoOn);
+    else if (item === "video") onVideoChange(!videoOpen);
     else if (item === "finish") settings.setFinish(nextFinish(settings.finish));
     else window.open(trackUrl(music.track), "_blank", "noopener,noreferrer");
   };
 
-  const turnVolume = (steps: number) => {
-    const volume = clamp(music.volume + steps * VOLUME_STEP, 0, 100);
-    if (volume !== music.volume) {
-      click();
-      music.setVolume(volume);
+  const run = (effect: PodEffect) => {
+    switch (effect.type) {
+      case "cue":
+        cue(effect.cue);
+        break;
+      case "play":
+        music.playTrack(effect.index);
+        break;
+      case "next":
+        music.next();
+        break;
+      case "previous":
+        music.previous();
+        break;
+      case "toggle":
+        music.toggle();
+        break;
+      case "shuffle":
+        music.setMode("shuffle");
+        music.next();
+        break;
+      case "volume":
+        context.current.volume = effect.volume;
+        music.setVolume(effect.volume);
+        break;
+      case "seek":
+        music.seek(effect.seconds);
+        break;
+      case "setting":
+        applySetting(effect.item);
+        break;
+      case "closeVideo":
+        onVideoChange(false);
+        break;
     }
-    showOverlay("volume", VOLUME_SHOWS_FOR);
   };
+  const runRef = useRef(run);
+  runRef.current = run;
 
-  const turnScrubber = (steps: number) => {
-    if (progress.duration <= 0) return;
-    const target = clamp(
-      (scrubAt ?? progress.current) + steps * SCRUB_STEP,
-      0,
-      progress.duration - 1,
+  const dispatch = useCallback((action: PodAction) => {
+    const result = podReducer(stateRef.current, action, context.current);
+    stateRef.current = result.state;
+    setState(result.state);
+    for (const effect of result.effects) runRef.current(effect);
+  }, []);
+
+  // The clock: the overlay fades, the wheel's scrubber lands, the padlock
+  // goes, and the song lists follow the song that is playing.
+  useEffect(() => {
+    if (!state.overlay || state.touching) return;
+    const stamp = state.overlayStamp;
+    const timer = window.setTimeout(
+      () => dispatch({ type: "overlayExpired", stamp }),
+      overlayDurations[state.overlay],
     );
-    click();
-    setScrubAt(target);
-    window.clearTimeout(seekTimer.current);
-    seekTimer.current = window.setTimeout(() => music.seek(target), SEEK_AFTER);
-    showOverlay("scrub", SCRUBBER_SHOWS_FOR);
-  };
+    return () => window.clearTimeout(timer);
+  }, [dispatch, state.overlay, state.overlayStamp, state.touching]);
 
-  const step = (steps: number) => {
-    if (screen === "now") {
-      if (overlay === "scrub") turnScrubber(steps);
-      else turnVolume(steps);
-      return;
-    }
-    const next = moveSelection(selected[screen], steps, choiceCount(screen));
-    if (next === selected[screen]) return;
-    click();
-    choose(screen, next);
-  };
+  useEffect(() => {
+    if (!state.seekPending || state.scrubAt === null) return;
+    const timer = window.setTimeout(
+      () => dispatch({ type: "commitSeek" }),
+      SEEK_SETTLE,
+    );
+    return () => window.clearTimeout(timer);
+  }, [dispatch, state.seekPending, state.scrubAt]);
 
-  const select = () => {
-    if (screen !== "now") {
-      activate(screen, selected[screen]);
-      return;
-    }
-    cue("press");
-    if (overlay === "scrub") {
-      window.clearTimeout(overlayTimer.current);
-      setOverlay(null);
-      setScrubAt(null);
-    } else {
-      setScrubAt(null);
-      showOverlay("scrub", SCRUBBER_SHOWS_FOR);
-    }
-  };
+  useEffect(() => {
+    if (!state.lockShown) return;
+    const stamp = state.lockStamp;
+    const timer = window.setTimeout(
+      () => dispatch({ type: "lockExpired", stamp }),
+      LOCK_SHOWS_FOR,
+    );
+    return () => window.clearTimeout(timer);
+  }, [dispatch, state.lockShown, state.lockStamp]);
 
-  const back = () => {
-    cue("press");
-    if (videoOn) {
-      onVideoChange(false);
-      return;
-    }
-    const parent = parentScreen[screen];
-    if (parent) go(parent, -1);
-  };
+  useEffect(() => {
+    dispatch({ type: "trackChanged", index: music.index });
+  }, [dispatch, music.index]);
 
-  /** A tap on the screen: a row opens, a side cover comes to the middle. */
-  const pick = (on: ChoiceScreen, index: number) => {
-    if (on === "covers" && index !== selected.covers) {
-      click();
-      choose("covers", index);
-      return;
-    }
-    activate(on, index);
+  const view: PodView = {
+    playlist: music.playlist,
+    index: music.index,
+    mode: music.mode,
+    backlight: settings.backlight,
+    clicker: settings.clicker,
+    finish: settings.finish,
+    videoOpen,
+    volume: music.volume,
+    current: progress.current,
+    duration: progress.duration,
   };
+  const rows = podRows(view);
 
-  /** Dragging along the progress bar; the song jumps when it is let go. */
-  const seekTo = (fraction: number, done: boolean) => {
-    if (progress.duration <= 0) return;
-    const target = clamp(fraction, 0, 1) * (progress.duration - 1);
-    setScrubAt(target);
-    showOverlay("scrub", SCRUBBER_SHOWS_FOR);
-    window.clearTimeout(seekTimer.current);
-    if (done) music.seek(target);
-  };
-
-  const setVolumeTo = (fraction: number) => {
-    music.setVolume(Math.round(clamp(fraction, 0, 1) * 100));
-    showOverlay("volume", VOLUME_SHOWS_FOR);
-  };
-
-  const toggleHold = () => {
-    backlight.wake();
-    cue(held ? "switchOff" : "switchOn");
-    setHeld(!held);
-    if (held) setLockShown(false);
-  };
+  /** A control the viewer touched: it lights the screen, then acts. */
+  const touch =
+    <Args extends unknown[]>(toAction: (...args: Args) => PodAction) =>
+    (...args: Args) => {
+      backlight.wake();
+      dispatch(toAction(...args));
+    };
 
   return {
-    held,
-    lit: backlight.lit,
-    lockShown,
+    state,
     rows,
-    screen,
-    direction,
-    selected,
-    overlay,
-    scrubAt,
-    /** Whether Menu, or a tap on the title bar, has somewhere to go back. */
-    canGoBack: videoOn || parentScreen[screen] !== null,
+    description: describePod(state, rows, view),
+    lit: backlight.lit,
     /** Counts as a touch, for the backlight. */
     wake: backlight.wake,
-    toggleHold,
+    canGoBack:
+      videoOpen || (!videoCovers && parentScreen[state.screen] !== null),
     controls: {
-      back: unlessHeld(back),
-      /** With a mouse, the highlight follows the pointer, silently. */
-      hover: (on: ChoiceScreen, index: number) => {
-        if (!held) choose(on, index);
-      },
-      pick: unlessHeld(pick),
-      seekTo: unlessHeld(seekTo),
-      setVolumeTo: unlessHeld(setVolumeTo),
-      next: unlessHeld(() => {
-        cue("songNext");
-        music.next();
-      }),
-      playPause: unlessHeld(() => {
-        cue("press");
-        music.toggle();
-      }),
-      previous: unlessHeld(() => {
-        cue("songPrevious");
-        music.previous();
-      }),
-      select: unlessHeld(select),
-      step: unlessHeld(step),
+      step: touch((steps: number) => ({ type: "step", steps })),
+      select: touch(() => ({ type: "select" })),
+      back: touch(() => ({ type: "back" })),
+      next: touch(() => ({ type: "next" })),
+      previous: touch(() => ({ type: "previous" })),
+      playPause: touch(() => ({ type: "playPause" })),
+      pick: touch((screen: ChoiceScreen, index: number) => ({
+        type: "pick",
+        screen,
+        index,
+      })),
+      hover: (screen: ChoiceScreen, index: number) =>
+        dispatch({ type: "hover", screen, index }),
+      scrubTo: touch((fraction: number, done: boolean) => ({
+        type: "scrubTo",
+        fraction,
+        done,
+      })),
+      volumeTo: touch((fraction: number, done: boolean) => ({
+        type: "volumeTo",
+        fraction,
+        done,
+      })),
+      toggleHold: touch(() => ({ type: "toggleHold" })),
     },
   };
 }

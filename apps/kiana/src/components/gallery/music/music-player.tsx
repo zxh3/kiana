@@ -5,7 +5,12 @@ import { cx } from "../../../lib/class-names";
 import { fades, springs } from "../../../lib/motion";
 import { MusicNoteIcon } from "../icons";
 import { useStoredState } from "../use-stored-state";
-import { type Corner, parseCorner, parsePlayerSize } from "./music-layout";
+import {
+  type Corner,
+  PHONE_QUERY,
+  parseCorner,
+  parsePlayerSize,
+} from "./music-layout";
 import { MusicNotice } from "./music-notice";
 import { DRAG_HANDLE } from "./pod/drag-handle";
 import { finishStyles } from "./pod/finishes";
@@ -19,6 +24,7 @@ import {
 import { NanoPlayer } from "./pod/nano-player";
 import { PocketPlayer } from "./pod/pocket-player";
 import { usePodSettings } from "./pod/settings";
+import { usePod } from "./pod/use-pod";
 import { useCornerDrag } from "./use-corner-drag";
 import { useMediaQuery } from "./use-media-query";
 import type { Music } from "./use-music";
@@ -27,7 +33,6 @@ import { WidgetActions } from "./widget-actions";
 
 const SIZE_KEY = "kiana.music-size";
 const CORNER_KEY = "kiana.music-corner";
-const PHONE_QUERY = "(max-width: 639px)";
 const NANO_RADIUS = 17;
 
 /**
@@ -106,6 +111,16 @@ export function MusicPlayer({
     music.readProgress,
     idle ? null : mini ? 1_000 : 250,
   );
+  // Owned here, above the switch between sizes, so minimizing keeps the
+  // device's screen, highlight, and hold switch where they were.
+  const pod = usePod({
+    music,
+    onVideoChange: setVideoOpen,
+    progress,
+    settings,
+    videoCovers: showVideo,
+    videoOpen,
+  });
 
   return (
     <AnimatePresence>
@@ -167,12 +182,11 @@ export function MusicPlayer({
               ) : (
                 <motion.div key="pocket" {...faceMotion}>
                   <PocketPlayer
+                    covered={showVideo}
                     movable={!docked}
                     music={music}
-                    onVideoChange={setVideoOpen}
+                    pod={pod}
                     progress={progress}
-                    settings={settings}
-                    videoOn={videoOpen}
                   />
                 </motion.div>
               )}

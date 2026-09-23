@@ -7,7 +7,7 @@ export const corners = [
 export type Corner = (typeof corners)[number];
 export type PlayerSize = "mini" | "full";
 
-const PHONE_QUERY = "(max-width: 639px)";
+export const PHONE_QUERY = "(max-width: 639px)";
 
 function onPhone() {
   return (
