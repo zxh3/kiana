@@ -4,12 +4,7 @@
     {
       "name": "kiana",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev",
-        "-w",
-        "apps/kiana"
-      ],
+      "runtimeArgs": ["run", "dev", "-w", "apps/kiana"],
       "port": 3000,
       "autoPort": false
     }
