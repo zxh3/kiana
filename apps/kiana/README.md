@@ -164,10 +164,12 @@ room's WebSocket in front of TanStack Start and exports the Durable Object
 class. After changing `wrangler.jsonc`, run `npm run cf-typegen` to
 regenerate `worker-configuration.d.ts`.
 
-Deploying applies the `migrations` in `wrangler.jsonc`, and every branch push
-deploys, so a pushed branch that renames or deletes the `ChatRoom` class
-changes production's Durable Objects before it is merged. Adding a class is
-harmless; renaming or deleting one moves or wipes its stored messages.
+A change to the `migrations` in `wrangler.jsonc` (a new, renamed, or deleted
+Durable Object class) can only ship from `main`. Workers Builds uploads a
+branch as a version, and Cloudflare refuses a version that includes a
+migration (error 10211), so that branch's build fails until it is merged;
+`main` runs `wrangler deploy`, which applies it. Renaming or deleting a class
+moves or wipes its stored messages.
 
 ## Cloudflare R2 media
 
