@@ -67,9 +67,11 @@ Mediaforge release manifest and displays the responsive images described by it.
   clicker off stops the wheel's taps too. Safari on iOS has no Vibration API,
   but taps when a native switch control is toggled by a touch, so each of the
   player's buttons, rows, and covers carries an invisible label for a hidden
-  switch (`HapticTap`, after the ios-haptics library). iPhones therefore feel
-  presses and taps but not a turning wheel, which is no touch Safari can
-  forward. A tap on the cover on Now
+  switch (`HapticTap`, after the ios-haptics library). The wheel's ring is
+  covered by an invisible switch of its own, which keeps its middle just
+  beside the finger and moves it across on each click; Safari reads that as
+  the finger sliding the switch and taps, so iPhones feel the wheel's clicks
+  too. A tap on the ring presses the button in that quarter of it. A tap on the cover on Now
   Playing plays the song's video on the screen, under the title bar, which
   goes back like Menu. Minimize and close are two small dimples in the
   aluminium above the screen, opposite the hold switch, faint until the

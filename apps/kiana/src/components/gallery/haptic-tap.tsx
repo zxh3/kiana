@@ -5,8 +5,13 @@ import { isIosDevice } from "../../lib/haptics";
 const subscribe = () => () => undefined;
 const onIos = () => isIosDevice(navigator);
 
+/** Whether this is an iPhone or iPad; false until hydration. */
+export function useOnIos() {
+  return useSyncExternalStore(subscribe, onIos, () => false);
+}
+
 /** The switch's `switch` attribute, which React's input types do not know. */
-const switchAttribute = { switch: "" } as Record<string, string>;
+export const switchAttribute = { switch: "" } as Record<string, string>;
 
 /**
  * Makes a tap on its parent button felt on iPhones. It lays an invisible
@@ -19,7 +24,7 @@ const switchAttribute = { switch: "" } as Record<string, string>;
  * parent must be positioned.
  */
 export function HapticTap() {
-  const ios = useSyncExternalStore(subscribe, onIos, () => false);
+  const ios = useOnIos();
   if (!ios) return null;
   return (
     <label

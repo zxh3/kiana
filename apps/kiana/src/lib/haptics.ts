@@ -7,8 +7,15 @@
  * had it. Instead it taps when its native switch control
  * (`<input type="checkbox" switch>`, Safari 17.4) is toggled by a real
  * touch; toggling one from script stopped tapping in iOS 26.5. So on
- * iPhones a tap can only answer a tap: `HapticTap` puts an invisible label
- * for a hidden switch over a button, and the finger's own touch toggles it.
+ * iPhones a tap has to come from a finger on a switch:
+ *
+ * - For a press, `HapticTap` puts an invisible label for a hidden switch
+ *   over a button, and the finger's own tap toggles it.
+ * - For a drag, a switch under the finger can be moved so that its middle
+ *   crosses the finger, which flips it as if the finger had slid its knob.
+ *   The click wheel does this, and lends `tap()` the crossing with
+ *   `setTouchSwitch` while a finger is on it.
+ *
  * Both are undocumented or best-effort, and silently do nothing elsewhere.
  */
 
@@ -38,19 +45,36 @@ export function isIosDevice({
 }
 
 let lastTap: number | null = null;
+let crossSwitch: (() => void) | null = null;
 
 /**
- * Taps once where the Vibration API exists (Android). Call it from a handler
- * for something the viewer did, like `cue()`; browsers ignore vibration
- * without a gesture.
+ * Lends `tap()` a way to tap on iPhones while a finger drags a switch:
+ * `cross` moves the switch's middle to the finger's other side. Returns a
+ * function that takes it back.
+ */
+export function setTouchSwitch(cross: () => void) {
+  crossSwitch = cross;
+  return () => {
+    if (crossSwitch === cross) crossSwitch = null;
+  };
+}
+
+/**
+ * Taps once: through the Vibration API where it exists (Android), or on an
+ * iPhone while a finger is on a switch lent with `setTouchSwitch`. Call it
+ * from a handler for something the viewer did, like `cue()`; browsers
+ * ignore vibration without a gesture.
  */
 export function tap() {
-  if (typeof navigator === "undefined" || !("vibrate" in navigator)) return;
+  if (typeof navigator === "undefined") return;
+  const vibrates = "vibrate" in navigator;
+  if (!vibrates && !crossSwitch) return;
   const now = performance.now();
   if (!tapAllowed(lastTap, now)) return;
   lastTap = now;
   try {
-    navigator.vibrate(VIBRATE_FOR);
+    if (vibrates) navigator.vibrate(VIBRATE_FOR);
+    else crossSwitch?.();
   } catch {
     // A tap is a nicety; a failure must never break the interface.
   }

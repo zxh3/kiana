@@ -98,6 +98,19 @@ export function angleDelta(from: number, to: number) {
   return delta;
 }
 
+/**
+ * Which of the wheel's four buttons lies at an angle, in degrees clockwise
+ * from the right (as `Math.atan2` gives it on screen): each owns a quarter
+ * of the ring around its compass point.
+ */
+export function wheelZoneAt(angle: number) {
+  const a = angleDelta(0, angle);
+  if (a > -135 && a <= -45) return "menu";
+  if (a > -45 && a <= 45) return "next";
+  if (a > 45 && a <= 135) return "play";
+  return "previous";
+}
+
 /** Whole clicks in `travel`, and the travel left over toward the next one. */
 export function takeSteps(travel: number, size: number) {
   const steps = Math.trunc(travel / size);

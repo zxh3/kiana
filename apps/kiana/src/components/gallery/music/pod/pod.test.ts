@@ -10,6 +10,7 @@ import {
   parentScreen,
   scrollWindow,
   takeSteps,
+  wheelZoneAt,
 } from "./menu";
 import { describePod, type PodView, podRows } from "./rows";
 import { parseBacklight, parseClicker } from "./settings";
@@ -20,6 +21,17 @@ describe("pocket player rules", () => {
     expect(angleDelta(40, 10)).toBe(-30);
     expect(angleDelta(170, -170)).toBe(20);
     expect(angleDelta(-170, 170)).toBe(-20);
+  });
+
+  it("finds the wheel button under an angle, a quarter of the ring each", () => {
+    expect(wheelZoneAt(-90)).toBe("menu");
+    expect(wheelZoneAt(0)).toBe("next");
+    expect(wheelZoneAt(90)).toBe("play");
+    expect(wheelZoneAt(180)).toBe("previous");
+    expect(wheelZoneAt(-180)).toBe("previous");
+    expect(wheelZoneAt(-50)).toBe("menu");
+    expect(wheelZoneAt(-40)).toBe("next");
+    expect(wheelZoneAt(140)).toBe("previous");
   });
 
   it("turns travel into whole clicks and keeps the remainder", () => {

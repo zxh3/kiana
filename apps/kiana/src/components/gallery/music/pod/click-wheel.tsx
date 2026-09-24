@@ -1,5 +1,6 @@
 import {
   type CSSProperties,
+  type MouseEvent,
   type PointerEvent,
   useEffect,
   useRef,
@@ -7,15 +8,21 @@ import {
 } from "react";
 
 import { cx } from "../../../../lib/class-names";
-import { HapticTap } from "../../haptic-tap";
+import { setTouchSwitch } from "../../../../lib/haptics";
+import { HapticTap, switchAttribute, useOnIos } from "../../haptic-tap";
 import { useClickSwallow } from "../use-click-swallow";
 import type { HoldZone } from "./machine";
-import { angleDelta, DEGREES_PER_STEP, takeSteps } from "./menu";
+import { angleDelta, DEGREES_PER_STEP, takeSteps, wheelZoneAt } from "./menu";
 
 type Zone = "menu" | "previous" | "next" | "play" | "center";
 
 /** Inside this radius the angle to the centre is too jumpy to follow. */
 const DEAD_RADIUS = 20;
+/**
+ * How far to one side of the finger the ring's switch keeps its middle on
+ * iPhones: far enough that the finger's own wobble never crosses it.
+ */
+const SWITCH_SIDE = 24;
 
 /**
  * How long a button must be held before it does its second job, as on the
@@ -81,6 +88,12 @@ function PlayPauseGlyph() {
  * down button, as on the original. The four compass points and the centre
  * are buttons, and the compass points also answer being held. A turn that
  * starts on a button does not press it, and neither does a hold.
+ *
+ * On iPhones an invisible native switch covers the ring, so the wheel's
+ * clicks can be felt (see `lib/haptics.ts`): while a finger is down the
+ * switch keeps its middle just beside it, and each click moves the middle
+ * to the finger's other side, which Safari answers with a tap. A tap on the
+ * ring lands on the switch, so it presses the button under it by position.
  */
 export function ClickWheel({
   onHoldEnd,
@@ -116,6 +129,13 @@ export function ClickWheel({
   const holding = useRef<HoldZone | null>(null);
   const holdEnd = useRef(onHoldEnd);
   holdEnd.current = onHoldEnd;
+  const ios = useOnIos();
+  const ringSwitch = useRef<HTMLInputElement>(null);
+  /** Where the finger on the ring's switch is, and which side of it the middle keeps. */
+  const follow = useRef<{ x: number; right: boolean } | null>(null);
+  const releaseSwitch = useRef<() => void>(undefined);
+  /** The button a tap on the ring's switch would press, until it turns or holds. */
+  const switchTap = useRef<HoldZone | null>(null);
 
   const cancelHold = () => window.clearTimeout(holdTimer.current);
 
@@ -124,9 +144,45 @@ export function ClickWheel({
     () => () => {
       window.clearTimeout(holdTimer.current);
       if (holding.current) holdEnd.current(holding.current);
+      releaseSwitch.current?.();
     },
     [],
   );
+
+  /** Keeps the switch's middle beside the finger, on the side it holds. */
+  const placeSwitch = () => {
+    const input = ringSwitch.current;
+    const rect = ref.current?.getBoundingClientRect();
+    if (!follow.current || !input || !rect) return;
+    const { x, right } = follow.current;
+    input.style.left = `${x - rect.left + (right ? -SWITCH_SIDE : SWITCH_SIDE)}px`;
+  };
+
+  const followFinger = (x: number) => {
+    const input = ringSwitch.current;
+    if (!input) return;
+    // A switch that is on stays on while the finger is right of its middle.
+    follow.current = { x, right: input.checked };
+    placeSwitch();
+    releaseSwitch.current = setTouchSwitch(() => {
+      if (!follow.current) return;
+      follow.current.right = !follow.current.right;
+      placeSwitch();
+    });
+  };
+
+  const stopFollowing = () => {
+    if (!follow.current) return;
+    follow.current = null;
+    releaseSwitch.current?.();
+    // Back under the ring once Safari has finished with the touch, so that
+    // moving it cannot flip the switch one last time.
+    window.setTimeout(() => {
+      if (!follow.current && ringSwitch.current) {
+        ringSwitch.current.style.left = "";
+      }
+    }, 50);
+  };
 
   const locate = (event: PointerEvent) => {
     const rect = ref.current?.getBoundingClientRect();
@@ -142,8 +198,15 @@ export function ClickWheel({
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     swallow.disarm();
     if (event.button !== 0) return;
-    const zone = (event.target as Element).closest<HTMLElement>("[data-zone]")
-      ?.dataset.zone as Zone | undefined;
+    const onSwitch = event.target === ringSwitch.current;
+    const zone = onSwitch
+      ? wheelZoneAt(locate(event).angle)
+      : ((event.target as Element).closest<HTMLElement>("[data-zone]")?.dataset
+          .zone as Zone | undefined);
+    if (onSwitch) {
+      switchTap.current = zone as HoldZone;
+      followFinger(event.clientX);
+    }
     setPressed(zone ?? null);
     if (zone === "center") return;
     const pointerId = event.pointerId;
@@ -169,6 +232,13 @@ export function ClickWheel({
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (follow.current) follow.current.x = event.clientX;
+    turnWith(event);
+    // After the turn, which may have moved the middle across for a click.
+    placeSwitch();
+  };
+
+  const turnWith = (event: PointerEvent<HTMLDivElement>) => {
     const current = turn.current;
     if (!current || current.id !== event.pointerId) return;
     const { angle, radius } = locate(event);
@@ -200,15 +270,39 @@ export function ClickWheel({
     holding.current = null;
     cancelHold();
     setPressed(null);
+    stopFollowing();
     if (held) onHoldEnd(held);
     // A turn or a hold that began on a button does not also press it.
-    if (current?.turned || held) swallow.arm();
+    if (current?.turned || held) {
+      swallow.arm();
+      switchTap.current = null;
+    }
+  };
+
+  const presses: Record<HoldZone, () => void> = {
+    menu: onMenu,
+    previous: onPrevious,
+    next: onNext,
+    play: onPlayPause,
+  };
+
+  // A tap on the ring's switch presses the button under it. The swallow is
+  // left out: cancelling the switch's click would undo its toggle, and
+  // `switchTap` already forgets a turn or a hold.
+  const handleSwitchClick = (event: MouseEvent) => {
+    event.stopPropagation();
+    swallow.disarm();
+    const zone = switchTap.current;
+    switchTap.current = null;
+    if (zone) presses[zone]();
   };
 
   return (
     <div
       className="relative size-[164px] touch-none select-none [perspective:420px]"
-      onClickCapture={swallow.onClickCapture}
+      onClickCapture={(event) => {
+        if (event.target !== ringSwitch.current) swallow.onClickCapture(event);
+      }}
       onPointerCancel={handlePointerEnd}
       onPointerDown={handlePointerDown}
       onPointerLeave={() => {
@@ -241,7 +335,6 @@ export function ClickWheel({
           <span className="font-pod text-[10.5px] font-bold tracking-[.06em]">
             MENU
           </span>
-          <HapticTap />
         </button>
         <button
           aria-label="Previous song"
@@ -254,7 +347,6 @@ export function ClickWheel({
           type="button"
         >
           <SkipGlyph direction="back" />
-          <HapticTap />
         </button>
         <button
           aria-label="Next song"
@@ -267,7 +359,6 @@ export function ClickWheel({
           type="button"
         >
           <SkipGlyph direction="forward" />
-          <HapticTap />
         </button>
         <button
           aria-label={playing ? "Pause the music" : "Play the music"}
@@ -280,9 +371,19 @@ export function ClickWheel({
           type="button"
         >
           <PlayPauseGlyph />
-          <HapticTap />
         </button>
       </div>
+      {ios ? (
+        <input
+          {...switchAttribute}
+          aria-hidden="true"
+          className="absolute top-1/2 left-1/2 m-0 size-full -translate-x-1/2 -translate-y-1/2 cursor-pointer opacity-[.01] [-webkit-tap-highlight-color:transparent] [clip-path:circle(50%)]"
+          onClick={handleSwitchClick}
+          ref={ringSwitch}
+          tabIndex={-1}
+          type="checkbox"
+        />
+      ) : null}
       <button
         aria-label="Select"
         className="absolute inset-0 m-auto size-[62px] cursor-pointer touch-manipulation rounded-full bg-(image:--pod-center) outline-none transition-transform duration-100 ease-soft focus-visible:ring-2 focus-visible:ring-[#3a86ea]/70 active:scale-[.97]"
