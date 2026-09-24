@@ -1,6 +1,7 @@
 import { type PointerEvent, type ReactNode, useRef } from "react";
 
 import { cx } from "../../../../../lib/class-names";
+import { HapticTap } from "../../../haptic-tap";
 import {
   RepeatIcon,
   ShuffleIcon,
@@ -171,6 +172,7 @@ export function NowPlaying({
             draggable={false}
             src={trackArt(track)}
           />
+          <HapticTap />
         </button>
         <div className="min-w-0 flex-1 pt-1">
           <Marquee>

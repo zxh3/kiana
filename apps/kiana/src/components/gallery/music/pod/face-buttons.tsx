@@ -1,5 +1,6 @@
 import { cx } from "../../../../lib/class-names";
 import { cue } from "../../../../lib/sounds";
+import { HapticTap } from "../../haptic-tap";
 import { BODY_PADDING, CORNER_CLEARANCE } from "./geometry";
 
 /** Two strokes each, drawn at the size of a printed mark. */
@@ -22,7 +23,7 @@ function FaceButton({
   return (
     <button
       aria-label={label}
-      className="group/face grid size-5 cursor-pointer place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#3a86ea]/70 disabled:pointer-events-none disabled:opacity-40"
+      className="group/face relative grid size-5 cursor-pointer place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#3a86ea]/70 disabled:pointer-events-none disabled:opacity-40"
       disabled={disabled}
       onClick={() => {
         cue("press");
@@ -47,6 +48,7 @@ function FaceButton({
           {marks[kind]}
         </svg>
       </span>
+      <HapticTap />
     </button>
   );
 }

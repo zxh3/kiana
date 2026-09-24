@@ -61,7 +61,15 @@ Mediaforge release manifest and displays the responsive images described by it.
   the last touch, and the battery shows the viewer's own where the browser
   shares it. Settings, named as on the original, holds Shuffle (on or off) and
   Repeat (all or one) as two separate settings, the backlight timer, the
-  clicker (the wheel's ticks), and the finish. A tap on the cover on Now
+  clicker (the wheel's ticks), and the finish. On phones the controls tap
+  back through the vibration motor. Android taps with every sound, including
+  each click of a turning wheel, through the Vibration API; turning the
+  clicker off stops the wheel's taps too. Safari on iOS has no Vibration API,
+  but taps when a native switch control is toggled by a touch, so each of the
+  player's buttons, rows, and covers carries an invisible label for a hidden
+  switch (`HapticTap`, after the ios-haptics library). iPhones therefore feel
+  presses and taps but not a turning wheel, which is no touch Safari can
+  forward. A tap on the cover on Now
   Playing plays the song's video on the screen, under the title bar, which
   goes back like Menu. Minimize and close are two small dimples in the
   aluminium above the screen, opposite the hold switch, faint until the

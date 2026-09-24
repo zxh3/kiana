@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { cx } from "../../../../lib/class-names";
+import { HapticTap } from "../../haptic-tap";
 import { useClickSwallow } from "../use-click-swallow";
 import type { HoldZone } from "./machine";
 import { angleDelta, DEGREES_PER_STEP, takeSteps } from "./menu";
@@ -240,6 +241,7 @@ export function ClickWheel({
           <span className="font-pod text-[10.5px] font-bold tracking-[.06em]">
             MENU
           </span>
+          <HapticTap />
         </button>
         <button
           aria-label="Previous song"
@@ -252,6 +254,7 @@ export function ClickWheel({
           type="button"
         >
           <SkipGlyph direction="back" />
+          <HapticTap />
         </button>
         <button
           aria-label="Next song"
@@ -264,6 +267,7 @@ export function ClickWheel({
           type="button"
         >
           <SkipGlyph direction="forward" />
+          <HapticTap />
         </button>
         <button
           aria-label={playing ? "Pause the music" : "Play the music"}
@@ -276,6 +280,7 @@ export function ClickWheel({
           type="button"
         >
           <PlayPauseGlyph />
+          <HapticTap />
         </button>
       </div>
       <button
@@ -288,7 +293,9 @@ export function ClickWheel({
             "0 0 0 1px var(--pod-wheel-edge), 0 1px 2px rgb(0 0 0 / 0.12), inset 0 1px 0 var(--pod-rim)",
         }}
         type="button"
-      />
+      >
+        <HapticTap />
+      </button>
     </div>
   );
 }

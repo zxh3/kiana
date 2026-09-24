@@ -1,4 +1,5 @@
 import { cx } from "../../../../../lib/class-names";
+import { HapticTap } from "../../../haptic-tap";
 import { STATUS_BAR_HEIGHT } from "../geometry";
 import type { BatteryState } from "../use-battery";
 import {
@@ -75,6 +76,7 @@ export function StatusBar({
       type="button"
     >
       {content}
+      <HapticTap />
     </button>
   );
 }

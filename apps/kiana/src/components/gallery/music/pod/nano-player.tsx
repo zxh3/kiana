@@ -4,6 +4,7 @@ import { cx } from "../../../../lib/class-names";
 import { fades } from "../../../../lib/motion";
 import { cue } from "../../../../lib/sounds";
 import { focusRing } from "../../control-button";
+import { HapticTap } from "../../haptic-tap";
 import { EqualizerIcon, PauseIcon, PlayIcon } from "../../icons";
 import { Swap } from "../../swap";
 import { trackArt } from "../music-track";
@@ -73,6 +74,7 @@ export function NanoPlayer({
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[linear-gradient(125deg,rgb(255_255_255/.2)_0%,transparent_40%)]"
         />
+        <HapticTap />
       </button>
       <button
         aria-label={playing ? "Pause the music" : "Play the music"}
@@ -91,6 +93,7 @@ export function NanoPlayer({
         <Swap id={playing ? "pause" : "play"}>
           {playing ? <PauseIcon size={13} /> : <PlayIcon size={13} />}
         </Swap>
+        <HapticTap />
       </button>
     </div>
   );

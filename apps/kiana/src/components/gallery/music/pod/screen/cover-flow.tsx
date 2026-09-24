@@ -1,3 +1,4 @@
+import { HapticTap } from "../../../haptic-tap";
 import { type Track, trackArt } from "../../music-track";
 import { useSwipeSteps } from "../use-swipe-steps";
 
@@ -86,6 +87,7 @@ export function CoverFlow({
               {index === current ? (
                 <span className="absolute inset-x-0 bottom-0 h-[2px] bg-[#4a95f0]" />
               ) : null}
+              <HapticTap />
             </button>
           );
         })}
