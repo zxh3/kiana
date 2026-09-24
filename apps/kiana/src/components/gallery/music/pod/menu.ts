@@ -9,10 +9,13 @@ export type Screen =
   | "songs"
   | "extras"
   | "spinner"
+  | "chat"
+  | "online"
+  | "name"
   | "settings"
   | "now";
 /** Screens with a highlight that the wheel moves. */
-export type ChoiceScreen = Exclude<Screen, "now" | "spinner">;
+export type ChoiceScreen = Exclude<Screen, "now" | "spinner" | "chat" | "name">;
 /** Screens drawn as a menu list. */
 export type ListScreen = Exclude<ChoiceScreen, "covers">;
 
@@ -26,6 +29,9 @@ export const screenTitles: Record<Screen, string> = {
   songs: "Songs",
   extras: "Extras",
   spinner: "Finger Spinner",
+  chat: "Chat Room",
+  online: "Online",
+  name: "Your Name",
   settings: "Settings",
   now: "Now Playing",
 };
@@ -40,6 +46,9 @@ export const parentScreen: Record<Screen, Screen | null> = {
   songs: "menu",
   extras: "menu",
   spinner: "extras",
+  chat: "extras",
+  online: "chat",
+  name: "online",
   settings: "menu",
   now: "menu",
 };
@@ -82,12 +91,23 @@ export const menuOpens: Record<MenuItem, boolean> = {
 };
 
 /** The little apps under Extras, where the original kept its games. */
-export const extrasItems = ["spinner"] as const;
+export const extrasItems = ["spinner", "chat"] as const;
 export type ExtrasItem = (typeof extrasItems)[number];
 
 export const extrasLabels: Record<ExtrasItem, string> = {
   spinner: "Finger Spinner",
+  chat: "Chat Room",
 };
+
+/**
+ * The Chat Room's screens: the messages, who is online, and the viewer's
+ * name. The room is joined while one of them shows.
+ */
+export const chatScreens: ReadonlySet<Screen> = new Set([
+  "chat",
+  "online",
+  "name",
+]);
 
 /**
  * Settings, named as on the original where it had the same setting. The

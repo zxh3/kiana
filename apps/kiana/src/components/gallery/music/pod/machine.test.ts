@@ -19,6 +19,7 @@ const context: PodContext = {
   clicker: true,
   videoOpen: false,
   videoCovers: false,
+  online: 3,
 };
 
 /** Applies actions one after another, as the hook does, collecting effects. */
@@ -281,5 +282,64 @@ describe("pocket player machine", () => {
     });
     expect(quiet.effects).toEqual([]);
     expect(quiet.state.spin.steps).toBe(1);
+  });
+
+  it("goes from Extras to the Chat Room, its Online list, and Your Name", () => {
+    const { state } = run(
+      [
+        { type: "pick", screen: "extras", index: 1 },
+        { type: "select" },
+        { type: "select" },
+      ],
+      at("extras"),
+    );
+    expect(state.screen).toBe("name");
+    const back = run(
+      [{ type: "back" }, { type: "back" }, { type: "back" }],
+      state,
+    );
+    expect(back.state.screen).toBe("extras");
+  });
+
+  it("scrolls the Chat Room with the wheel", () => {
+    const { state, effects } = run(
+      [
+        { type: "step", steps: 2 },
+        { type: "step", steps: -3 },
+      ],
+      at("chat"),
+    );
+    expect(state.chat.steps).toBe(-1);
+    expect(effects).toContainEqual({ type: "cue", cue: "wheel" });
+  });
+
+  it("moves through the Online list, and only the viewer's row opens", () => {
+    const moved = run([{ type: "step", steps: 5 }], at("online"));
+    expect(moved.state.selected.online).toBe(2);
+    const other = run([{ type: "select" }], moved.state);
+    expect(other.state.screen).toBe("online");
+    expect(other.effects).toEqual([]);
+  });
+
+  it("saves a name from Your Name and goes back to the list", () => {
+    const pressed = run([{ type: "select" }], at("name"));
+    expect(pressed.state.chat.saves).toBe(1);
+    expect(pressed.state.screen).toBe("name");
+    const { state, effects } = run(
+      [{ type: "saveName", name: "kiana" }],
+      pressed.state,
+    );
+    expect(state.screen).toBe("online");
+    expect(effects).toContainEqual({ type: "rename", name: "kiana" });
+    // A second save, from Enter and the centre at once, does nothing more.
+    expect(run([{ type: "saveName", name: "k" }], state).effects).toEqual([]);
+  });
+
+  it("sends a message with a click", () => {
+    const { effects } = run([{ type: "say", text: "hi" }], at("chat"));
+    expect(effects).toEqual([
+      { type: "cue", cue: "select" },
+      { type: "say", text: "hi" },
+    ]);
   });
 });

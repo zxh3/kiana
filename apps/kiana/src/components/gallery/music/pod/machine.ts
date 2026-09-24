@@ -56,6 +56,11 @@ export type PodState = {
    * motion; the spinning itself is only drawn.
    */
   spin: { steps: number; flicks: number };
+  /**
+   * The same for the Chat Room: the wheel's clicks, which scroll the
+   * messages, and presses of the centre button on Your Name, which save it.
+   */
+  chat: { steps: number; saves: number };
 };
 
 /** What the machine needs to know about the music and the widget. */
@@ -72,6 +77,8 @@ export type PodContext = {
   videoOpen: boolean;
   /** The video covers the display (turned on, or YouTube needs a tap). */
   videoCovers: boolean;
+  /** Rows in the Chat Room's Online list, the viewer's own first. */
+  online: number;
 };
 
 export type PodEffect =
@@ -86,7 +93,9 @@ export type PodEffect =
   | { type: "pause" }
   | { type: "backlight" }
   | { type: "setting"; item: SettingsItem }
-  | { type: "video"; on: boolean };
+  | { type: "video"; on: boolean }
+  | { type: "say"; text: string }
+  | { type: "rename"; name: string };
 
 export type PodAction =
   // The click wheel.
@@ -104,6 +113,9 @@ export type PodAction =
   | { type: "hover"; screen: ChoiceScreen; index: number }
   | { type: "scrubTo"; fraction: number; done: boolean }
   | { type: "volumeTo"; fraction: number; done: boolean }
+  // The Chat Room's text fields.
+  | { type: "say"; text: string }
+  | { type: "saveName"; name: string }
   // The hold switch.
   | { type: "toggleHold" }
   // The world and the clock.
@@ -158,6 +170,7 @@ export function initialPodState(index: number): PodState {
       covers: index,
       songs: index,
       extras: 0,
+      online: 0,
       settings: 0,
     },
     overlay: null,
@@ -172,6 +185,7 @@ export function initialPodState(index: number): PodState {
     seekTicks: 0,
     asleep: false,
     spin: { steps: 0, flicks: 0 },
+    chat: { steps: 0, saves: 0 },
   };
 }
 
@@ -179,6 +193,7 @@ function choiceCount(screen: ChoiceScreen, context: PodContext) {
   if (screen === "menu") return menuItems.length;
   if (screen === "settings") return settingsItems.length;
   if (screen === "extras") return extrasItems.length;
+  if (screen === "online") return context.online;
   return context.count;
 }
 
@@ -276,6 +291,13 @@ function activate(
     const next = go(chosen, extrasItems[index], 1);
     return { ...next, effects: [select, ...next.effects] };
   }
+  // In the Online list only the viewer's own row, the first, opens: to
+  // change their name.
+  if (screen === "online") {
+    if (index !== 0) return { state: chosen, effects: [] };
+    const next = go(chosen, "name", 1);
+    return { ...next, effects: [select, ...next.effects] };
+  }
 
   const item = menuItems[index];
   if (item === "shuffle") {
@@ -332,6 +354,18 @@ export function podReducer(
           effects: tick(context),
         };
       }
+      // In the Chat Room the wheel scrolls the messages.
+      if (state.screen === "chat") {
+        const { chat } = state;
+        return {
+          state: {
+            ...state,
+            chat: { ...chat, steps: chat.steps + action.steps },
+          },
+          effects: tick(context),
+        };
+      }
+      if (state.screen === "name") return unchanged;
       const screen = state.screen;
       const index = moveSelection(
         state.selected[screen],
@@ -351,6 +385,20 @@ export function podReducer(
         return {
           state: { ...state, spin: { ...spin, flicks: spin.flicks + 1 } },
           effects: [press],
+        };
+      }
+      // In the Chat Room the centre button opens the Online list, and on
+      // Your Name it saves the name, which the screen answers with
+      // `saveName`.
+      if (state.screen === "chat") {
+        const next = go(state, "online", 1);
+        return { ...next, effects: [{ type: "cue", cue: "select" }] };
+      }
+      if (state.screen === "name") {
+        const { chat } = state;
+        return {
+          state: { ...state, chat: { ...chat, saves: chat.saves + 1 } },
+          effects: [],
         };
       }
       if (state.screen !== "now") {
@@ -526,6 +574,27 @@ export function podReducer(
       return {
         state: { ...show(state, "volume"), touching: !action.done },
         effects: volume === context.volume ? [] : [{ type: "volume", volume }],
+      };
+    }
+
+    case "say":
+      return {
+        state,
+        effects: [
+          { type: "cue", cue: "select" },
+          { type: "say", text: action.text },
+        ],
+      };
+
+    case "saveName": {
+      if (state.screen !== "name") return unchanged;
+      const next = go(state, "online", -1);
+      return {
+        ...next,
+        effects: [
+          { type: "cue", cue: "select" },
+          { type: "rename", name: action.name },
+        ],
       };
     }
 

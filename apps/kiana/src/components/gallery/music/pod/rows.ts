@@ -1,5 +1,7 @@
+import type { ChatMessage, Person } from "../../../../lib/chat";
 import type { Repeat } from "../music-queue";
 import type { Track } from "../music-track";
+import type { ChatStatus } from "./chat";
 import { type Finish, finishLabels } from "./finishes";
 import { formatPodTime } from "./format";
 import type { PodState } from "./machine";
@@ -45,6 +47,13 @@ export type PodView = {
   finish: Finish;
   spinner: SpinnerStyle;
   face: KianaFace;
+  /** The Chat Room: the viewer's name, and everyone else who is here. */
+  chat: {
+    name: string;
+    status: ChatStatus;
+    others: ReadonlyArray<Person>;
+    last: ChatMessage | undefined;
+  };
   videoOpen: boolean;
   volume: number;
   current: number;
@@ -79,6 +88,14 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
       label: extrasLabels[item],
       opens: true,
     })),
+    // The viewer first, whose row opens Your Name, then everyone else.
+    online: [
+      { key: "you", label: view.chat.name, detail: "You", opens: true },
+      ...view.chat.others.map((person) => ({
+        key: person.id,
+        label: person.name,
+      })),
+    ],
     settings: settingsItems.map((item) => ({
       key: item,
       label: settingsLabels[item],
@@ -111,6 +128,15 @@ export function describePod(
   }
   if (state.screen === "spinner") {
     return `${screenTitles.spinner}: turn the wheel to spin it, or press the centre button to flick it`;
+  }
+  if (state.screen === "chat") {
+    const { status, others, last } = view.chat;
+    if (status !== "open") return `${screenTitles.chat}: connecting`;
+    const here = `${screenTitles.chat}, ${others.length + 1} online`;
+    return last ? `${here}. ${last.name}: ${last.text}` : here;
+  }
+  if (state.screen === "name") {
+    return `${screenTitles.name}: type a name, then press Enter to save it`;
   }
   if (state.screen === "covers") {
     const track = view.playlist[state.selected.covers];

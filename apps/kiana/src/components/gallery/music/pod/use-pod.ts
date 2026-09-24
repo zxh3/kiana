@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { tap } from "../../../../lib/haptics";
 import { cue } from "../../../../lib/sounds";
 import type { Music } from "../use-music";
+import { otherPeople } from "./chat";
 import { nextFinish } from "./finishes";
 import {
   type HoldZone,
@@ -16,11 +17,17 @@ import {
   SEEK_SETTLE,
   SEEK_TICK,
 } from "./machine";
-import { type ChoiceScreen, parentScreen, type SettingsItem } from "./menu";
+import {
+  type ChoiceScreen,
+  chatScreens,
+  parentScreen,
+  type SettingsItem,
+} from "./menu";
 import { describePod, type PodView, podRows } from "./rows";
 import { BACKLIGHT_TIMEOUT, type PodSettings } from "./settings";
 import { nextKianaFace, nextSpinnerStyle } from "./spinner";
 import { useBacklight } from "./use-backlight";
+import { useChat } from "./use-chat";
 
 /**
  * Runs the pocket player's state machine (`machine.ts`) against the real
@@ -51,6 +58,8 @@ export function usePod({
   const backlight = useBacklight(
     settings.backlight === "timed" && !videoCovers ? BACKLIGHT_TIMEOUT : null,
   );
+  const chat = useChat(chatScreens.has(state.screen));
+  const others = otherPeople(chat);
 
   // The latest facts, read by actions between renders. The volume is also
   // updated the moment the machine sets it, so fast turns build on it.
@@ -64,6 +73,7 @@ export function usePod({
     clicker: settings.clicker,
     videoOpen,
     videoCovers,
+    online: others.length + 1,
   };
 
   const applySetting = (item: SettingsItem) => {
@@ -126,6 +136,12 @@ export function usePod({
         break;
       case "video":
         onVideoChange(effect.on);
+        break;
+      case "say":
+        chat.say(effect.text);
+        break;
+      case "rename":
+        chat.rename(effect.name);
         break;
     }
   };
@@ -194,6 +210,12 @@ export function usePod({
     finish: settings.finish,
     spinner: settings.spinner,
     face: settings.face,
+    chat: {
+      name: chat.name,
+      status: chat.status,
+      others,
+      last: chat.messages.at(-1),
+    },
     videoOpen,
     volume: music.volume,
     current: progress.current,
@@ -216,6 +238,8 @@ export function usePod({
     lit: backlight.lit,
     /** The finger spinner's looks, chosen in Settings. */
     looks: { spinner: settings.spinner, face: settings.face },
+    /** The Chat Room's connection, messages, and who is here. */
+    chat,
     /** Counts as a touch, for the backlight. */
     wake: backlight.wake,
     canGoBack:
@@ -246,6 +270,8 @@ export function usePod({
         done,
       })),
       toggleHold: touch(() => ({ type: "toggleHold" })),
+      say: touch((text: string) => ({ type: "say", text })),
+      saveName: touch((name: string) => ({ type: "saveName", name })),
       // Holding Menu toggles the backlight itself, so it does not wake it.
       holdStart: (zone: HoldZone) => {
         if (zone !== "menu") backlight.wake();
