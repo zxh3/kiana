@@ -45,7 +45,8 @@ Mediaforge release manifest and displays the responsive images described by it.
   playlist as background music. The player is made like the pocket music
   players of the 2000s, in silver, graphite, or rose aluminium. Its colour
   screen has a top menu titled with the device's name, laid out as on the
-  original (Cover Flow, Songs, Shuffle Songs, Settings, and Now Playing last),
+  original (Cover Flow, Songs, Shuffle Songs, Apps, Settings, and Now Playing
+  last),
   whose right half previews the highlighted item, and both the click wheel and
   the touch screen drive it. Circle a thumb or the pointer around the wheel,
   or scroll over the player, to move through lists and flip through covers; on
@@ -60,15 +61,16 @@ Mediaforge release manifest and displays the responsive images described by it.
   next touch. The hold switch, a small slot in the aluminium above the screen,
   locks every control and shows a padlock. The screen dims ten seconds after
   the last touch, and the battery shows the viewer's own where the browser
-  shares it. Extras, where the original kept its games, holds a finger
-  spinner: each click of the wheel flicks it faster the way it turned (and
+  shares it. Apps, where the original kept its games under Extras, holds
+  the little apps, shown as icons in the top menu's preview. The first is a
+  finger spinner: each click of the wheel flicks it faster the way it turned (and
   back the other way to brake), the centre button or a tap gives it a bigger
   flick, a sideways swipe on the screen winds it too, and let go it coasts
   down silently, blurring at speed, with its rpm and best shown below.
   Kiana sits on its cap, which stays upright while the rest spins. Its art
   was generated with OpenAI's gpt-image-2.5-sunburst, Kiana's faces from
   her photos, and each spinner made exactly symmetric so it turns without
-  wobbling. Extras also holds a Chat Room, where everyone with it open
+  wobbling. The second is a Chat Room, where everyone with it open
   talks in one room. Its top strip says how many are online and opens the
   Online list (as does the centre button), the messages fill the middle,
   newest at the bottom, and the field below sends one with Enter; the wheel

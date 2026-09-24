@@ -6,8 +6,8 @@ import { type Finish, finishLabels } from "./finishes";
 import { formatPodTime } from "./format";
 import type { PodState } from "./machine";
 import {
-  extrasItems,
-  extrasLabels,
+  appItems,
+  appLabels,
   type ListScreen,
   menuItems,
   menuLabels,
@@ -83,9 +83,9 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
       current: position === view.index,
       lang: "zh",
     })),
-    extras: extrasItems.map((item) => ({
+    apps: appItems.map((item) => ({
       key: item,
-      label: extrasLabels[item],
+      label: appLabels[item],
       opens: true,
     })),
     // The viewer first, whose row opens Your Name, then everyone else.

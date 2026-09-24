@@ -7,7 +7,7 @@ export type Screen =
   | "menu"
   | "covers"
   | "songs"
-  | "extras"
+  | "apps"
   | "spinner"
   | "chat"
   | "online"
@@ -27,7 +27,7 @@ export const screenTitles: Record<Screen, string> = {
   menu: "Kiana",
   covers: "Cover Flow",
   songs: "Songs",
-  extras: "Extras",
+  apps: "Apps",
   spinner: "Finger Spinner",
   chat: "Chat Room",
   online: "Online",
@@ -44,9 +44,9 @@ export const parentScreen: Record<Screen, Screen | null> = {
   menu: null,
   covers: "menu",
   songs: "menu",
-  extras: "menu",
-  spinner: "extras",
-  chat: "extras",
+  apps: "menu",
+  spinner: "apps",
+  chat: "apps",
   online: "chat",
   name: "online",
   settings: "menu",
@@ -55,7 +55,7 @@ export const parentScreen: Record<Screen, Screen | null> = {
 
 /**
  * The top menu, laid out as on the original: Shuffle Songs one press away,
- * Extras for the little apps, and Now Playing last. With a playlist this
+ * Apps for the little programs, and Now Playing last. With a playlist this
  * short the song screens sit here too, rather than a level down under
  * "Music".
  * Putting the player away belongs to the widget's own minimize and close
@@ -65,7 +65,7 @@ export const menuItems = [
   "covers",
   "songs",
   "shuffle",
-  "extras",
+  "apps",
   "settings",
   "now",
 ] as const;
@@ -75,7 +75,7 @@ export const menuLabels: Record<MenuItem, string> = {
   covers: "Cover Flow",
   songs: "Songs",
   shuffle: "Shuffle Songs",
-  extras: "Extras",
+  apps: "Apps",
   settings: "Settings",
   now: "Now Playing",
 };
@@ -85,16 +85,19 @@ export const menuOpens: Record<MenuItem, boolean> = {
   covers: true,
   songs: true,
   shuffle: false,
-  extras: true,
+  apps: true,
   settings: true,
   now: true,
 };
 
-/** The little apps under Extras, where the original kept its games. */
-export const extrasItems = ["spinner", "chat"] as const;
-export type ExtrasItem = (typeof extrasItems)[number];
+/**
+ * The little apps, where the original kept its games under Extras: named
+ * Apps here, since they are no longer only games.
+ */
+export const appItems = ["spinner", "chat"] as const;
+export type AppItem = (typeof appItems)[number];
 
-export const extrasLabels: Record<ExtrasItem, string> = {
+export const appLabels: Record<AppItem, string> = {
   spinner: "Finger Spinner",
   chat: "Chat Room",
 };

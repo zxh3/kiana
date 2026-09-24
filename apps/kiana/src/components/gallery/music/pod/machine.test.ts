@@ -253,14 +253,14 @@ describe("pocket player machine", () => {
     expect(state.selected.songs).toBe(4);
   });
 
-  it("opens the finger spinner from Extras, and goes back the same way", () => {
+  it("opens the finger spinner from Apps, and goes back the same way", () => {
     const menu = at("menu");
     const { state } = run(
       [{ type: "pick", screen: "menu", index: 3 }, { type: "select" }],
       menu,
     );
     expect(state.screen).toBe("spinner");
-    expect(run([{ type: "back" }], state).state.screen).toBe("extras");
+    expect(run([{ type: "back" }], state).state.screen).toBe("apps");
   });
 
   it("winds the finger spinner with each click and flicks it with the centre", () => {
@@ -284,21 +284,21 @@ describe("pocket player machine", () => {
     expect(quiet.state.spin.steps).toBe(1);
   });
 
-  it("goes from Extras to the Chat Room, its Online list, and Your Name", () => {
+  it("goes from Apps to the Chat Room, its Online list, and Your Name", () => {
     const { state } = run(
       [
-        { type: "pick", screen: "extras", index: 1 },
+        { type: "pick", screen: "apps", index: 1 },
         { type: "select" },
         { type: "select" },
       ],
-      at("extras"),
+      at("apps"),
     );
     expect(state.screen).toBe("name");
     const back = run(
       [{ type: "back" }, { type: "back" }, { type: "back" }],
       state,
     );
-    expect(back.state.screen).toBe("extras");
+    expect(back.state.screen).toBe("apps");
   });
 
   it("scrolls the Chat Room with the wheel", () => {

@@ -96,7 +96,7 @@ function SpinnerCap({
 }
 
 /**
- * A small spinner for the top menu's preview of Extras, its body turning
+ * A small spinner for the top menu's preview of Apps, its body turning
  * slowly under Kiana, who stays upright as on the real one.
  */
 export function SpinnerIcon({
@@ -121,7 +121,7 @@ export function SpinnerIcon({
 }
 
 /**
- * The finger spinner under Extras. Each click of the wheel flicks it a
+ * The finger spinner under Apps. Each click of the wheel flicks it a
  * little faster in the way it turned (and clicks, to be felt), the centre
  * button or a tap on it gives it a bigger flick, and a sideways swipe on
  * the screen winds it too. Let go and it coasts down on its own, silently,
