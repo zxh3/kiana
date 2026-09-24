@@ -23,6 +23,16 @@ const DEAD_RADIUS = 20;
  * iPhones: far enough that the finger's own wobble never crosses it.
  */
 const SWITCH_SIDE = 24;
+/**
+ * The ring's switch becomes a long, thin strip once a finger is on it.
+ * Until a dragged switch first flips, WebKit moves the flip point 40% of
+ * its width past where the finger landed, unless the finger landed in the
+ * part of the track the knob does not cover (its width less its height).
+ * A strip this wide and thin always has the finger there, so the first
+ * click flips it like every other.
+ */
+const STRIP_WIDTH = 600;
+const STRIP_HEIGHT = 12;
 
 /**
  * How long a button must be held before it does its second job, as on the
@@ -92,8 +102,10 @@ function PlayPauseGlyph() {
  * On iPhones an invisible native switch covers the ring, so the wheel's
  * clicks can be felt (see `lib/haptics.ts`): while a finger is down the
  * switch keeps its middle just beside it, and each click moves the middle
- * to the finger's other side, which Safari answers with a tap. A tap on the
- * ring lands on the switch, so it presses the button under it by position.
+ * to the finger's other side, which Safari answers with a tap. Safari only
+ * starts following a finger on a switch 200ms after it lands, so the first
+ * click of a quick turn can go unfelt. A tap on the ring lands on the
+ * switch, so it presses the button under it by position.
  */
 export function ClickWheel({
   onHoldEnd,
@@ -131,6 +143,10 @@ export function ClickWheel({
   holdEnd.current = onHoldEnd;
   const ios = useOnIos();
   const ringSwitch = useRef<HTMLInputElement>(null);
+  // A fresh switch for every touch: WebKit's timer for a held switch keeps
+  // the first touch it ever saw and measures later drags from where that
+  // one landed.
+  const [switchKey, setSwitchKey] = useState(0);
   /** Where the finger on the ring's switch is, and which side of it the middle keeps. */
   const follow = useRef<{ x: number; right: boolean } | null>(null);
   const releaseSwitch = useRef<() => void>(undefined);
@@ -161,6 +177,8 @@ export function ClickWheel({
   const followFinger = (x: number) => {
     const input = ringSwitch.current;
     if (!input) return;
+    input.style.width = `${STRIP_WIDTH}px`;
+    input.style.height = `${STRIP_HEIGHT}px`;
     // A switch that is on stays on while the finger is right of its middle.
     follow.current = { x, right: input.checked };
     placeSwitch();
@@ -175,12 +193,10 @@ export function ClickWheel({
     if (!follow.current) return;
     follow.current = null;
     releaseSwitch.current?.();
-    // Back under the ring once Safari has finished with the touch, so that
-    // moving it cannot flip the switch one last time.
+    // A new switch under the ring once Safari has finished with the touch,
+    // so that moving it cannot flip the old one a last time.
     window.setTimeout(() => {
-      if (!follow.current && ringSwitch.current) {
-        ringSwitch.current.style.left = "";
-      }
+      if (!follow.current) setSwitchKey((key) => key + 1);
     }, 50);
   };
 
@@ -377,7 +393,10 @@ export function ClickWheel({
         <input
           {...switchAttribute}
           aria-hidden="true"
-          className="absolute top-1/2 left-1/2 m-0 size-full -translate-x-1/2 -translate-y-1/2 cursor-pointer opacity-[.01] [-webkit-tap-highlight-color:transparent] [clip-path:circle(50%)]"
+          // Drawn not at all: Safari taps from the switch's logic, whatever
+          // it looks like.
+          className="absolute top-1/2 left-1/2 m-0 size-full -translate-x-1/2 -translate-y-1/2 cursor-pointer appearance-none opacity-0 [-webkit-tap-highlight-color:transparent] [clip-path:circle(50%)]"
+          key={switchKey}
           onClick={handleSwitchClick}
           ref={ringSwitch}
           tabIndex={-1}
