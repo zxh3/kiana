@@ -12,6 +12,8 @@ export const NAME_MAX = 16;
 export const TEXT_MAX = 200;
 /** Messages the room keeps, and sends to whoever joins. */
 export const HISTORY_SIZE = 50;
+/** How long the room keeps a message before deleting it: a day. */
+export const MESSAGE_LIFETIME = 24 * 60 * 60 * 1_000;
 /** Each person may send this many messages in any window this long. */
 export const SEND_LIMIT = 5;
 export const SEND_WINDOW = 10_000;
@@ -73,6 +75,16 @@ export function cleanText(raw: unknown) {
 /** A name for someone who has not picked one: user_ and four digits. */
 export function randomName(random = Math.random) {
   return `user_${1000 + Math.floor(random() * 9000)}`;
+}
+
+/** Messages sent at or before this time, a day before `now`, have expired. */
+export function expiryCutoff(now: number) {
+  return now - MESSAGE_LIFETIME;
+}
+
+/** When the room next has a message to delete, given its oldest one's time. */
+export function nextExpiry(oldest: number) {
+  return oldest + MESSAGE_LIFETIME;
 }
 
 /**

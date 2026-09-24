@@ -4,7 +4,10 @@ import {
   allowSend,
   cleanName,
   cleanText,
+  expiryCutoff,
+  MESSAGE_LIFETIME,
   NAME_MAX,
+  nextExpiry,
   parseClientMessage,
   parseServerMessage,
   randomName,
@@ -46,6 +49,15 @@ describe("randomName", () => {
     expect(randomName(() => 0)).toBe("user_1000");
     expect(randomName(() => 0.99999)).toBe("user_9999");
     expect(randomName()).toMatch(/^user_\d{4}$/);
+  });
+});
+
+describe("message expiry", () => {
+  it("expires messages a day old, and schedules the next deletion", () => {
+    const day = 24 * 60 * 60 * 1_000;
+    expect(MESSAGE_LIFETIME).toBe(day);
+    expect(expiryCutoff(day + 5)).toBe(5);
+    expect(nextExpiry(5)).toBe(day + 5);
   });
 });
 
