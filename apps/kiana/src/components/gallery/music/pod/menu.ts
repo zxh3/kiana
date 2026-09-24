@@ -89,13 +89,19 @@ export const extrasLabels: Record<ExtrasItem, string> = {
   spinner: "Finger Spinner",
 };
 
-/** Settings, named as on the original where it had the same setting. */
+/**
+ * Settings, named as on the original where it had the same setting. The
+ * last two choose the finger spinner's looks: which spinner, and which of
+ * Kiana's faces sits on its cap.
+ */
 export const settingsItems = [
   "shuffle",
   "repeat",
   "backlight",
   "clicker",
   "finish",
+  "spinner",
+  "face",
 ] as const;
 export type SettingsItem = (typeof settingsItems)[number];
 
@@ -105,6 +111,8 @@ export const settingsLabels: Record<SettingsItem, string> = {
   backlight: "Backlight",
   clicker: "Clicker",
   finish: "Finish",
+  spinner: "Spinner",
+  face: "Kiana",
 };
 
 /** Rows that fit on the screen at once. */

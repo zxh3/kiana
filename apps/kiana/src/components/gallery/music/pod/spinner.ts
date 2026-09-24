@@ -63,3 +63,43 @@ export function parseBestRpm(raw: string | null) {
   const value = Number(raw);
   return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
 }
+
+/** The spinners to choose from in Settings, drawn in `screen/spinner-art`. */
+export const spinnerStyles = ["stealth", "claw", "machined"] as const;
+export type SpinnerStyle = (typeof spinnerStyles)[number];
+
+export const spinnerStyleLabels: Record<SpinnerStyle, string> = {
+  stealth: "Stealth",
+  claw: "Claw",
+  machined: "Machined",
+};
+
+export function parseSpinnerStyle(raw: string | null): SpinnerStyle {
+  return spinnerStyles.includes(raw as SpinnerStyle)
+    ? (raw as SpinnerStyle)
+    : "stealth";
+}
+
+export function nextSpinnerStyle(style: SpinnerStyle): SpinnerStyle {
+  return spinnerStyles[
+    (spinnerStyles.indexOf(style) + 1) % spinnerStyles.length
+  ];
+}
+
+/** Kiana's faces for the spinner's cap, to choose from in Settings. */
+export const kianaFaces = ["curious", "calm", "shades"] as const;
+export type KianaFace = (typeof kianaFaces)[number];
+
+export const kianaFaceLabels: Record<KianaFace, string> = {
+  curious: "Curious",
+  calm: "Calm",
+  shades: "Shades",
+};
+
+export function parseKianaFace(raw: string | null): KianaFace {
+  return kianaFaces.includes(raw as KianaFace) ? (raw as KianaFace) : "curious";
+}
+
+export function nextKianaFace(face: KianaFace): KianaFace {
+  return kianaFaces[(kianaFaces.indexOf(face) + 1) % kianaFaces.length];
+}

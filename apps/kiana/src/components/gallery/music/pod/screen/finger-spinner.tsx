@@ -8,100 +8,114 @@ import {
   coast,
   drawnSpeed,
   flick,
+  type KianaFace,
   kick,
   parseBestRpm,
   rpm,
+  type SpinnerStyle,
 } from "../spinner";
 import { useSwipeSteps } from "../use-swipe-steps";
+import { kianaArt, spinnerArt } from "./spinner-art";
 
 /** Swipe distance that counts as one click of the wheel. */
 const SWIPE_STEP = 10;
-/** Copies trailing the lobes for the motion blur, faintest last. */
+/** Copies trailing the arms for the motion blur, faintest last. */
 const GHOST_OPACITIES = [0.42, 0.28, 0.18, 0.1];
 /** How often the readout changes, so the digits stay readable. */
 const READOUT_EVERY = 120;
 
-/** The lobes' centres, a third of a turn apart, 29 from the middle. */
-const lobes = [-90, 30, 150].map((degrees) => {
-  const radians = (degrees * Math.PI) / 180;
-  return { x: 50 + 29 * Math.cos(radians), y: 50 + 29 * Math.sin(radians) };
-});
+/** The steel ring the cap sits in, and Kiana on it, in the drawing's units. */
+const CAP_RIM = 20;
+const CAP_FACE = 36;
 
-/** Ids for one drawing's gradients; React's own ids are not valid in `url()`. */
+/** The ids one drawing's `<use>` copies point at. */
 function useArtIds() {
   const id = useId().replace(/[^\w-]/g, "");
-  return { body: `${id}-body`, metal: `${id}-metal`, shape: `${id}-shape` };
+  return { metal: `${id}-metal`, shape: `${id}-shape` };
 }
 
-/** The gradients and the spinning body, for `<use>` to draw. */
-function SpinnerDefs({ ids }: { ids: ReturnType<typeof useArtIds> }) {
+export type SpinnerLooks = { spinner: SpinnerStyle; face: KianaFace };
+
+/** The spinning body, for `<use>` to draw, and the cap's steel. */
+function SpinnerDefs({
+  ids,
+  spinner,
+}: {
+  ids: ReturnType<typeof useArtIds>;
+  spinner: SpinnerStyle;
+}) {
   return (
     <defs>
-      <linearGradient id={ids.body} x1="0" x2="1" y1="0" y2="1">
-        <stop offset="0" stopColor="#7cb9f8" />
-        <stop offset="0.55" stopColor="#3a86ea" />
-        <stop offset="1" stopColor="#1a56b8" />
-      </linearGradient>
       <radialGradient cx="0.38" cy="0.32" id={ids.metal} r="0.75">
         <stop offset="0" stopColor="#ffffff" />
         <stop offset="0.5" stopColor="#d4d8de" />
         <stop offset="1" stopColor="#8d949d" />
       </radialGradient>
-      {/* Three weighted lobes around a hub, each with its bearing. */}
-      <g id={ids.shape}>
-        <circle cx="50" cy="50" fill={`url(#${ids.body})`} r="19" />
-        {lobes.map((lobe) => (
-          <circle
-            cx={lobe.x}
-            cy={lobe.y}
-            fill={`url(#${ids.body})`}
-            key={lobe.x}
-            r="17"
-          />
-        ))}
-        {lobes.map((lobe) => (
-          <g key={lobe.x}>
-            <circle
-              cx={lobe.x}
-              cy={lobe.y}
-              fill={`url(#${ids.metal})`}
-              r="10.5"
-            />
-            <circle
-              cx={lobe.x}
-              cy={lobe.y}
-              fill="none"
-              r="6.5"
-              stroke="rgb(0 0 0 / 0.18)"
-            />
-          </g>
-        ))}
-        <circle cx="50" cy="50" fill={`url(#${ids.metal})`} r="12.5" />
-      </g>
+      <image
+        height="92"
+        href={spinnerArt[spinner]}
+        id={ids.shape}
+        width="92"
+        x="4"
+        y="4"
+      />
     </defs>
   );
 }
 
-/** The cap in the middle, which a finger holds still while the rest turns. */
-function SpinnerCap({ ids }: { ids: ReturnType<typeof useArtIds> }) {
+/**
+ * The cap in the middle, which a finger holds still while the rest turns:
+ * Kiana, in a steel ring, staying upright however fast it spins.
+ */
+function SpinnerCap({
+  face,
+  ids,
+}: {
+  face: KianaFace;
+  ids: ReturnType<typeof useArtIds>;
+}) {
   return (
     <g>
-      <circle cx="50" cy="50" fill={`url(#${ids.metal})`} r="8.5" />
-      <circle cx="50" cy="50" fill="none" r="5.5" stroke="rgb(0 0 0 / 0.12)" />
+      <circle
+        cx="50"
+        cy="50"
+        fill={`url(#${ids.metal})`}
+        r={CAP_RIM}
+        stroke="rgb(0 0 0 / 0.3)"
+        strokeWidth="0.6"
+      />
+      <image
+        height={CAP_FACE}
+        href={kianaArt[face]}
+        width={CAP_FACE}
+        x={50 - CAP_FACE / 2}
+        y={50 - CAP_FACE / 2}
+      />
     </g>
   );
 }
 
-/** A still spinner, for the top menu's preview of Extras. */
-export function SpinnerIcon({ size }: { size: number }) {
+/**
+ * A small spinner for the top menu's preview of Extras, its body turning
+ * slowly under Kiana, who stays upright as on the real one.
+ */
+export function SpinnerIcon({
+  looks,
+  size,
+}: {
+  looks: SpinnerLooks;
+  size: number;
+}) {
   const ids = useArtIds();
   return (
     <svg aria-hidden="true" height={size} viewBox="0 0 100 100" width={size}>
-      <SpinnerDefs ids={ids} />
+      <SpinnerDefs ids={ids} spinner={looks.spinner} />
       <g className="drop-shadow-[0_1.5px_1.5px_rgb(0_0_0/.35)]">
-        <use href={`#${ids.shape}`} transform="rotate(12 50 50)" />
+        <g className="origin-center animate-[spin_9s_linear_infinite] [transform-box:view-box] motion-reduce:animate-none">
+          <use href={`#${ids.shape}`} />
+        </g>
       </g>
-      <SpinnerCap ids={ids} />
+      <SpinnerCap face={looks.face} ids={ids} />
     </svg>
   );
 }
@@ -119,12 +133,15 @@ export function SpinnerIcon({ size }: { size: number }) {
  */
 export function FingerSpinner({
   flicks,
+  looks,
   onFlick,
   onStep,
   steps,
 }: {
   /** Flicks so far, counted up by the player. */
   flicks: number;
+  /** Which spinner, and which of Kiana's faces on its cap. */
+  looks: SpinnerLooks;
   onFlick: () => void;
   onStep: (steps: number) => void;
   /** Wheel clicks so far, signed, counted up by the player. */
@@ -252,7 +269,7 @@ export function FingerSpinner({
           className="size-full overflow-visible"
           viewBox="0 0 100 100"
         >
-          <SpinnerDefs ids={ids} />
+          <SpinnerDefs ids={ids} spinner={looks.spinner} />
           {GHOST_OPACITIES.map((opacity, index) => (
             <use
               href={`#${ids.shape}`}
@@ -267,7 +284,7 @@ export function FingerSpinner({
           <g className="drop-shadow-[0_1.5px_1.5px_rgb(0_0_0/.35)]">
             <use href={`#${ids.shape}`} ref={body} />
           </g>
-          <SpinnerCap ids={ids} />
+          <SpinnerCap face={looks.face} ids={ids} />
         </svg>
         <HapticTap />
       </button>

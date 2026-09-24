@@ -6,7 +6,11 @@ import {
   drawnSpeed,
   flick,
   kick,
+  nextKianaFace,
+  nextSpinnerStyle,
   parseBestRpm,
+  parseKianaFace,
+  parseSpinnerStyle,
   rpm,
   SPIN_FLICK,
   SPIN_KICK,
@@ -65,5 +69,17 @@ describe("finger spinner", () => {
     expect(parseBestRpm(null)).toBe(0);
     expect(parseBestRpm("junk")).toBe(0);
     expect(parseBestRpm("-5")).toBe(0);
+  });
+
+  it("cycles the spinner and Kiana's face, falling back from junk", () => {
+    expect(parseSpinnerStyle("claw")).toBe("claw");
+    expect(parseSpinnerStyle("junk")).toBe("stealth");
+    expect(parseSpinnerStyle(null)).toBe("stealth");
+    expect(nextSpinnerStyle("stealth")).toBe("claw");
+    expect(nextSpinnerStyle("machined")).toBe("stealth");
+    expect(parseKianaFace("shades")).toBe("shades");
+    expect(parseKianaFace("")).toBe("curious");
+    expect(nextKianaFace("curious")).toBe("calm");
+    expect(nextKianaFace("shades")).toBe("curious");
   });
 });

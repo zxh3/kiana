@@ -15,6 +15,12 @@ import {
   settingsLabels,
 } from "./menu";
 import { type Backlight, backlightLabels } from "./settings";
+import {
+  type KianaFace,
+  kianaFaceLabels,
+  type SpinnerStyle,
+  spinnerStyleLabels,
+} from "./spinner";
 
 export type PodRow = {
   key: string;
@@ -37,6 +43,8 @@ export type PodView = {
   backlight: Backlight;
   clicker: boolean;
   finish: Finish;
+  spinner: SpinnerStyle;
+  face: KianaFace;
   videoOpen: boolean;
   volume: number;
   current: number;
@@ -51,6 +59,8 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
     backlight: backlightLabels[view.backlight],
     clicker: view.clicker ? "On" : "Off",
     finish: finishLabels[view.finish],
+    spinner: spinnerStyleLabels[view.spinner],
+    face: kianaFaceLabels[view.face],
   };
   return {
     menu: menuItems.map((item) => ({

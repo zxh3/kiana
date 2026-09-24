@@ -111,6 +111,7 @@ export function PocketPlayer({
       return (
         <FingerSpinner
           flicks={state.spin.flicks}
+          looks={pod.looks}
           onFlick={controls.select}
           onStep={controls.step}
           steps={state.spin.steps}
@@ -146,6 +147,7 @@ export function PocketPlayer({
           <MenuPreview
             index={music.index}
             item={menuItems[state.selected.menu]}
+            looks={pod.looks}
             playlist={music.playlist}
           />
         </div>
