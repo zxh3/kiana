@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cleanText, TEXT_MAX } from "../../../../../lib/chat";
 import { cx } from "../../../../../lib/class-names";
 import { HapticTap } from "../../../haptic-tap";
+import { typingChangesAt, typingLine, typingNow } from "../chat";
 import type { Chat } from "../use-chat";
 import { PodField } from "./pod-field";
 
@@ -15,9 +16,9 @@ const NEAR_END = 12;
  * The Chat Room under Apps: everyone with it open talks in one room.
  * The strip at the top says how many are online and opens the list of
  * them (as does the centre button), the messages fill the middle with the
- * newest at the bottom, and the field below sends one with Enter. The wheel
- * scrolls the messages; new ones scroll into view unless the viewer has
- * scrolled up to read.
+ * newest at the bottom, followed by who is typing, and the field below
+ * sends one with Enter. The wheel scrolls the messages; new ones scroll
+ * into view unless the viewer has scrolled up to read.
  */
 export function ChatRoom({
   chat,
@@ -37,13 +38,32 @@ export function ChatRoom({
   const seenSteps = useRef(steps);
   const open = chat.status === "open";
 
+  // Who is typing changes with the clock as well as the room: each typist
+  // drops out a while after their last word, so the clock moves on then.
+  const [clock, setClock] = useState(() => Date.now());
+  const typists = typingNow(chat, clock);
+  const typing = typingLine(typists);
+  const nextChange = typingChangesAt(chat, clock);
+  useEffect(() => {
+    if (nextChange === null) return;
+    const timer = window.setTimeout(
+      () => setClock(Date.now()),
+      Math.max(0, nextChange - Date.now()) + 20,
+    );
+    return () => window.clearTimeout(timer);
+  }, [nextChange]);
+
+  // Leaving the screen drops the draft, so the room hears it was cleared.
+  const { typing: onTyping } = chat;
+  useEffect(() => () => onTyping(false), [onTyping]);
+
   // New messages scroll into view, unless the viewer is reading back.
   const count = chat.messages.length;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs for each new message or notice
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs for each new message, notice, or typist
   useLayoutEffect(() => {
     const element = list.current;
     if (element && atEnd.current) element.scrollTop = element.scrollHeight;
-  }, [count, chat.notice]);
+  }, [count, chat.notice, typing]);
 
   useEffect(() => {
     const moved = steps - seenSteps.current;
@@ -118,6 +138,22 @@ export function ChatRoom({
         {chat.notice ? (
           <p className="text-[#8a8a8a] italic">{chat.notice}</p>
         ) : null}
+        {typing ? (
+          <p className="truncate text-[10px] text-[#8a8a8a] italic">
+            {typing}
+            <span aria-hidden="true">
+              {[0, 1, 2].map((dot) => (
+                <span
+                  className="animate-typing-dot motion-reduce:animate-none"
+                  key={dot}
+                  style={{ animationDelay: `${dot * 0.2}s` }}
+                >
+                  .
+                </span>
+              ))}
+            </span>
+          </p>
+        ) : null}
       </div>
       <div className="border-t border-[#c9c9c9] bg-[#fafafa]">
         <PodField
@@ -125,7 +161,10 @@ export function ChatRoom({
           enterKeyHint="send"
           height={19}
           maxLength={TEXT_MAX}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            chat.typing(event.target.value.trim() !== "");
+          }}
           onEnter={handleEnter}
           placeholder={`Say something as ${chat.name}…`}
           value={draft}
