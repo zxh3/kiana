@@ -17,6 +17,15 @@ export const MESSAGE_LIFETIME = 24 * 60 * 60 * 1_000;
 /** Each person may send this many messages in any window this long. */
 export const SEND_LIMIT = 5;
 export const SEND_WINDOW = 10_000;
+/**
+ * While someone types, their browser says so at most this often, and the
+ * others show them as typing for a little longer than that after the last
+ * word, so a steady typist never flickers off between signals.
+ */
+export const TYPING_EVERY = 2_000;
+export const TYPING_SHOWS_FOR = 3_500;
+/** The room passes on at most one typing signal this often per person. */
+export const TYPING_MIN_GAP = 500;
 /** What the browser sends to keep a quiet connection open, and the reply. */
 export const PING = "ping";
 export const PONG = "pong";
@@ -37,7 +46,9 @@ export type ChatMessage = {
 export type ClientMessage =
   | { type: "join"; name: string }
   | { type: "rename"; name: string }
-  | { type: "say"; text: string };
+  | { type: "say"; text: string }
+  /** Started or went on typing (`active`), or cleared what they typed. */
+  | { type: "typing"; active: boolean };
 
 /** From the room to the browser. */
 export type ServerMessage =
@@ -49,6 +60,7 @@ export type ServerMessage =
     }
   | { type: "people"; people: Person[] }
   | { type: "message"; message: ChatMessage }
+  | { type: "typing"; id: string; name: string; active: boolean }
   | { type: "notice"; text: string };
 
 // Control characters, and the ones that reorder text around them, which
@@ -97,6 +109,48 @@ export function allowSend(recent: ReadonlyArray<number>, now: number) {
   return { allowed: true, recent: [...kept, now] };
 }
 
+/** The last typing signal the room passed on for someone. */
+export type LastTyping = { at: number; active: boolean };
+
+/**
+ * Whether the room passes on a typing signal at `now`: one that they are
+ * typing at most every `TYPING_MIN_GAP`, and one that they stopped only
+ * straight after one that they were, so it is never lost to the limit and
+ * the two together still cannot flood the room.
+ */
+export function allowTyping(
+  last: LastTyping | undefined,
+  active: boolean,
+  now: number,
+) {
+  if (!active) return last?.active === true;
+  return !last || now - last.at >= TYPING_MIN_GAP;
+}
+
+/** Whether a browser is typing, and when it last said so. */
+export type TypingSignal = { on: boolean; sent: number };
+export const quietTyping: TypingSignal = { on: false, sent: 0 };
+
+/**
+ * What the browser tells the room as the draft changes: that the viewer is
+ * typing, the first time and then once every `TYPING_EVERY` while they go
+ * on, and that they stopped when they clear the draft. `send` is null when
+ * there is nothing new to say.
+ */
+export function typingSignal(
+  signal: TypingSignal,
+  hasText: boolean,
+  now: number,
+): { send: boolean | null; signal: TypingSignal } {
+  if (!hasText) {
+    return { send: signal.on ? false : null, signal: quietTyping };
+  }
+  if (signal.on && now - signal.sent < TYPING_EVERY) {
+    return { send: null, signal };
+  }
+  return { send: true, signal: { on: true, sent: now } };
+}
+
 function readFrame(raw: unknown): Record<string, unknown> | null {
   if (typeof raw !== "string" || raw.length > FRAME_MAX) return null;
   try {
@@ -120,6 +174,9 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
   if (data.type === "say") {
     const text = cleanText(data.text);
     return text ? { type: "say", text } : null;
+  }
+  if (data.type === "typing") {
+    return { type: "typing", active: data.active !== false };
   }
   return null;
 }
@@ -183,6 +240,19 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
   if (data.type === "message") {
     const message = parseChatMessage(data.message);
     return message ? { type: "message", message } : null;
+  }
+  if (
+    data.type === "typing" &&
+    typeof data.id === "string" &&
+    typeof data.name === "string" &&
+    typeof data.active === "boolean"
+  ) {
+    return {
+      type: "typing",
+      id: data.id,
+      name: data.name,
+      active: data.active,
+    };
   }
   if (data.type === "notice" && typeof data.text === "string") {
     return { type: "notice", text: data.text };

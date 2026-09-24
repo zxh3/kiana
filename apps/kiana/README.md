@@ -73,8 +73,10 @@ Mediaforge release manifest and displays the responsive images described by it.
   wobbling. The second is a Chat Room, where everyone with it open
   talks in one room. Its top strip says how many are online and opens the
   Online list (as does the centre button), the messages fill the middle,
-  newest at the bottom, and the field below sends one with Enter; the wheel
-  scrolls the messages. Everyone starts as user_ and four digits, kept
+  newest at the bottom, followed by who is typing ("amy is typing…", for a
+  few seconds after their last key), and the field below sends one with
+  Enter; the wheel scrolls the messages. Typing is only ever passed on live,
+  never what was typed, at most every two seconds while someone types. Everyone starts as user_ and four digits, kept
   between visits, and picks another name from their own row, first in the
   Online list, which opens Your Name. The room is a Cloudflare Durable
   Object (`src/server/chat-room.ts`) that the page reaches by WebSocket at

@@ -30,6 +30,7 @@
   --animate-breathe: breathe 2.4s ease-in-out infinite;
   --animate-now-playing: now-playing 1.4s var(--ease-soft) 0.3s 3;
   --animate-equalize: equalize 1s ease-in-out infinite;
+  --animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
   --animate-marquee: marquee var(--marquee-duration, 12s) linear infinite;
   --animate-pod-pan: pod-pan 16s ease-in-out infinite alternate;
 }
@@ -202,6 +203,18 @@
   }
   50% {
     transform: scaleY(1);
+  }
+}
+
+/* The dots after "is typing", rising in turn. */
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+  }
+  30% {
+    opacity: 1;
   }
 }
 

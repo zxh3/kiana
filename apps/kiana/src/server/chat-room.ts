@@ -2,9 +2,11 @@ import { DurableObject } from "cloudflare:workers";
 
 import {
   allowSend,
+  allowTyping,
   type ChatMessage,
   expiryCutoff,
   HISTORY_SIZE,
+  type LastTyping,
   nextExpiry,
   type Person,
   PING,
@@ -23,6 +25,8 @@ type Guest = {
   name: string | null;
   /** When its recent messages were sent, for the rate limit. */
   sent: number[];
+  /** The last typing signal passed on for it, for that signal's limit. */
+  typed?: LastTyping;
 };
 
 /**
@@ -30,7 +34,8 @@ type Guest = {
  * browser with the Chat Room open connects to by WebSocket. It keeps the
  * last messages in its SQLite storage, sends them to whoever joins, and
  * tells everyone who is here whenever someone joins, leaves, or changes
- * their name. Messages are deleted a day after they are sent, by an alarm
+ * their name. It passes on who is typing without keeping it: that is only
+ * ever live. Messages are deleted a day after they are sent, by an alarm
  * set for the oldest one, so they go even while nobody is here.
  *
  * It uses the WebSocket Hibernation API, so a quiet room is put to sleep
@@ -89,6 +94,25 @@ export class ChatRoom extends DurableObject<Env> {
     // Only someone who has joined can talk, and not too fast.
     if (guest.name === null) return;
     const now = Date.now();
+
+    if (message.type === "typing") {
+      if (!allowTyping(guest.typed, message.active, now)) return;
+      socket.serializeAttachment({
+        ...guest,
+        typed: { at: now, active: message.active },
+      });
+      this.broadcast(
+        {
+          type: "typing",
+          id: guest.id,
+          name: guest.name,
+          active: message.active,
+        },
+        socket,
+      );
+      return;
+    }
+
     const limit = allowSend(guest.sent, now);
     socket.serializeAttachment({ ...guest, sent: limit.recent });
     if (!limit.allowed) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   allowSend,
+  allowTyping,
   cleanName,
   cleanText,
   expiryCutoff,
@@ -10,10 +11,14 @@ import {
   nextExpiry,
   parseClientMessage,
   parseServerMessage,
+  quietTyping,
   randomName,
   SEND_LIMIT,
   SEND_WINDOW,
   TEXT_MAX,
+  TYPING_EVERY,
+  TYPING_MIN_GAP,
+  typingSignal,
 } from "./chat";
 
 describe("cleanName", () => {
@@ -81,6 +86,42 @@ describe("allowSend", () => {
   });
 });
 
+describe("typingSignal", () => {
+  it("says so on the first key, then once every interval", () => {
+    const first = typingSignal(quietTyping, true, 1_000);
+    expect(first).toEqual({ send: true, signal: { on: true, sent: 1_000 } });
+    const soon = typingSignal(first.signal, true, 1_000 + TYPING_EVERY - 1);
+    expect(soon.send).toBeNull();
+    const later = typingSignal(soon.signal, true, 1_000 + TYPING_EVERY);
+    expect(later).toEqual({
+      send: true,
+      signal: { on: true, sent: 1_000 + TYPING_EVERY },
+    });
+  });
+
+  it("says it stopped once when the draft is cleared", () => {
+    const typing = typingSignal(quietTyping, true, 1_000).signal;
+    const cleared = typingSignal(typing, false, 1_500);
+    expect(cleared).toEqual({ send: false, signal: quietTyping });
+    expect(typingSignal(cleared.signal, false, 1_600).send).toBeNull();
+  });
+});
+
+describe("allowTyping", () => {
+  it("passes on that someone is typing at most once per gap", () => {
+    expect(allowTyping(undefined, true, 5)).toBe(true);
+    const last = { at: 100, active: true };
+    expect(allowTyping(last, true, 100 + TYPING_MIN_GAP - 1)).toBe(false);
+    expect(allowTyping(last, true, 100 + TYPING_MIN_GAP)).toBe(true);
+  });
+
+  it("always passes on a stop after typing, and only then", () => {
+    expect(allowTyping({ at: 100, active: true }, false, 101)).toBe(true);
+    expect(allowTyping({ at: 100, active: false }, false, 900)).toBe(false);
+    expect(allowTyping(undefined, false, 900)).toBe(false);
+  });
+});
+
 describe("parseClientMessage", () => {
   it("reads joins, renames, and messages, cleaned", () => {
     expect(parseClientMessage('{"type":"join","name":" kiana "}')).toEqual({
@@ -94,6 +135,17 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage('{"type":"say","text":"hi\\n"}')).toEqual({
       type: "say",
       text: "hi",
+    });
+  });
+
+  it("reads typing signals", () => {
+    expect(parseClientMessage('{"type":"typing"}')).toEqual({
+      type: "typing",
+      active: true,
+    });
+    expect(parseClientMessage('{"type":"typing","active":false}')).toEqual({
+      type: "typing",
+      active: false,
     });
   });
 
@@ -137,6 +189,14 @@ describe("parseServerMessage", () => {
     expect(
       parseServerMessage(JSON.stringify({ type: "notice", text: "slow" })),
     ).toEqual({ type: "notice", text: "slow" });
+  });
+
+  it("reads typing", () => {
+    const typing = { type: "typing", id: "p", name: "amy", active: true };
+    expect(parseServerMessage(JSON.stringify(typing))).toEqual(typing);
+    expect(
+      parseServerMessage(JSON.stringify({ ...typing, active: "yes" })),
+    ).toBeNull();
   });
 
   it("ignores what it does not know", () => {
