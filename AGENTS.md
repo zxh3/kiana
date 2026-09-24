@@ -37,10 +37,11 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
   the click-wheel player. `gallery/sound` is the sound mixer. `src/lib/sounds`
   generates the interface sounds, and `src/lib/motion.ts` holds the shared
   animation presets. `src/server.ts` is the Worker's entry: TanStack Start,
-  with the pod's chat room in front of it, a Durable Object in
-  `src/server/chat-room.ts` whose rules live in `src/lib/chat.ts`. The
-  Worker's code has its own `tsconfig.worker.json`, since Cloudflare's
-  runtime types clash with the browser's.
+  with the pod's live apps in front of it, each a Durable Object: the chat
+  room in `src/server/chat-room.ts`, whose rules live in `src/lib/chat.ts`,
+  and the wooden fish's merit in `src/server/wooden-fish.ts`, with
+  `src/lib/muyu.ts`. The Worker's code has its own `tsconfig.worker.json`,
+  since Cloudflare's runtime types clash with the browser's.
 - **Logic stays pure and tested.** The music player's behaviour is a pure
   state machine in `pod/machine.ts` with unit tests; its components only
   draw. Follow that shape: put rules in plain functions or reducers with

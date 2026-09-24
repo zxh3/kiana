@@ -11,7 +11,6 @@ import {
   initialChatState,
   otherPeople,
   parseChatName,
-  retryDelay,
   typingChangesAt,
   typingLine,
   typingNow,
@@ -154,13 +153,5 @@ describe("parseChatName", () => {
     expect(parseChatName(" kiana ")).toBe("kiana");
     expect(parseChatName(null)).toBe("");
     expect(parseChatName("   ")).toBe("");
-  });
-});
-
-describe("retryDelay", () => {
-  it("doubles up to half a minute", () => {
-    expect([0, 1, 2, 10].map(retryDelay)).toEqual([
-      1_000, 2_000, 4_000, 30_000,
-    ]);
   });
 });

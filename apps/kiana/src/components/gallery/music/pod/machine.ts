@@ -95,7 +95,8 @@ export type PodEffect =
   | { type: "setting"; item: SettingsItem }
   | { type: "video"; on: boolean }
   | { type: "say"; text: string }
-  | { type: "rename"; name: string };
+  | { type: "rename"; name: string }
+  | { type: "pat" };
 
 export type PodAction =
   // The click wheel.
@@ -365,7 +366,7 @@ export function podReducer(
           effects: tick(context),
         };
       }
-      if (state.screen === "name") return unchanged;
+      if (state.screen === "name" || state.screen === "muyu") return unchanged;
       const screen = state.screen;
       const index = moveSelection(
         state.selected[screen],
@@ -386,6 +387,10 @@ export function podReducer(
           state: { ...state, spin: { ...spin, flicks: spin.flicks + 1 } },
           effects: [press],
         };
+      }
+      // The electronic wooden fish: each press pats Kiana's head, for merit.
+      if (state.screen === "muyu") {
+        return { state, effects: [press, { type: "pat" }] };
       }
       // In the Chat Room the centre button opens the Online list, and on
       // Your Name it saves the name, which the screen answers with

@@ -9,13 +9,17 @@ export type Screen =
   | "songs"
   | "apps"
   | "spinner"
+  | "muyu"
   | "chat"
   | "online"
   | "name"
   | "settings"
   | "now";
 /** Screens with a highlight that the wheel moves. */
-export type ChoiceScreen = Exclude<Screen, "now" | "spinner" | "chat" | "name">;
+export type ChoiceScreen = Exclude<
+  Screen,
+  "now" | "spinner" | "muyu" | "chat" | "name"
+>;
 /** Screens drawn as a menu list. */
 export type ListScreen = Exclude<ChoiceScreen, "covers">;
 
@@ -29,6 +33,7 @@ export const screenTitles: Record<Screen, string> = {
   songs: "Songs",
   apps: "Apps",
   spinner: "Finger Spinner",
+  muyu: "电子木鱼",
   chat: "Chat Room",
   online: "Online",
   name: "Your Name",
@@ -46,6 +51,7 @@ export const parentScreen: Record<Screen, Screen | null> = {
   songs: "menu",
   apps: "menu",
   spinner: "apps",
+  muyu: "apps",
   chat: "apps",
   online: "chat",
   name: "online",
@@ -94,13 +100,17 @@ export const menuOpens: Record<MenuItem, boolean> = {
  * The little apps, where the original kept its games under Extras: named
  * Apps here, since they are no longer only games.
  */
-export const appItems = ["spinner", "chat"] as const;
+export const appItems = ["spinner", "chat", "muyu"] as const;
 export type AppItem = (typeof appItems)[number];
 
 export const appLabels: Record<AppItem, string> = {
   spinner: "Finger Spinner",
   chat: "Chat Room",
+  muyu: "电子木鱼",
 };
+
+/** The language of each app's name, where it is not English. */
+export const appLangs: Partial<Record<AppItem, string>> = { muyu: "zh" };
 
 /**
  * The Chat Room's screens: the messages, who is online, and the viewer's

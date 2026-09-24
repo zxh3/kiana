@@ -342,4 +342,19 @@ describe("pocket player machine", () => {
       { type: "say", text: "hi" },
     ]);
   });
+
+  it("pats Kiana on the wooden fish with the centre button, not the wheel", () => {
+    const { state, effects } = run(
+      [
+        { type: "pick", screen: "apps", index: 2 },
+        { type: "select" },
+        { type: "select" },
+      ],
+      at("apps"),
+    );
+    expect(state.screen).toBe("muyu");
+    expect(effects).toContainEqual({ type: "pat" });
+    expect(run([{ type: "step", steps: 3 }], state).effects).toEqual([]);
+    expect(run([{ type: "back" }], state).state.screen).toBe("apps");
+  });
 });

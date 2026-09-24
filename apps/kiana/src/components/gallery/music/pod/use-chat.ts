@@ -4,23 +4,14 @@ import {
   CHAT_PATH,
   type ClientMessage,
   cleanName,
-  PING,
-  PONG,
   parseServerMessage,
   quietTyping,
   randomName,
   typingSignal,
 } from "../../../../lib/chat";
 import { useStoredState } from "../../use-stored-state";
-import {
-  chatReducer,
-  initialChatState,
-  parseChatName,
-  retryDelay,
-} from "./chat";
-
-/** How often a quiet connection pings the room, so nothing between drops it. */
-const PING_EVERY = 25_000;
+import { chatReducer, initialChatState, parseChatName } from "./chat";
+import { useLiveSocket } from "./use-live-socket";
 
 /**
  * The connection to the chat room, open only while `open` (the Chat Room's
@@ -33,7 +24,6 @@ const PING_EVERY = 25_000;
 export function useChat(open: boolean) {
   const [name, setName] = useStoredState("kiana.chat-name", parseChatName);
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
-  const socket = useRef<WebSocket | null>(null);
   const typed = useRef(quietTyping);
   const nameRef = useRef(name);
   nameRef.current = name;
@@ -42,61 +32,19 @@ export function useChat(open: boolean) {
     if (open && !name) setName(randomName());
   }, [name, open, setName]);
 
-  const named = Boolean(name);
-  useEffect(() => {
-    if (!open || !named) return;
-    let attempt = 0;
-    let retry: number | undefined;
-    let ping: number | undefined;
-    let current: WebSocket | null = null;
-
-    const connect = () => {
-      dispatch({ type: "connecting" });
-      const url = new URL(CHAT_PATH, window.location.href);
-      url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(url);
-      current = ws;
-      ws.addEventListener("open", () => {
-        attempt = 0;
-        socket.current = ws;
-        typed.current = quietTyping;
-        const join: ClientMessage = { type: "join", name: nameRef.current };
-        ws.send(JSON.stringify(join));
-        ping = window.setInterval(() => ws.send(PING), PING_EVERY);
-      });
-      ws.addEventListener("message", (event) => {
-        if (event.data === PONG) return;
-        const message = parseServerMessage(event.data);
-        if (message) dispatch({ type: "received", message, at: Date.now() });
-      });
-      ws.addEventListener("close", () => {
-        window.clearInterval(ping);
-        if (current !== ws) return;
-        socket.current = null;
-        dispatch({ type: "offline" });
-        retry = window.setTimeout(connect, retryDelay(attempt));
-        attempt += 1;
-      });
-    };
-    connect();
-
-    return () => {
-      window.clearTimeout(retry);
-      window.clearInterval(ping);
-      const closing = current;
-      current = null;
-      socket.current = null;
-      closing?.close();
-      dispatch({ type: "offline" });
-    };
-  }, [named, open]);
-
-  const post = useCallback((message: ClientMessage) => {
-    const ws = socket.current;
-    if (ws?.readyState !== WebSocket.OPEN) return false;
-    ws.send(JSON.stringify(message));
-    return true;
-  }, []);
+  const post: (message: ClientMessage) => boolean = useLiveSocket({
+    onMessage: (data) => {
+      const message = parseServerMessage(data);
+      if (message) dispatch({ type: "received", message, at: Date.now() });
+    },
+    onOpen: () => {
+      typed.current = quietTyping;
+      post({ type: "join", name: nameRef.current });
+    },
+    onStatus: (status) => dispatch({ type: status }),
+    open: open && Boolean(name),
+    path: CHAT_PATH,
+  });
 
   // Sending what was typed is the end of typing it.
   const say = useCallback(

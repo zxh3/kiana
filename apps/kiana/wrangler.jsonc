@@ -4,10 +4,17 @@
   "compatibility_date": "2026-08-16",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
-  // The click-wheel player's chat room: one Durable Object holds everyone
-  // connected, and the last messages in its SQLite storage.
+  // The click-wheel player's live apps, each one Durable Object that every
+  // visitor shares: the chat room, with its last messages, and the
+  // electronic wooden fish, with everyone's merit.
   "durable_objects": {
-    "bindings": [{ "name": "CHAT_ROOM", "class_name": "ChatRoom" }]
+    "bindings": [
+      { "name": "CHAT_ROOM", "class_name": "ChatRoom" },
+      { "name": "WOODEN_FISH", "class_name": "WoodenFish" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ChatRoom"] }]
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ChatRoom"] },
+    { "tag": "v2", "new_sqlite_classes": ["WoodenFish"] }
+  ]
 }
