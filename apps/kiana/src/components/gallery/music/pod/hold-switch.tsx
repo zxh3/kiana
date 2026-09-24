@@ -1,4 +1,5 @@
 import { cx } from "../../../../lib/class-names";
+import { HapticTap } from "../../haptic-tap";
 import { BODY_PADDING, CORNER_CLEARANCE } from "./geometry";
 
 /**
@@ -44,6 +45,7 @@ export function HoldSwitch({
           )}
         />
       </span>
+      <HapticTap />
     </button>
   );
 }

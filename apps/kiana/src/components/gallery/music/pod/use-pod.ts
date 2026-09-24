@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { tap } from "../../../../lib/haptics";
 import { cue } from "../../../../lib/sounds";
 import type { Music } from "../use-music";
 import { nextFinish } from "./finishes";
@@ -78,8 +79,13 @@ export function usePod({
 
   const run = (effect: PodEffect) => {
     switch (effect.type) {
+      // Every sound the player makes is also a tap on Android phones, so
+      // the wheel's clicks can be felt, and turning off the clicker stops
+      // both. iPhones only tap for a touch, which `HapticTap` handles on
+      // each button.
       case "cue":
         cue(effect.cue);
+        tap();
         break;
       case "play":
         music.playTrack(effect.index);

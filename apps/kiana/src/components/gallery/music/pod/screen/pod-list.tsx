@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { cx } from "../../../../../lib/class-names";
+import { HapticTap } from "../../../haptic-tap";
 import { scrollWindow, VISIBLE_ROWS } from "../menu";
 import type { PodRow } from "../rows";
 import { useSwipeSteps } from "../use-swipe-steps";
@@ -58,7 +59,7 @@ export function PodList({
               <button
                 aria-current={active || undefined}
                 className={cx(
-                  "flex w-full cursor-pointer items-center gap-1.5 pr-1.5 pl-2 text-left text-[12px] leading-none outline-none",
+                  "relative flex w-full cursor-pointer items-center gap-1.5 pr-1.5 pl-2 text-left text-[12px] leading-none outline-none",
                   scrolls && "pr-3",
                   active ? highlight : "text-[#141414]",
                 )}
@@ -103,6 +104,7 @@ export function PodList({
                     ›
                   </span>
                 ) : null}
+                <HapticTap />
               </button>
             </li>
           );
