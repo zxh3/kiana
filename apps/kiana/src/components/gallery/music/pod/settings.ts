@@ -1,5 +1,6 @@
 import { useStoredState } from "../../use-stored-state";
 import { type Finish, parseFinish } from "./finishes";
+import { parseKianaFace, parseSpinnerStyle } from "./spinner";
 
 export type Backlight = "timed" | "always";
 
@@ -34,13 +35,23 @@ export function usePodSettings() {
     "kiana.music-clicker",
     parseClicker,
   );
+  // The finger spinner's looks, chosen under Settings like the finish.
+  const [spinner, setSpinner] = useStoredState(
+    "kiana.spinner-style",
+    parseSpinnerStyle,
+  );
+  const [face, setFace] = useStoredState("kiana.spinner-face", parseKianaFace);
   return {
     backlight,
     clicker,
+    face,
     finish,
     setBacklight,
     setClicker,
+    setFace,
     setFinish,
+    setSpinner,
+    spinner,
   };
 }
 

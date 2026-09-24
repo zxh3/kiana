@@ -59,9 +59,19 @@ Mediaforge release manifest and displays the responsive images described by it.
   next touch. The hold switch, a small slot in the aluminium above the screen,
   locks every control and shows a padlock. The screen dims ten seconds after
   the last touch, and the battery shows the viewer's own where the browser
-  shares it. Settings, named as on the original, holds Shuffle (on or off) and
-  Repeat (all or one) as two separate settings, the backlight timer, the
-  clicker (the wheel's ticks), and the finish. On phones the controls tap
+  shares it. Extras, where the original kept its games, holds a finger
+  spinner: each click of the wheel flicks it faster the way it turned (and
+  back the other way to brake), the centre button or a tap gives it a bigger
+  flick, a sideways swipe on the screen winds it too, and let go it coasts
+  down silently, blurring at speed, with its rpm and best shown below.
+  Kiana sits on its cap, which stays upright while the rest spins. Its art
+  was generated with OpenAI's gpt-image-2.5-sunburst, Kiana's faces from
+  her photos, and each spinner made exactly symmetric so it turns without
+  wobbling. Settings, named as on the original, holds Shuffle (on or off)
+  and Repeat (all or one) as two separate settings, the backlight timer,
+  the clicker (the wheel's ticks), the finish, and the finger spinner's
+  looks: Spinner (Stealth, Claw, or Machined) and Kiana (Curious, Calm, or
+  Shades). On phones the controls tap
   back through the vibration motor. Android taps with every sound, including
   each click of a turning wheel, through the Vibration API; turning the
   clicker off stops the wheel's taps too. Safari on iOS has no Vibration API,
@@ -105,7 +115,7 @@ Mediaforge release manifest and displays the responsive images described by it.
 
 Preferences, favorites, date-order positions, and the music volume, song,
 mute, shuffle, repeat, player size, corner, finish, backlight, and clicker, the
-video sound level, and the interface sounds switch and level are stored in
+finger spinner's best speed, spinner, and face, the video sound level, and the interface sounds switch and level are stored in
 local storage under `kiana.*` keys.
 
 ### Keyboard shortcuts

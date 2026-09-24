@@ -7,6 +7,7 @@ import { FaceButtons } from "./face-buttons";
 import { HoldSwitch } from "./hold-switch";
 import { menuItems, screenTitles } from "./menu";
 import { CoverFlow } from "./screen/cover-flow";
+import { FingerSpinner } from "./screen/finger-spinner";
 import { MenuPreview } from "./screen/menu-preview";
 import { NowPlaying } from "./screen/now-playing";
 import { PodList } from "./screen/pod-list";
@@ -106,6 +107,17 @@ export function PocketPlayer({
         />
       );
     }
+    if (screen === "spinner") {
+      return (
+        <FingerSpinner
+          flicks={state.spin.flicks}
+          looks={pod.looks}
+          onFlick={controls.select}
+          onStep={controls.step}
+          steps={state.spin.steps}
+        />
+      );
+    }
     if (screen === "covers") {
       return (
         <CoverFlow
@@ -135,6 +147,7 @@ export function PocketPlayer({
           <MenuPreview
             index={music.index}
             item={menuItems[state.selected.menu]}
+            looks={pod.looks}
             playlist={music.playlist}
           />
         </div>

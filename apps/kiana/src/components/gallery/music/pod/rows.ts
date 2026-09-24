@@ -4,6 +4,8 @@ import { type Finish, finishLabels } from "./finishes";
 import { formatPodTime } from "./format";
 import type { PodState } from "./machine";
 import {
+  extrasItems,
+  extrasLabels,
   type ListScreen,
   menuItems,
   menuLabels,
@@ -13,6 +15,12 @@ import {
   settingsLabels,
 } from "./menu";
 import { type Backlight, backlightLabels } from "./settings";
+import {
+  type KianaFace,
+  kianaFaceLabels,
+  type SpinnerStyle,
+  spinnerStyleLabels,
+} from "./spinner";
 
 export type PodRow = {
   key: string;
@@ -35,6 +43,8 @@ export type PodView = {
   backlight: Backlight;
   clicker: boolean;
   finish: Finish;
+  spinner: SpinnerStyle;
+  face: KianaFace;
   videoOpen: boolean;
   volume: number;
   current: number;
@@ -49,6 +59,8 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
     backlight: backlightLabels[view.backlight],
     clicker: view.clicker ? "On" : "Off",
     finish: finishLabels[view.finish],
+    spinner: spinnerStyleLabels[view.spinner],
+    face: kianaFaceLabels[view.face],
   };
   return {
     menu: menuItems.map((item) => ({
@@ -61,6 +73,11 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
       label: song.title,
       current: position === view.index,
       lang: "zh",
+    })),
+    extras: extrasItems.map((item) => ({
+      key: item,
+      label: extrasLabels[item],
+      opens: true,
     })),
     settings: settingsItems.map((item) => ({
       key: item,
@@ -91,6 +108,9 @@ export function describePod(
     }
     const track = view.playlist[view.index];
     return `${screenTitles.now}: ${track.title}, ${track.artist}`;
+  }
+  if (state.screen === "spinner") {
+    return `${screenTitles.spinner}: turn the wheel to spin it, or press the centre button to flick it`;
   }
   if (state.screen === "covers") {
     const track = view.playlist[state.selected.covers];

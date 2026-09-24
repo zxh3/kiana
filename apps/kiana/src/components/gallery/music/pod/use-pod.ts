@@ -19,6 +19,7 @@ import {
 import { type ChoiceScreen, parentScreen, type SettingsItem } from "./menu";
 import { describePod, type PodView, podRows } from "./rows";
 import { BACKLIGHT_TIMEOUT, type PodSettings } from "./settings";
+import { nextKianaFace, nextSpinnerStyle } from "./spinner";
 import { useBacklight } from "./use-backlight";
 
 /**
@@ -74,7 +75,10 @@ export function usePod({
         settings.backlight === "timed" ? "always" : "timed",
       );
     } else if (item === "clicker") settings.setClicker(!settings.clicker);
-    else settings.setFinish(nextFinish(settings.finish));
+    else if (item === "finish") settings.setFinish(nextFinish(settings.finish));
+    else if (item === "spinner") {
+      settings.setSpinner(nextSpinnerStyle(settings.spinner));
+    } else settings.setFace(nextKianaFace(settings.face));
   };
 
   const run = (effect: PodEffect) => {
@@ -188,6 +192,8 @@ export function usePod({
     backlight: settings.backlight,
     clicker: settings.clicker,
     finish: settings.finish,
+    spinner: settings.spinner,
+    face: settings.face,
     videoOpen,
     volume: music.volume,
     current: progress.current,
@@ -208,6 +214,8 @@ export function usePod({
     rows,
     description: describePod(state, rows, view),
     lit: backlight.lit,
+    /** The finger spinner's looks, chosen in Settings. */
+    looks: { spinner: settings.spinner, face: settings.face },
     /** Counts as a touch, for the backlight. */
     wake: backlight.wake,
     canGoBack:

@@ -91,6 +91,8 @@ describe("pocket player rules", () => {
       backlight: "timed",
       clicker: true,
       finish: "silver",
+      spinner: "stealth",
+      face: "curious",
       videoOpen: false,
       volume: 42,
       current: 65,

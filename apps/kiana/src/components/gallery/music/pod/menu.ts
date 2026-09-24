@@ -3,9 +3,16 @@
  * Kept free of React so the rules can be tested on their own.
  */
 
-export type Screen = "menu" | "covers" | "songs" | "settings" | "now";
+export type Screen =
+  | "menu"
+  | "covers"
+  | "songs"
+  | "extras"
+  | "spinner"
+  | "settings"
+  | "now";
 /** Screens with a highlight that the wheel moves. */
-export type ChoiceScreen = Exclude<Screen, "now">;
+export type ChoiceScreen = Exclude<Screen, "now" | "spinner">;
 /** Screens drawn as a menu list. */
 export type ListScreen = Exclude<ChoiceScreen, "covers">;
 
@@ -17,6 +24,8 @@ export const screenTitles: Record<Screen, string> = {
   menu: "Kiana",
   covers: "Cover Flow",
   songs: "Songs",
+  extras: "Extras",
+  spinner: "Finger Spinner",
   settings: "Settings",
   now: "Now Playing",
 };
@@ -29,14 +38,17 @@ export const parentScreen: Record<Screen, Screen | null> = {
   menu: null,
   covers: "menu",
   songs: "menu",
+  extras: "menu",
+  spinner: "extras",
   settings: "menu",
   now: "menu",
 };
 
 /**
  * The top menu, laid out as on the original: Shuffle Songs one press away,
- * and Now Playing last. With a playlist this short the song screens sit
- * here too, rather than a level down under "Music".
+ * Extras for the little apps, and Now Playing last. With a playlist this
+ * short the song screens sit here too, rather than a level down under
+ * "Music".
  * Putting the player away belongs to the widget's own minimize and close
  * buttons, not to the device's menus.
  */
@@ -44,6 +56,7 @@ export const menuItems = [
   "covers",
   "songs",
   "shuffle",
+  "extras",
   "settings",
   "now",
 ] as const;
@@ -53,6 +66,7 @@ export const menuLabels: Record<MenuItem, string> = {
   covers: "Cover Flow",
   songs: "Songs",
   shuffle: "Shuffle Songs",
+  extras: "Extras",
   settings: "Settings",
   now: "Now Playing",
 };
@@ -62,17 +76,32 @@ export const menuOpens: Record<MenuItem, boolean> = {
   covers: true,
   songs: true,
   shuffle: false,
+  extras: true,
   settings: true,
   now: true,
 };
 
-/** Settings, named as on the original where it had the same setting. */
+/** The little apps under Extras, where the original kept its games. */
+export const extrasItems = ["spinner"] as const;
+export type ExtrasItem = (typeof extrasItems)[number];
+
+export const extrasLabels: Record<ExtrasItem, string> = {
+  spinner: "Finger Spinner",
+};
+
+/**
+ * Settings, named as on the original where it had the same setting. The
+ * last two choose the finger spinner's looks: which spinner, and which of
+ * Kiana's faces sits on its cap.
+ */
 export const settingsItems = [
   "shuffle",
   "repeat",
   "backlight",
   "clicker",
   "finish",
+  "spinner",
+  "face",
 ] as const;
 export type SettingsItem = (typeof settingsItems)[number];
 
@@ -82,6 +111,8 @@ export const settingsLabels: Record<SettingsItem, string> = {
   backlight: "Backlight",
   clicker: "Clicker",
   finish: "Finish",
+  spinner: "Spinner",
+  face: "Kiana",
 };
 
 /** Rows that fit on the screen at once. */
