@@ -3,7 +3,9 @@ import { DurableObject } from "cloudflare:workers";
 import {
   allowSend,
   type ChatMessage,
+  expiryCutoff,
   HISTORY_SIZE,
+  nextExpiry,
   type Person,
   PING,
   PONG,
@@ -28,7 +30,8 @@ type Guest = {
  * browser with the Chat Room open connects to by WebSocket. It keeps the
  * last messages in its SQLite storage, sends them to whoever joins, and
  * tells everyone who is here whenever someone joins, leaves, or changes
- * their name.
+ * their name. Messages are deleted a day after they are sent, by an alarm
+ * set for the oldest one, so they go even while nobody is here.
  *
  * It uses the WebSocket Hibernation API, so a quiet room is put to sleep
  * with its connections still open, and pings are answered without waking
@@ -70,6 +73,8 @@ export class ChatRoom extends DurableObject<Env> {
       const joining = guest.name === null;
       socket.serializeAttachment({ ...guest, name: message.name });
       if (joining) {
+        // In case the alarm has not run yet, nothing expired is sent.
+        this.expire(Date.now());
         send(socket, {
           type: "welcome",
           you: guest.id,
@@ -110,7 +115,29 @@ export class ChatRoom extends DurableObject<Env> {
       "DELETE FROM messages WHERE seq <= (SELECT MAX(seq) FROM messages) - ?",
       HISTORY_SIZE,
     );
+    this.expire(now);
     this.broadcast({ type: "message", message: said });
+  }
+
+  async alarm() {
+    this.expire(Date.now());
+  }
+
+  /**
+   * Deletes the messages a day old, and sets the alarm for when the oldest
+   * one left will be, or clears it once none are left.
+   */
+  private expire(now: number) {
+    const sql = this.ctx.storage.sql;
+    sql.exec("DELETE FROM messages WHERE at <= ?", expiryCutoff(now));
+    const [oldest] = sql
+      .exec<{ at: number }>("SELECT MIN(at) AS at FROM messages")
+      .toArray();
+    if (oldest?.at != null) {
+      this.ctx.storage.setAlarm(nextExpiry(oldest.at));
+    } else {
+      this.ctx.storage.deleteAlarm();
+    }
   }
 
   async webSocketClose(socket: WebSocket) {

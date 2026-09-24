@@ -76,7 +76,8 @@ Mediaforge release manifest and displays the responsive images described by it.
   between visits, and picks another name from their own row, first in the
   Online list, which opens Your Name. The room is a Cloudflare Durable
   Object (`src/server/chat-room.ts`) that the page reaches by WebSocket at
-  `/api/chat`: it keeps the last 50 messages in its SQLite storage, tells
+  `/api/chat`: it keeps the last 50 messages in its SQLite storage, deletes
+  each a day after it was sent (by an alarm, even while nobody is there), tells
   everyone who is here as people come and go, and allows five messages
   every ten seconds each. Names are at most 16 characters and messages 200,
   both one line of plain text. It is joined only while one of its screens
