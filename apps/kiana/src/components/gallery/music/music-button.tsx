@@ -1,8 +1,7 @@
 import { cx } from "../../../lib/class-names";
 import { cue } from "../../../lib/sounds";
 import { focusRing } from "../control-button";
-import { EqualizerIcon, MusicNoteIcon } from "../icons";
-import { Swap } from "../swap";
+import { PocketPlayerIcon } from "../icons";
 import type { Music, MusicStatus } from "./use-music";
 
 const statusLabels: Record<MusicStatus, string> = {
@@ -13,7 +12,11 @@ const statusLabels: Record<MusicStatus, string> = {
   blocked: "Tap the video",
   error: "Unavailable",
 };
-/** The top-bar switch: starts the music, then pauses and resumes it. */
+/**
+ * The top-bar switch: starts the music, which brings out the pocket player,
+ * then pauses and resumes it. Its icon is the player, with the music's bars
+ * on its screen.
+ */
 export function MusicButton({ music }: { music: Music }) {
   const playing = music.status === "playing";
   const label =
@@ -41,13 +44,11 @@ export function MusicButton({ music }: { music: Music }) {
       title={label}
       type="button"
     >
-      <Swap id={music.status === "idle" ? "note" : "bars"}>
-        {music.status === "idle" ? (
-          <MusicNoteIcon size={17} />
-        ) : (
-          <EqualizerIcon playing={playing} />
-        )}
-      </Swap>
+      <PocketPlayerIcon
+        bars={music.status !== "idle"}
+        playing={playing}
+        size={20}
+      />
       <span className="label max-sm:sr-only">{statusLabels[music.status]}</span>
     </button>
   );
