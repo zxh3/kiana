@@ -8,6 +8,7 @@ import type { PodState } from "./machine";
 import {
   appItems,
   appLabels,
+  appLangs,
   type ListScreen,
   menuItems,
   menuLabels,
@@ -86,6 +87,7 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
     apps: appItems.map((item) => ({
       key: item,
       label: appLabels[item],
+      lang: appLangs[item],
       opens: true,
     })),
     // The viewer first, whose row opens Your Name, then everyone else.
@@ -125,6 +127,9 @@ export function describePod(
     }
     const track = view.playlist[view.index];
     return `${screenTitles.now}: ${track.title}, ${track.artist}`;
+  }
+  if (state.screen === "muyu") {
+    return `${screenTitles.muyu}: press the centre button to pat Kiana's head`;
   }
   if (state.screen === "spinner") {
     return `${screenTitles.spinner}: turn the wheel to spin it, or press the centre button to flick it`;

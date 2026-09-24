@@ -85,7 +85,19 @@ Mediaforge release manifest and displays the responsive images described by it.
   everyone who is here as people come and go, and allows five messages
   every ten seconds each. Names are at most 16 characters and messages 200,
   both one line of plain text. It is joined only while one of its screens
-  shows, and there is no moderation beyond those limits. Settings, named as on the original, holds Shuffle (on or off)
+  shows, and there is no moderation beyond those limits. The third is 电子木鱼,
+  the electronic wooden fish, with Kiana in place of the fish: each tap on
+  her, or press of the centre button, pats her head for one more merit
+  (功德). A hand comes down, her head gives under it, her eyes close and her
+  ears ease back, and "功德 +1" floats up; patting fast keeps the hand
+  moving and her eyes closed. The merit is one count that everyone adds to,
+  starting from nothing, kept by another Durable Object
+  (`src/server/wooden-fish.ts`) at `/api/muyu`, so it climbs live as other
+  people pat. Pats show at once and are sent together, four times a second
+  at most, and each person's count at most 20 a second. Beside her are
+  everyone's merit, the viewer's own (kept between visits), and how many
+  are patting. Her pictures and the hand were generated with OpenAI's
+  gpt-image-2.5-sunburst, Kiana from her photos. Settings, named as on the original, holds Shuffle (on or off)
   and Repeat (all or one) as two separate settings, the backlight timer,
   the clicker (the wheel's ticks), the finish, and the finger spinner's
   looks: Spinner (Stealth, Claw, or Machined) and Kiana (Curious, Calm, or
@@ -133,7 +145,7 @@ Mediaforge release manifest and displays the responsive images described by it.
 
 Preferences, favorites, date-order positions, and the music volume, song,
 mute, shuffle, repeat, player size, corner, finish, backlight, and clicker, the
-finger spinner's best speed, spinner, and face, the Chat Room name, the video sound level, and the interface sounds switch and level are stored in
+finger spinner's best speed, spinner, and face, the Chat Room name, the viewer's own 功德, the video sound level, and the interface sounds switch and level are stored in
 local storage under `kiana.*` keys.
 
 ### Keyboard shortcuts
@@ -163,11 +175,11 @@ Without configuration, the app loads the current release from
 `https://media.kiana.me/releases/current`.
 
 The development server runs the Worker in Cloudflare's own runtime, so the
-Chat Room works locally too: its Durable Object and storage are simulated
-under `.wrangler/state`, separate from production's. Delete that folder to
-empty the local room. The Worker's entry is `src/server.ts`, which puts the
-room's WebSocket in front of TanStack Start and exports the Durable Object
-class. After changing `wrangler.jsonc`, run `npm run cf-typegen` to
+Chat Room and 电子木鱼 work locally too: their Durable Objects and storage are
+simulated under `.wrangler/state`, separate from production's. Delete that
+folder to empty the local room and count. The Worker's entry is
+`src/server.ts`, which puts their WebSockets in front of TanStack Start and
+exports the Durable Object classes. After changing `wrangler.jsonc`, run `npm run cf-typegen` to
 regenerate `worker-configuration.d.ts`.
 
 A change to the `migrations` in `wrangler.jsonc` (a new, renamed, or deleted
@@ -175,7 +187,7 @@ Durable Object class) can only ship from `main`. Workers Builds uploads a
 branch as a version, and Cloudflare refuses a version that includes a
 migration (error 10211), so that branch's build fails until it is merged;
 `main` runs `wrangler deploy`, which applies it. Renaming or deleting a class
-moves or wipes its stored messages.
+moves or wipes what it stores (the messages, or the merit).
 
 ## Cloudflare R2 media
 

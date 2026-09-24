@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { cx } from "../../../../../lib/class-names";
 import { fades } from "../../../../../lib/motion";
 import { type Track, trackArt } from "../../music-track";
-import { type AppItem, appItems, type MenuItem } from "../menu";
+import { type AppItem, appItems, appLangs, type MenuItem } from "../menu";
 import { SpinnerIcon, type SpinnerLooks } from "./finger-spinner";
+import { muyuArt } from "./muyu-art";
 
 /** How long each cover shows while Shuffle Songs is highlighted. */
 const SHUFFLE_EVERY = 1_400;
@@ -111,17 +112,27 @@ function AppTile({ app, looks }: { app: AppItem; looks: SpinnerLooks }) {
     <div className="flex flex-col items-center gap-[3px]">
       <div
         className={cx(
-          "grid size-[34px] place-items-center overflow-hidden rounded-[9px] shadow-[0_1px_2px_rgb(0_0_0/.3),inset_0_1px_0_rgb(255_255_255/.6)]",
+          "grid size-[30px] place-items-center overflow-hidden rounded-[8px] shadow-[0_1px_2px_rgb(0_0_0/.3),inset_0_1px_0_rgb(255_255_255/.6)]",
           appTileBackgrounds[app],
         )}
       >
         {app === "spinner" ? (
-          <SpinnerIcon looks={looks} size={30} />
+          <SpinnerIcon looks={looks} size={27} />
+        ) : app === "muyu" ? (
+          <img
+            alt=""
+            className="mt-1 w-[27px]"
+            draggable={false}
+            src={muyuArt.kiana}
+          />
         ) : (
           <ChatBubble />
         )}
       </div>
-      <span className="text-[8.5px] leading-none font-semibold text-[#3d4652]">
+      <span
+        className="text-[8.5px] leading-none font-semibold text-[#3d4652]"
+        lang={appLangs[app]}
+      >
         {appTileLabels[app]}
       </span>
     </div>
@@ -131,18 +142,20 @@ function AppTile({ app, looks }: { app: AppItem; looks: SpinnerLooks }) {
 const appTileBackgrounds: Record<AppItem, string> = {
   spinner: "bg-[linear-gradient(180deg,#ffffff_0%,#dfe4ea_100%)]",
   chat: "bg-[linear-gradient(180deg,#7cc8ff_0%,#2d7ae3_100%)]",
+  muyu: "bg-[linear-gradient(180deg,#fff8ec_0%,#ecd8b8_100%)]",
 };
 
 /** Short enough to sit under a tile. */
 const appTileLabels: Record<AppItem, string> = {
   spinner: "Spinner",
   chat: "Chat",
+  muyu: "木鱼",
 };
 
 /** A speech bubble with three dots, for the Chat Room's tile. */
 function ChatBubble() {
   return (
-    <svg aria-hidden="true" height="20" viewBox="0 0 20 20" width="20">
+    <svg aria-hidden="true" height="18" viewBox="0 0 20 20" width="18">
       <path
         d="M10 3.2c-4.3 0-7.3 2.6-7.3 5.8 0 1.9 1 3.5 2.7 4.6l-.7 2.9 3.2-1.9c.7.2 1.4.2 2.1.2 4.3 0 7.3-2.6 7.3-5.8S14.3 3.2 10 3.2Z"
         fill="#ffffff"
@@ -155,12 +168,13 @@ function ChatBubble() {
 }
 
 /**
- * The apps, as tiles on a home screen: the finger spinner (in the looks
- * chosen in Settings, turning slowly) and the Chat Room.
+ * The apps, as tiles on a home screen, two to a row: the finger spinner
+ * (in the looks chosen in Settings, turning slowly), the Chat Room, and
+ * the electronic wooden fish.
  */
 function Apps({ looks }: { looks: SpinnerLooks }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-[linear-gradient(160deg,#f4f7fb_0%,#c9d3df_100%)]">
+    <div className="absolute inset-0 flex flex-wrap content-center justify-center gap-x-2.5 gap-y-2 px-1 bg-[linear-gradient(160deg,#f4f7fb_0%,#c9d3df_100%)]">
       {appItems.map((app) => (
         <AppTile app={app} key={app} looks={looks} />
       ))}

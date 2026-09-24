@@ -140,8 +140,3 @@ export function otherPeople(state: ChatState) {
 export function parseChatName(raw: string | null) {
   return cleanName(raw);
 }
-
-/** How long to wait before reconnecting, doubling to half a minute. */
-export function retryDelay(attempt: number) {
-  return Math.min(30_000, 1_000 * 2 ** attempt);
-}

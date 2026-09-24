@@ -10,6 +10,7 @@ import { ChatName } from "./screen/chat-name";
 import { ChatRoom } from "./screen/chat-room";
 import { CoverFlow } from "./screen/cover-flow";
 import { FingerSpinner } from "./screen/finger-spinner";
+import { KianaMuyu } from "./screen/kiana-muyu";
 import { MenuPreview } from "./screen/menu-preview";
 import { NowPlaying } from "./screen/now-playing";
 import { PodList } from "./screen/pod-list";
@@ -124,6 +125,9 @@ export function PocketPlayer({
           steps={state.spin.steps}
         />
       );
+    }
+    if (screen === "muyu") {
+      return <KianaMuyu muyu={pod.muyu} onPat={controls.select} />;
     }
     if (screen === "chat") {
       return (

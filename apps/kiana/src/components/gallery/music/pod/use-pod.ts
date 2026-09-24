@@ -28,6 +28,7 @@ import { BACKLIGHT_TIMEOUT, type PodSettings } from "./settings";
 import { nextKianaFace, nextSpinnerStyle } from "./spinner";
 import { useBacklight } from "./use-backlight";
 import { useChat } from "./use-chat";
+import { useMuyu } from "./use-muyu";
 
 /**
  * Runs the pocket player's state machine (`machine.ts`) against the real
@@ -59,6 +60,7 @@ export function usePod({
     settings.backlight === "timed" && !videoCovers ? BACKLIGHT_TIMEOUT : null,
   );
   const chat = useChat(chatScreens.has(state.screen));
+  const muyu = useMuyu(state.screen === "muyu");
   const others = otherPeople(chat);
 
   // The latest facts, read by actions between renders. The volume is also
@@ -142,6 +144,9 @@ export function usePod({
         break;
       case "rename":
         chat.rename(effect.name);
+        break;
+      case "pat":
+        muyu.pat();
         break;
     }
   };
@@ -240,6 +245,8 @@ export function usePod({
     looks: { spinner: settings.spinner, face: settings.face },
     /** The Chat Room's connection, messages, and who is here. */
     chat,
+    /** The electronic wooden fish's merit, everyone's and the viewer's. */
+    muyu,
     /** Counts as a touch, for the backlight. */
     wake: backlight.wake,
     canGoBack:
