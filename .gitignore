@@ -23,6 +23,8 @@ htmlcov/
 # Local environment files
 .env*
 !.env.example
+.dev.vars*
+!.dev.vars.example
 
 # macOS
 .DS_Store

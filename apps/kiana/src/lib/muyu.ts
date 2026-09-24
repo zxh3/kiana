@@ -24,13 +24,15 @@ export type MuyuClientMessage = { type: "knock"; count: number; seq: number };
 /**
  * From the room: everyone's merit so far and how many are knocking. `ack`
  * answers the sender's frame of that number, once its knocks are in the
- * total.
+ * total. `mine` is the merit of the account this browser signed in with,
+ * from every device, and is left out for a guest.
  */
 export type MuyuServerMessage = {
   type: "merit";
   total: number;
   here: number;
   ack?: number;
+  mine?: number;
 };
 
 /** A person's knocks in the current second, for the limit. */
@@ -98,5 +100,6 @@ export function parseMuyuServerMessage(raw: unknown): MuyuServerMessage | null {
     here: data.here as number,
   };
   if (isCount(data.ack)) message.ack = data.ack as number;
+  if (isCount(data.mine)) message.mine = data.mine as number;
   return message;
 }

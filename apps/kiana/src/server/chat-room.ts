@@ -7,6 +7,7 @@ import {
   expiryCutoff,
   HISTORY_SIZE,
   type LastTyping,
+  nameFor,
   nextExpiry,
   type Person,
   PING,
@@ -14,6 +15,7 @@ import {
   parseClientMessage,
   type ServerMessage,
 } from "../lib/chat";
+import { type Account, readAccount } from "./account";
 
 /**
  * What the room remembers about each connection. It lives on the socket
@@ -27,6 +29,11 @@ type Guest = {
   sent: number[];
   /** The last typing signal passed on for it, for that signal's limit. */
   typed?: LastTyping;
+  /**
+   * Who it signed in as, if it did: then it goes by its Google name, and
+   * cannot pick another.
+   */
+  account?: Account | null;
 };
 
 /**
@@ -37,6 +44,10 @@ type Guest = {
  * their name. It passes on who is typing without keeping it: that is only
  * ever live. Messages are deleted a day after they are sent, by an alarm
  * set for the oldest one, so they go even while nobody is here.
+ *
+ * Someone signed in with Google goes by their first name, marked as
+ * verified, in place of a name they picked: the Worker checks their
+ * session and passes their account on with the connection.
  *
  * It uses the WebSocket Hibernation API, so a quiet room is put to sleep
  * with its connections still open, and pings are answered without waking
@@ -55,6 +66,16 @@ export class ChatRoom extends DurableObject<Env> {
         text TEXT NOT NULL,
         at INTEGER NOT NULL
       )`);
+    // Whether each message was sent by someone signed in, added once
+    // signing in came, to a table that may already hold messages.
+    const columns = ctx.storage.sql
+      .exec<{ name: string }>("PRAGMA table_info(messages)")
+      .toArray();
+    if (!columns.some((column) => column.name === "verified")) {
+      ctx.storage.sql.exec(
+        "ALTER TABLE messages ADD COLUMN verified INTEGER NOT NULL DEFAULT 0",
+      );
+    }
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
   }
 
@@ -64,7 +85,12 @@ export class ChatRoom extends DurableObject<Env> {
     }
     const [client, server] = Object.values(new WebSocketPair());
     this.ctx.acceptWebSocket(server);
-    const guest: Guest = { id: crypto.randomUUID(), name: null, sent: [] };
+    const guest: Guest = {
+      id: crypto.randomUUID(),
+      name: null,
+      sent: [],
+      account: readAccount(request),
+    };
     server.serializeAttachment(guest);
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -75,8 +101,11 @@ export class ChatRoom extends DurableObject<Env> {
     if (!message) return;
 
     if (message.type === "join" || message.type === "rename") {
+      // Someone signed in goes by their account's name, whatever they send.
+      if (message.type === "rename" && guest.account) return;
       const joining = guest.name === null;
-      socket.serializeAttachment({ ...guest, name: message.name });
+      const name = nameFor(guest.account, message.name);
+      socket.serializeAttachment({ ...guest, name });
       if (joining) {
         // In case the alarm has not run yet, nothing expired is sent.
         this.expire(Date.now());
@@ -126,14 +155,16 @@ export class ChatRoom extends DurableObject<Env> {
       text: message.text,
       at: now,
     };
+    if (guest.account) said.verified = true;
     const sql = this.ctx.storage.sql;
     sql.exec(
-      "INSERT INTO messages (id, sender, name, text, at) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO messages (id, sender, name, text, at, verified) VALUES (?, ?, ?, ?, ?, ?)",
       said.id,
       said.from,
       said.name,
       said.text,
       said.at,
+      said.verified ? 1 : 0,
     );
     sql.exec(
       "DELETE FROM messages WHERE seq <= (SELECT MAX(seq) FROM messages) - ?",
@@ -184,7 +215,10 @@ export class ChatRoom extends DurableObject<Env> {
       .filter((socket) => socket !== leaving)
       .flatMap((socket) => {
         const guest = socket.deserializeAttachment() as Guest | null;
-        return guest?.name ? [{ id: guest.id, name: guest.name }] : [];
+        if (!guest?.name) return [];
+        const person: Person = { id: guest.id, name: guest.name };
+        if (guest.account) person.verified = true;
+        return [person];
       });
   }
 
@@ -196,15 +230,22 @@ export class ChatRoom extends DurableObject<Env> {
         name: string;
         text: string;
         at: number;
-      }>("SELECT id, sender, name, text, at FROM messages ORDER BY seq")
+        verified: number;
+      }>(
+        "SELECT id, sender, name, text, at, verified FROM messages ORDER BY seq",
+      )
       .toArray()
-      .map((row) => ({
-        id: row.id,
-        from: row.sender,
-        name: row.name,
-        text: row.text,
-        at: row.at,
-      }));
+      .map((row) => {
+        const message: ChatMessage = {
+          id: row.id,
+          from: row.sender,
+          name: row.name,
+          text: row.text,
+          at: row.at,
+        };
+        if (row.verified) message.verified = true;
+        return message;
+      });
   }
 
   private broadcast(message: ServerMessage, except?: WebSocket) {

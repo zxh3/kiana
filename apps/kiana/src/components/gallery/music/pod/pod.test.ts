@@ -93,10 +93,11 @@ describe("pocket player rules", () => {
       finish: "silver",
       spinner: "stealth",
       face: "curious",
+      account: { status: "guest", member: null },
       chat: {
         name: "kiana",
         status: "open",
-        others: [{ id: "p2", name: "amy" }],
+        others: [{ id: "p2", name: "amy", verified: true }],
         last: { id: "m", from: "p2", name: "amy", text: "hi", at: 1 },
       },
       videoOpen: false,
@@ -132,5 +133,51 @@ describe("pocket player rules", () => {
       "kiana, You",
     );
     expect(rows.online.map((row) => row.label)).toEqual(["kiana", "amy"]);
+    expect(
+      describePod(
+        {
+          ...state,
+          screen: "online",
+          selected: { ...state.selected, online: 1 },
+        },
+        rows,
+        view,
+      ),
+    ).toBe("amy, verified");
+    expect(rows.settings.at(-1)).toMatchObject({
+      label: "Account",
+      detail: "Guest",
+      opens: true,
+    });
+    expect(rows.account.map((row) => row.label)).toEqual([
+      "Sign In with Google",
+    ]);
+  });
+
+  it("shows someone signed in by their Google name, which they keep", () => {
+    const view: PodView = {
+      playlist: [{ videoId: "a", title: "One", artist: "First" }],
+      index: 0,
+      shuffle: false,
+      repeat: "all",
+      backlight: "timed",
+      clicker: true,
+      finish: "silver",
+      spinner: "stealth",
+      face: "curious",
+      account: { status: "member", member: { id: "u1", name: "Xiaohua" } },
+      chat: { name: "Xiaohua", status: "open", others: [], last: undefined },
+      videoOpen: false,
+      volume: 50,
+      current: 0,
+      duration: 100,
+    };
+    const rows = podRows(view);
+    expect(rows.settings.at(-1)?.detail).toBe("Xiaohua");
+    expect(rows.account.map((row) => row.label)).toEqual([
+      "Xiaohua",
+      "Sign Out",
+    ]);
+    expect(rows.online[0]).toMatchObject({ opens: false, verified: true });
   });
 });

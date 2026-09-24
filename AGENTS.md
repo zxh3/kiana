@@ -14,6 +14,9 @@
 - Cloudflare Workers Builds deploys **every branch push to production**, so
   pushing a PR branch changes the live kiana.me before it is merged. Say so
   when you push, and do not push half-finished work to a branch.
+- A deploy fails until the Worker has every secret listed under
+  `secrets.required` in `apps/kiana/wrangler.jsonc` (signing in with
+  Google's); set them before merging a change that adds one.
 
 ## Checks
 
@@ -37,9 +40,12 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
   the click-wheel player. `gallery/sound` is the sound mixer. `src/lib/sounds`
   generates the interface sounds, and `src/lib/motion.ts` holds the shared
   animation presets. `src/server.ts` is the Worker's entry: TanStack Start,
-  with the pod's live apps in front of it, each a Durable Object: the chat
-  room in `src/server/chat-room.ts`, whose rules live in `src/lib/chat.ts`,
-  and the wooden fish's merit in `src/server/wooden-fish.ts`, with
+  with signing in and the pod's live apps in front of it. Signing in with
+  Google is Better Auth in `src/server/auth.ts`, on a D1 database; the
+  live apps are each a Durable Object, told who is connecting by the
+  Worker (`src/server/account.ts`): the chat room in
+  `src/server/chat-room.ts`, whose rules live in `src/lib/chat.ts`, and
+  the wooden fish's merit in `src/server/wooden-fish.ts`, with
   `src/lib/muyu.ts`. The Worker's code has its own `tsconfig.worker.json`,
   since Cloudflare's runtime types clash with the browser's.
 - **Logic stays pure and tested.** The music player's behaviour is a pure

@@ -5,7 +5,7 @@ import { HapticTap } from "../../../haptic-tap";
 import { scrollWindow, VISIBLE_ROWS } from "../menu";
 import type { PodRow } from "../rows";
 import { useSwipeSteps } from "../use-swipe-steps";
-import { SpeakerGlyph } from "./glyphs";
+import { SpeakerGlyph, VerifiedGlyph } from "./glyphs";
 
 const ROW_HEIGHT = 19;
 
@@ -78,6 +78,7 @@ export function PodList({
                 >
                   {row.label}
                 </span>
+                {row.verified ? <VerifiedGlyph inverted={active} /> : null}
                 {row.current ? (
                   <SpeakerGlyph
                     className={active ? "text-white" : "text-[#2d7ae3]"}

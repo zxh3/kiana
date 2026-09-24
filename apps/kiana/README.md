@@ -78,7 +78,10 @@ Mediaforge release manifest and displays the responsive images described by it.
   Enter; the wheel scrolls the messages. Typing is only ever passed on live,
   never what was typed, at most every two seconds while someone types. Everyone starts as user_ and four digits, kept
   between visits, and picks another name from their own row, first in the
-  Online list, which opens Your Name. The room is a Cloudflare Durable
+  Online list, which opens Your Name. Someone signed in with Google goes by
+  their first name instead, marked with a blue tick in the messages and the
+  Online list, and cannot pick another; a guest can take any name, but never
+  the tick. The room is a Cloudflare Durable
   Object (`src/server/chat-room.ts`) that the page reaches by WebSocket at
   `/api/chat`: it keeps the last 50 messages in its SQLite storage, deletes
   each a day after it was sent (by an alarm, even while nobody is there), tells
@@ -96,12 +99,15 @@ Mediaforge release manifest and displays the responsive images described by it.
   people pat. Pats show at once and are sent together, four times a second
   at most, and each person's count at most 20 a second. Beside her are
   everyone's merit, the viewer's own (kept between visits), and how many
-  are patting. Her pictures and the hand were generated with OpenAI's
+  are patting. A guest's own merit is kept in their browser; someone
+  signed in has it kept by their account, the same on every device, and
+  their guest count stays behind for when they sign out. Her pictures and the hand were generated with OpenAI's
   gpt-image-2.5-sunburst, Kiana from her photos. Settings, named as on the original, holds Shuffle (on or off)
   and Repeat (all or one) as two separate settings, the backlight timer,
   the clicker (the wheel's ticks), the finish, and the finger spinner's
   looks: Spinner (Stealth, Claw, or Machined) and Kiana (Curious, Calm, or
-  Shades). On phones the controls tap
+  Shades), and last, Account, which shows who is signed in and opens a
+  screen to sign in with Google or sign out. On phones the controls tap
   back through the vibration motor. Android taps with every sound, including
   each click of a turning wheel, through the Vibration API; turning the
   clicker off stops the wheel's taps too. Safari on iOS has no Vibration API,
@@ -132,6 +138,20 @@ Mediaforge release manifest and displays the responsive images described by it.
   `music-player.tsx`, and the device in `pod/`: its behaviour as a pure,
   tested state machine in `machine.ts`, run by `use-pod.ts`, and its screens
   in `pod/screen`.
+- **Signing in.** Signing in with Google, from the player's Settings →
+  Account, is only for the player's live apps: it gives a verified name in
+  the Chat Room and merit of one's own in 电子木鱼 that follows the account.
+  It goes to Google and comes back to the same page; signing out stays on
+  it. It is run by [Better Auth](https://www.better-auth.com) in the Worker
+  (`src/server/auth.ts`), at `/api/auth`, which keeps each person's Google
+  name (first name only), email, and picture, and their sessions, in a
+  Cloudflare D1 database, `kiana-auth`, and creates or updates its tables
+  itself. When the Chat Room or 电子木鱼 connects, the Worker checks the
+  session cookie and passes the account on to the Durable Object; a signed
+  copy of the session in a cookie lets it do so without asking the
+  database for five minutes at a time. In the browser it is Better Auth's
+  client, in `src/lib/auth-client.ts`, read by the player in
+  `pod/use-account.ts`.
 - **Interface sounds.** Soft clicks, ticks, and chimes answer the controls.
   They are on by default, with their own switch and level in the sound mixer.
   The sounds are generated in code with the Web Audio API, so there are no
@@ -145,7 +165,7 @@ Mediaforge release manifest and displays the responsive images described by it.
 
 Preferences, favorites, date-order positions, and the music volume, song,
 mute, shuffle, repeat, player size, corner, finish, backlight, and clicker, the
-finger spinner's best speed, spinner, and face, the Chat Room name, the viewer's own 猫德, the video sound level, and the interface sounds switch and level are stored in
+finger spinner's best speed, spinner, and face, the Chat Room name, a guest's own 猫德, the video sound level, and the interface sounds switch and level are stored in
 local storage under `kiana.*` keys.
 
 ### Keyboard shortcuts
@@ -181,6 +201,40 @@ folder to empty the local room and count. The Worker's entry is
 `src/server.ts`, which puts their WebSockets in front of TanStack Start and
 exports the Durable Object classes. After changing `wrangler.jsonc`, run `npm run cf-typegen` to
 regenerate `worker-configuration.d.ts`.
+
+### Signing in with Google
+
+Signing in needs a Google OAuth client and three secrets. Without them, as
+in a fresh checkout, Account shows Off and everyone is a guest.
+
+1. In the Google Cloud console, under APIs & Services → Credentials, create
+   an OAuth client ID of type Web application, with the authorized
+   redirect URIs `https://kiana.me/api/auth/callback/google` and
+   `http://localhost:3000/api/auth/callback/google`. The consent screen
+   asks for an app name and a privacy policy link.
+2. For local development, copy the example and fill it in, with a secret
+   from `openssl rand -base64 32`:
+
+   ```bash
+   cp apps/kiana/.dev.vars.example apps/kiana/.dev.vars
+   ```
+
+3. For the site, set the same three on the Worker, in the Cloudflare
+   dashboard (Workers → kiana → Settings → Variables and Secrets) or from
+   `apps/kiana`:
+
+   ```bash
+   npx wrangler secret put BETTER_AUTH_SECRET
+   npx wrangler secret put GOOGLE_CLIENT_ID
+   npx wrangler secret put GOOGLE_CLIENT_SECRET
+   ```
+
+`wrangler.jsonc` lists them under `secrets.required`, so a deploy fails
+until all three are set on the Worker. The `kiana-auth` D1 database has no
+id in `wrangler.jsonc`: Cloudflare creates it on the first deploy that has
+it and finds it by the Worker after that. Locally it is simulated under
+`.wrangler/state` with the Durable Objects. Changing `BETTER_AUTH_SECRET`
+signs everyone out.
 
 A change to the `migrations` in `wrangler.jsonc` (a new, renamed, or deleted
 Durable Object class) can only ship from `main`. Workers Builds uploads a

@@ -1,8 +1,10 @@
 import { env } from "cloudflare:workers";
 import handler, { createServerEntry } from "@tanstack/react-start/server-entry";
-
+import { AUTH_PATH } from "./lib/auth";
 import { CHAT_PATH } from "./lib/chat";
 import { MUYU_PATH } from "./lib/muyu";
+import { withAccount } from "./server/account";
+import { accountOf, handleAuth } from "./server/auth";
 
 export { ChatRoom } from "./server/chat-room";
 export { WoodenFish } from "./server/wooden-fish";
@@ -18,13 +20,14 @@ const sockets: Record<string, () => DurableObjectStub> = {
 };
 
 /**
- * The Worker's entry: TanStack Start's own for every page, with the pod's
- * live apps in front of it, and their Durable Object classes exported so
- * Cloudflare can run them.
+ * The Worker's entry: TanStack Start's own for every page, with signing in
+ * and the pod's live apps in front of it, and their Durable Object classes
+ * exported so Cloudflare can run them.
  */
 export default createServerEntry({
-  fetch(request, ...rest) {
+  async fetch(request, ...rest) {
     const url = new URL(request.url);
+    if (url.pathname.startsWith(`${AUTH_PATH}/`)) return handleAuth(request);
     const stub = sockets[url.pathname];
     if (!stub) return handler.fetch(request, ...rest);
     // Only the site's own pages may connect, not scripts on other sites
@@ -33,6 +36,9 @@ export default createServerEntry({
     if (origin && new URL(origin).host !== url.host) {
       return new Response("Forbidden", { status: 403 });
     }
-    return stub().fetch(request);
+    // The live apps hear who is connecting, if they signed in, from the
+    // Worker rather than from the browser.
+    const account = await accountOf(request);
+    return stub().fetch(withAccount(request, account));
   },
 });

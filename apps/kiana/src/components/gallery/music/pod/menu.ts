@@ -1,3 +1,5 @@
+import type { AccountStatus } from "./account";
+
 /**
  * The pocket player's screens, menus, and the arithmetic of its click wheel.
  * Kept free of React so the rules can be tested on their own.
@@ -14,6 +16,7 @@ export type Screen =
   | "online"
   | "name"
   | "settings"
+  | "account"
   | "now";
 /** Screens with a highlight that the wheel moves. */
 export type ChoiceScreen = Exclude<
@@ -38,6 +41,7 @@ export const screenTitles: Record<Screen, string> = {
   online: "Online",
   name: "Your Name",
   settings: "Settings",
+  account: "Account",
   now: "Now Playing",
 };
 
@@ -56,6 +60,7 @@ export const parentScreen: Record<Screen, Screen | null> = {
   online: "chat",
   name: "online",
   settings: "menu",
+  account: "settings",
   now: "menu",
 };
 
@@ -123,9 +128,9 @@ export const chatScreens: ReadonlySet<Screen> = new Set([
 ]);
 
 /**
- * Settings, named as on the original where it had the same setting. The
- * last two choose the finger spinner's looks: which spinner, and which of
- * Kiana's faces sits on its cap.
+ * Settings, named as on the original where it had the same setting. Then
+ * two choose the finger spinner's looks: which spinner, and which of
+ * Kiana's faces sits on its cap. Account, last, opens its own screen.
  */
 export const settingsItems = [
   "shuffle",
@@ -135,6 +140,7 @@ export const settingsItems = [
   "finish",
   "spinner",
   "face",
+  "account",
 ] as const;
 export type SettingsItem = (typeof settingsItems)[number];
 
@@ -146,6 +152,39 @@ export const settingsLabels: Record<SettingsItem, string> = {
   finish: "Finish",
   spinner: "Spinner",
   face: "Kiana",
+  account: "Account",
+};
+
+/**
+ * The Account screen's rows, which depend on whether the viewer is signed
+ * in: a way in for a guest; for someone signed in, who they are and a way
+ * out; otherwise a word on why there is neither.
+ */
+export type AccountItem =
+  | "checking"
+  | "unavailable"
+  | "signIn"
+  | "member"
+  | "signOut";
+
+export function accountItems(status: AccountStatus): AccountItem[] {
+  switch (status) {
+    case "checking":
+      return ["checking"];
+    case "unavailable":
+      return ["unavailable"];
+    case "guest":
+      return ["signIn"];
+    case "member":
+      return ["member", "signOut"];
+  }
+}
+
+export const accountLabels: Record<Exclude<AccountItem, "member">, string> = {
+  checking: "Checking…",
+  unavailable: "Not Available",
+  signIn: "Sign In with Google",
+  signOut: "Sign Out",
 };
 
 /** Rows that fit on the screen at once. */

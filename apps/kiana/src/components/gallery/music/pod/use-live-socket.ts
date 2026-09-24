@@ -14,12 +14,19 @@ const PING_EVERY = 25_000;
  * passed, so they may change from render to render.
  */
 export function useLiveSocket({
+  account,
   onMessage,
   onOpen,
   onStatus,
   open,
   path,
 }: {
+  /**
+   * The account the viewer signed in with, if any. The Worker reads it
+   * from the session cookie as the socket opens, so signing in or out
+   * connects again, as them.
+   */
+  account: string | null;
   onMessage: (data: string) => void;
   /** Connected, or connected again: the moment to say hello. */
   onOpen: () => void;
@@ -31,6 +38,7 @@ export function useLiveSocket({
   const handlers = useRef({ onMessage, onOpen, onStatus });
   handlers.current = { onMessage, onOpen, onStatus };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new account connects again, as them
   useEffect(() => {
     if (!open) return;
     let attempt = 0;
@@ -74,7 +82,7 @@ export function useLiveSocket({
       closing?.close();
       handlers.current.onStatus("offline");
     };
-  }, [open, path]);
+  }, [account, open, path]);
 
   /** Sends a message as JSON, if connected; says whether it went. */
   return useCallback((message: unknown) => {

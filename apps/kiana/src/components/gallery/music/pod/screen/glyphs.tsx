@@ -130,3 +130,29 @@ export function SpeakerGlyph({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/**
+ * The mark beside someone signed in with Google: a tick in a badge, blue
+ * on the screen and white on a highlighted row.
+ */
+export function VerifiedGlyph({ inverted = false }: { inverted?: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className="inline-block shrink-0 align-[-1px]"
+      height="9"
+      viewBox="0 0 9 9"
+      width="9"
+    >
+      <circle cx="4.5" cy="4.5" fill={inverted ? "#fff" : "#2d7ae3"} r="4.5" />
+      <path
+        d="M2.4 4.6 3.9 6 6.6 3.1"
+        fill="none"
+        stroke={inverted ? "#2d7ae3" : "#fff"}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.3"
+      />
+    </svg>
+  );
+}

@@ -20,6 +20,7 @@ const context: PodContext = {
   videoOpen: false,
   videoCovers: false,
   online: 3,
+  account: "guest",
 };
 
 /** Applies actions one after another, as the hook does, collecting effects. */
@@ -356,5 +357,48 @@ describe("pocket player machine", () => {
     expect(effects).toContainEqual({ type: "pat" });
     expect(run([{ type: "step", steps: 3 }], state).effects).toEqual([]);
     expect(run([{ type: "back" }], state).state.screen).toBe("apps");
+  });
+
+  it("opens Account from the end of Settings, and back", () => {
+    const { state, effects } = run(
+      [{ type: "step", steps: 20 }, { type: "select" }],
+      at("settings"),
+    );
+    expect(state.screen).toBe("account");
+    expect(effects).not.toContainEqual(
+      expect.objectContaining({ type: "setting" }),
+    );
+    expect(run([{ type: "back" }], state).state.screen).toBe("settings");
+  });
+
+  it("signs a guest in from Account", () => {
+    const { effects } = run([{ type: "select" }], at("account"));
+    expect(effects).toEqual([
+      { type: "cue", cue: "select" },
+      { type: "signIn" },
+    ]);
+    // Nothing to do while the session is still being checked.
+    const checking = { ...context, account: "checking" as const };
+    expect(run([{ type: "select" }], at("account"), checking).effects).toEqual(
+      [],
+    );
+  });
+
+  it("signs someone out from the second row, and the highlight goes up", () => {
+    const member = { ...context, account: "member" as const };
+    const moved = run([{ type: "step", steps: 3 }], at("account"), member);
+    expect(moved.state.selected.account).toBe(1);
+    const { state, effects } = run([{ type: "select" }], moved.state, member);
+    expect(effects).toContainEqual({ type: "signOut" });
+    expect(state.selected.account).toBe(0);
+    // Their name, on the first row, does nothing.
+    expect(run([{ type: "select" }], state, member).effects).toEqual([]);
+  });
+
+  it("keeps someone signed in off Your Name, since their name is Google's", () => {
+    const member = { ...context, account: "member" as const };
+    const { state, effects } = run([{ type: "select" }], at("online"), member);
+    expect(state.screen).toBe("online");
+    expect(effects).toEqual([]);
   });
 });

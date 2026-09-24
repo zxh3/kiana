@@ -8,6 +8,7 @@ import {
   expiryCutoff,
   MESSAGE_LIFETIME,
   NAME_MAX,
+  nameFor,
   nextExpiry,
   parseClientMessage,
   parseServerMessage,
@@ -20,6 +21,14 @@ import {
   TYPING_MIN_GAP,
   typingSignal,
 } from "./chat";
+
+describe("nameFor", () => {
+  it("prefers the account's name, cleaned, over the picked one", () => {
+    expect(nameFor({ name: " Xiao  Hua " }, "user_1234")).toBe("Xiao Hua");
+    expect(nameFor({ name: "" }, "user_1234")).toBe("user_1234");
+    expect(nameFor(null, "user_1234")).toBe("user_1234");
+  });
+});
 
 describe("cleanName", () => {
   it("trims and collapses spaces", () => {
@@ -189,6 +198,27 @@ describe("parseServerMessage", () => {
     expect(
       parseServerMessage(JSON.stringify({ type: "notice", text: "slow" })),
     ).toEqual({ type: "notice", text: "slow" });
+  });
+
+  it("reads who is verified, and only a true mark", () => {
+    const raw = JSON.stringify({
+      type: "welcome",
+      you: "p",
+      people: [
+        { id: "p", name: "kiana", verified: true },
+        { id: "q", name: "amy", verified: "yes" },
+      ],
+      messages: [{ ...message, verified: true }],
+    });
+    expect(parseServerMessage(raw)).toEqual({
+      type: "welcome",
+      you: "p",
+      people: [
+        { id: "p", name: "kiana", verified: true },
+        { id: "q", name: "amy" },
+      ],
+      messages: [{ ...message, verified: true }],
+    });
   });
 
   it("reads typing", () => {
