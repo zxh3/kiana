@@ -9,7 +9,7 @@ import { muyuArt } from "./muyu-art";
 
 /** How long Kiana keeps her eyes closed after the last pat. */
 const HAPPY_FOR = 650;
-/** "功德 +1"s on screen at once; a fast patter's oldest make way. */
+/** "猫德 +1"s on screen at once; a fast patter's oldest make way. */
 const MAX_FLOATS = 6;
 /** Where the hand waits, above her head and out of sight. */
 const HAND_AWAY = -48;
@@ -17,10 +17,10 @@ const HAND_AWAY = -48;
 /**
  * 电子木鱼, the electronic wooden fish, with Kiana in place of the fish:
  * each tap on her, or press of the centre button, pats her head for one
- * more merit (功德). The hand comes down, her head gives under it and her
- * eyes close, and "功德 +1" floats up. Everyone's merit is one count, so it
- * climbs as other people pat too, shown on the left with the viewer's own
- * and how many are here.
+ * more merit, 猫德 (cat merit, after the wooden fish's 功德). The hand
+ * comes down, her head gives under it and her eyes close, and "猫德 +1"
+ * floats up. Everyone's merit is one count, so it climbs as other people
+ * pat too, shown on the left with the viewer's own and how many are here.
  *
  * Patting fast keeps the hand moving from wherever it is, rather than
  * starting over, and her eyes stay closed until the pats stop.
@@ -75,7 +75,7 @@ export function KianaMuyu({ muyu, onPat }: { muyu: Muyu; onPat: () => void }) {
     >
       <div className="absolute top-2.5 left-3 leading-none" lang="zh">
         <p className="text-[9px] font-semibold tracking-[.3em] text-[#9a7b5a]">
-          功德
+          猫德
         </p>
         <p className="mt-1 text-[19px] font-bold text-[#3b2a1e] tabular-nums">
           {merit === null ? "…" : merit.toLocaleString()}
@@ -150,7 +150,7 @@ export function KianaMuyu({ muyu, onPat }: { muyu: Muyu; onPat: () => void }) {
             }
             transition={{ duration: 0.9, ease: "easeOut" }}
           >
-            功德 +1
+            猫德 +1
           </motion.span>
         ))}
         <HapticTap />

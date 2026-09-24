@@ -9,10 +9,11 @@ import {
 } from "../lib/muyu";
 
 /**
- * The electronic wooden fish's merit (功德): one count that everyone adds
- * to, one for each pat of Kiana's head, starting from nothing. Every
- * browser with it open connects by WebSocket, and each new total goes to
- * them all, so the count climbs as other people pat too.
+ * The electronic wooden fish's merit, 猫德 (cat merit, after its 功德):
+ * one count that everyone adds to, one for each pat of Kiana's head,
+ * starting from nothing. Every browser with it open connects by
+ * WebSocket, and each new total goes to them all, so the count climbs as
+ * other people pat too.
  *
  * It uses the WebSocket Hibernation API, as the chat room does, and keeps
  * the total in its SQLite storage. The limits are in `lib/muyu.ts`.

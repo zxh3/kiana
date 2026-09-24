@@ -88,9 +88,9 @@ Mediaforge release manifest and displays the responsive images described by it.
   shows, and there is no moderation beyond those limits. The third is 电子木鱼,
   the electronic wooden fish, with Kiana in place of the fish: each tap on
   her, or press of the centre button, pats her head for one more merit
-  (功德). A hand comes down, her head gives under it, her eyes close and her
-  ears ease back, and "功德 +1" floats up; patting fast keeps the hand
-  moving and her eyes closed. The merit is one count that everyone adds to,
+  (猫德, cat merit, after the wooden fish's 功德). A hand comes down, her
+  head gives under it, her eyes close and her ears ease back, and "猫德 +1"
+  floats up; patting fast keeps the hand moving and her eyes closed. The merit is one count that everyone adds to,
   starting from nothing, kept by another Durable Object
   (`src/server/wooden-fish.ts`) at `/api/muyu`, so it climbs live as other
   people pat. Pats show at once and are sent together, four times a second
@@ -145,7 +145,7 @@ Mediaforge release manifest and displays the responsive images described by it.
 
 Preferences, favorites, date-order positions, and the music volume, song,
 mute, shuffle, repeat, player size, corner, finish, backlight, and clicker, the
-finger spinner's best speed, spinner, and face, the Chat Room name, the viewer's own 功德, the video sound level, and the interface sounds switch and level are stored in
+finger spinner's best speed, spinner, and face, the Chat Room name, the viewer's own 猫德, the video sound level, and the interface sounds switch and level are stored in
 local storage under `kiana.*` keys.
 
 ### Keyboard shortcuts
