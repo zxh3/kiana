@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { fades } from "../../../../../lib/motion";
 import { type Track, trackArt } from "../../music-track";
 import type { MenuItem } from "../menu";
+import { SpinnerIcon } from "./finger-spinner";
 
 /** How long each cover shows while Shuffle Songs is highlighted. */
 const SHUFFLE_EVERY = 1_400;
@@ -103,11 +104,22 @@ function Gear() {
   );
 }
 
+/** The finger spinner, turning slowly, for Extras. */
+function Spinner() {
+  return (
+    <div className="absolute inset-0 grid place-items-center bg-[linear-gradient(160deg,#f4f7fb_0%,#c9d3df_100%)]">
+      <div className="animate-[spin_9s_linear_infinite] motion-reduce:animate-none">
+        <SpinnerIcon size={62} />
+      </div>
+    </div>
+  );
+}
+
 /**
  * The right half of the top menu, which changes with the highlighted item
  * as on the original: the covers for Cover Flow, the playing song's cover
  * drifting for Songs and Now Playing, covers dealt at random for Shuffle
- * Songs, and a gear for Settings.
+ * Songs, a finger spinner for Extras, and a gear for Settings.
  */
 export function MenuPreview({
   index,
@@ -134,6 +146,8 @@ export function MenuPreview({
             <Mosaic index={index} playlist={playlist} />
           ) : item === "shuffle" ? (
             <Shuffle playlist={playlist} />
+          ) : item === "extras" ? (
+            <Spinner />
           ) : item === "settings" ? (
             <Gear />
           ) : (

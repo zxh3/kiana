@@ -251,4 +251,35 @@ describe("pocket player machine", () => {
     expect(state.selected.covers).toBe(4);
     expect(state.selected.songs).toBe(4);
   });
+
+  it("opens the finger spinner from Extras, and goes back the same way", () => {
+    const menu = at("menu");
+    const { state } = run(
+      [{ type: "pick", screen: "menu", index: 3 }, { type: "select" }],
+      menu,
+    );
+    expect(state.screen).toBe("spinner");
+    expect(run([{ type: "back" }], state).state.screen).toBe("extras");
+  });
+
+  it("winds the finger spinner with each click and flicks it with the centre", () => {
+    const { state, effects } = run(
+      [
+        { type: "step", steps: 2 },
+        { type: "step", steps: -1 },
+        { type: "select" },
+        { type: "select" },
+      ],
+      at("spinner"),
+    );
+    expect(state.spin).toEqual({ steps: 1, flicks: 2 });
+    expect(state.screen).toBe("spinner");
+    expect(effects).toContainEqual({ type: "cue", cue: "wheel" });
+    const quiet = run([{ type: "step", steps: 1 }], at("spinner"), {
+      ...context,
+      clicker: false,
+    });
+    expect(quiet.effects).toEqual([]);
+    expect(quiet.state.spin.steps).toBe(1);
+  });
 });

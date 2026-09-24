@@ -2,6 +2,7 @@ import type { CueName } from "../../../../lib/sounds";
 import {
   type ChoiceScreen,
   clamp,
+  extrasItems,
   menuItems,
   moveSelection,
   parentScreen,
@@ -49,6 +50,12 @@ export type PodState = {
   seekTicks: number;
   /** Put to sleep by holding play: paused, the screen dark. */
   asleep: boolean;
+  /**
+   * What the viewer has done to the finger spinner, counted up: the wheel's
+   * clicks (signed) and the flicks. Its screen turns each new one into
+   * motion; the spinning itself is only drawn.
+   */
+  spin: { steps: number; flicks: number };
 };
 
 /** What the machine needs to know about the music and the widget. */
@@ -146,7 +153,13 @@ export function initialPodState(index: number): PodState {
   return {
     screen: "now",
     direction: 1,
-    selected: { menu: 0, covers: index, songs: index, settings: 0 },
+    selected: {
+      menu: 0,
+      covers: index,
+      songs: index,
+      extras: 0,
+      settings: 0,
+    },
     overlay: null,
     overlayStamp: 0,
     touching: false,
@@ -158,12 +171,14 @@ export function initialPodState(index: number): PodState {
     seeking: 0,
     seekTicks: 0,
     asleep: false,
+    spin: { steps: 0, flicks: 0 },
   };
 }
 
 function choiceCount(screen: ChoiceScreen, context: PodContext) {
   if (screen === "menu") return menuItems.length;
   if (screen === "settings") return settingsItems.length;
+  if (screen === "extras") return extrasItems.length;
   return context.count;
 }
 
@@ -257,6 +272,10 @@ function activate(
       effects: [select, { type: "setting", item: settingsItems[index] }],
     };
   }
+  if (screen === "extras") {
+    const next = go(chosen, extrasItems[index], 1);
+    return { ...next, effects: [select, ...next.effects] };
+  }
 
   const item = menuItems[index];
   if (item === "shuffle") {
@@ -302,6 +321,17 @@ export function podReducer(
           ? turnScrubber(state, action.steps, context)
           : turnVolume(state, action.steps, context);
       }
+      // The finger spinner: every click winds it, and clicks to be felt.
+      if (state.screen === "spinner") {
+        const { spin } = state;
+        return {
+          state: {
+            ...state,
+            spin: { ...spin, steps: spin.steps + action.steps },
+          },
+          effects: tick(context),
+        };
+      }
       const screen = state.screen;
       const index = moveSelection(
         state.selected[screen],
@@ -315,6 +345,14 @@ export function podReducer(
     case "select": {
       const press: PodEffect = { type: "cue", cue: "press" };
       if (context.videoCovers) return { state, effects: [press] };
+      // The centre button flicks the finger spinner.
+      if (state.screen === "spinner") {
+        const { spin } = state;
+        return {
+          state: { ...state, spin: { ...spin, flicks: spin.flicks + 1 } },
+          effects: [press],
+        };
+      }
       if (state.screen !== "now") {
         return activate(
           state,

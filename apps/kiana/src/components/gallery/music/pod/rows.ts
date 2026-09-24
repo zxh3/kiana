@@ -4,6 +4,8 @@ import { type Finish, finishLabels } from "./finishes";
 import { formatPodTime } from "./format";
 import type { PodState } from "./machine";
 import {
+  extrasItems,
+  extrasLabels,
   type ListScreen,
   menuItems,
   menuLabels,
@@ -62,6 +64,11 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
       current: position === view.index,
       lang: "zh",
     })),
+    extras: extrasItems.map((item) => ({
+      key: item,
+      label: extrasLabels[item],
+      opens: true,
+    })),
     settings: settingsItems.map((item) => ({
       key: item,
       label: settingsLabels[item],
@@ -91,6 +98,9 @@ export function describePod(
     }
     const track = view.playlist[view.index];
     return `${screenTitles.now}: ${track.title}, ${track.artist}`;
+  }
+  if (state.screen === "spinner") {
+    return `${screenTitles.spinner}: turn the wheel to spin it, or press the centre button to flick it`;
   }
   if (state.screen === "covers") {
     const track = view.playlist[state.selected.covers];

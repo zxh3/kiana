@@ -7,6 +7,7 @@ import { FaceButtons } from "./face-buttons";
 import { HoldSwitch } from "./hold-switch";
 import { menuItems, screenTitles } from "./menu";
 import { CoverFlow } from "./screen/cover-flow";
+import { FingerSpinner } from "./screen/finger-spinner";
 import { MenuPreview } from "./screen/menu-preview";
 import { NowPlaying } from "./screen/now-playing";
 import { PodList } from "./screen/pod-list";
@@ -103,6 +104,16 @@ export function PocketPlayer({
           shuffle={music.shuffle}
           track={music.track}
           volume={music.volume}
+        />
+      );
+    }
+    if (screen === "spinner") {
+      return (
+        <FingerSpinner
+          flicks={state.spin.flicks}
+          onFlick={controls.select}
+          onStep={controls.step}
+          steps={state.spin.steps}
         />
       );
     }
