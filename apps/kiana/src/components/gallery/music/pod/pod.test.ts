@@ -93,6 +93,12 @@ describe("pocket player rules", () => {
       finish: "silver",
       spinner: "stealth",
       face: "curious",
+      chat: {
+        name: "kiana",
+        status: "open",
+        others: [{ id: "p2", name: "amy" }],
+        last: { id: "m", from: "p2", name: "amy", text: "hi", at: 1 },
+      },
       videoOpen: false,
       volume: 42,
       current: 65,
@@ -119,5 +125,12 @@ describe("pocket player rules", () => {
       ),
     ).toBe("Clicker, On");
     expect(rows.songs[1].current).toBe(true);
+    expect(describePod({ ...state, screen: "chat" }, rows, view)).toBe(
+      "Chat Room, 2 online. amy: hi",
+    );
+    expect(describePod({ ...state, screen: "online" }, rows, view)).toBe(
+      "kiana, You",
+    );
+    expect(rows.online.map((row) => row.label)).toEqual(["kiana", "amy"]);
   });
 });

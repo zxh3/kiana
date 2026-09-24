@@ -1,0 +1,16 @@
+{
+  // The Worker's own code, checked against Cloudflare's runtime types
+  // (`npm run cf-typegen`). They clash with the browser's, so the rest of
+  // the app is checked by `tsconfig.json` without them.
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/server.ts",
+    "src/server/**/*.ts",
+    "worker-configuration.d.ts"
+  ],
+  "exclude": [],
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": []
+  }
+}

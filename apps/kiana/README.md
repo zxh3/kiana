@@ -67,7 +67,19 @@ Mediaforge release manifest and displays the responsive images described by it.
   Kiana sits on its cap, which stays upright while the rest spins. Its art
   was generated with OpenAI's gpt-image-2.5-sunburst, Kiana's faces from
   her photos, and each spinner made exactly symmetric so it turns without
-  wobbling. Settings, named as on the original, holds Shuffle (on or off)
+  wobbling. Extras also holds a Chat Room, where everyone with it open
+  talks in one room. Its top strip says how many are online and opens the
+  Online list (as does the centre button), the messages fill the middle,
+  newest at the bottom, and the field below sends one with Enter; the wheel
+  scrolls the messages. Everyone starts as user_ and four digits, kept
+  between visits, and picks another name from their own row, first in the
+  Online list, which opens Your Name. The room is a Cloudflare Durable
+  Object (`src/server/chat-room.ts`) that the page reaches by WebSocket at
+  `/api/chat`: it keeps the last 50 messages in its SQLite storage, tells
+  everyone who is here as people come and go, and allows five messages
+  every ten seconds each. Names are at most 16 characters and messages 200,
+  both one line of plain text. It is joined only while one of its screens
+  shows, and there is no moderation beyond those limits. Settings, named as on the original, holds Shuffle (on or off)
   and Repeat (all or one) as two separate settings, the backlight timer,
   the clicker (the wheel's ticks), the finish, and the finger spinner's
   looks: Spinner (Stealth, Claw, or Machined) and Kiana (Curious, Calm, or
@@ -115,7 +127,7 @@ Mediaforge release manifest and displays the responsive images described by it.
 
 Preferences, favorites, date-order positions, and the music volume, song,
 mute, shuffle, repeat, player size, corner, finish, backlight, and clicker, the
-finger spinner's best speed, spinner, and face, the video sound level, and the interface sounds switch and level are stored in
+finger spinner's best speed, spinner, and face, the Chat Room name, the video sound level, and the interface sounds switch and level are stored in
 local storage under `kiana.*` keys.
 
 ### Keyboard shortcuts
@@ -143,6 +155,21 @@ npm run dev
 
 Without configuration, the app loads the current release from
 `https://media.kiana.me/releases/current`.
+
+The development server runs the Worker in Cloudflare's own runtime, so the
+Chat Room works locally too: its Durable Object and storage are simulated
+under `.wrangler/state`, separate from production's. Delete that folder to
+empty the local room. The Worker's entry is `src/server.ts`, which puts the
+room's WebSocket in front of TanStack Start and exports the Durable Object
+class. After changing `wrangler.jsonc`, run `npm run cf-typegen` to
+regenerate `worker-configuration.d.ts`.
+
+A change to the `migrations` in `wrangler.jsonc` (a new, renamed, or deleted
+Durable Object class) can only ship from `main`. Workers Builds uploads a
+branch as a version, and Cloudflare refuses a version that includes a
+migration (error 10211), so that branch's build fails until it is merged;
+`main` runs `wrangler deploy`, which applies it. Renaming or deleting a class
+moves or wipes its stored messages.
 
 ## Cloudflare R2 media
 
@@ -187,5 +214,9 @@ use a custom domain for production traffic and caching.
 
 ```bash
 npx tsc --project apps/kiana/tsconfig.json --noEmit
+npx tsc --project apps/kiana/tsconfig.worker.json --noEmit
 npm run build --workspace apps/kiana
 ```
+
+The Worker's code is checked on its own, by `tsconfig.worker.json`, because
+Cloudflare's runtime types clash with the browser's.

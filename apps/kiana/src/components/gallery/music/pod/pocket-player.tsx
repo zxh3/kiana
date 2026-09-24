@@ -6,6 +6,8 @@ import { DragHandle } from "./drag-handle";
 import { FaceButtons } from "./face-buttons";
 import { HoldSwitch } from "./hold-switch";
 import { menuItems, screenTitles } from "./menu";
+import { ChatName } from "./screen/chat-name";
+import { ChatRoom } from "./screen/chat-room";
 import { CoverFlow } from "./screen/cover-flow";
 import { FingerSpinner } from "./screen/finger-spinner";
 import { MenuPreview } from "./screen/menu-preview";
@@ -26,7 +28,7 @@ import { useScrollSteps } from "./use-scroll-steps";
  * Keyboard: the wheel's buttons are ordinary buttons (Enter on the centre
  * chooses, on Menu goes back). With focus anywhere in the player, ↑ and ↓
  * turn the wheel (← and → too in Cover Flow, whose covers run sideways),
- * and Escape goes back.
+ * and Escape goes back. In the Chat Room's text fields the keys type.
  */
 export function PocketPlayer({
   active,
@@ -73,6 +75,11 @@ export function PocketPlayer({
       controls.back();
       return;
     }
+    // In the Chat Room's text fields the keys type, and keep the screen lit.
+    if (event.target instanceof HTMLInputElement) {
+      wake();
+      return;
+    }
     const sideways = screen === "covers";
     const steps: Record<string, number | undefined> = {
       ArrowDown: 1,
@@ -115,6 +122,25 @@ export function PocketPlayer({
           onFlick={controls.select}
           onStep={controls.step}
           steps={state.spin.steps}
+        />
+      );
+    }
+    if (screen === "chat") {
+      return (
+        <ChatRoom
+          chat={pod.chat}
+          onSay={controls.say}
+          onShowOnline={controls.select}
+          steps={state.chat.steps}
+        />
+      );
+    }
+    if (screen === "name") {
+      return (
+        <ChatName
+          name={pod.chat.name}
+          onSave={controls.saveName}
+          saves={state.chat.saves}
         />
       );
     }

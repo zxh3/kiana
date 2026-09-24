@@ -3,5 +3,11 @@
   "name": "kiana",
   "compatibility_date": "2026-08-16",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry"
+  "main": "src/server.ts",
+  // The click-wheel player's chat room: one Durable Object holds everyone
+  // connected, and the last messages in its SQLite storage.
+  "durable_objects": {
+    "bindings": [{ "name": "CHAT_ROOM", "class_name": "ChatRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ChatRoom"] }]
 }

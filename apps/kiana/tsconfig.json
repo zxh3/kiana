@@ -1,5 +1,13 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
+  // The Worker's code is checked on its own, by `tsconfig.worker.json`.
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/server.ts",
+    "src/server",
+    "worker-configuration.d.ts"
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

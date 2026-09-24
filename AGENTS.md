@@ -21,6 +21,7 @@ Before committing web app changes, run from the repository root:
 
 ```bash
 npx tsc --noEmit -p apps/kiana
+npx tsc --noEmit -p apps/kiana/tsconfig.worker.json
 npm test -w apps/kiana
 npm run check
 npm run build
@@ -35,7 +36,11 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
   the background music: `use-music.ts` drives a YouTube embed, and `pod/` is
   the click-wheel player. `gallery/sound` is the sound mixer. `src/lib/sounds`
   generates the interface sounds, and `src/lib/motion.ts` holds the shared
-  animation presets.
+  animation presets. `src/server.ts` is the Worker's entry: TanStack Start,
+  with the pod's chat room in front of it, a Durable Object in
+  `src/server/chat-room.ts` whose rules live in `src/lib/chat.ts`. The
+  Worker's code has its own `tsconfig.worker.json`, since Cloudflare's
+  runtime types clash with the browser's.
 - **Logic stays pure and tested.** The music player's behaviour is a pure
   state machine in `pod/machine.ts` with unit tests; its components only
   draw. Follow that shape: put rules in plain functions or reducers with
