@@ -289,6 +289,68 @@ export function ExternalIcon(props: IconProps) {
   );
 }
 
+/** Where each bar on the pocket player's screen rests while paused. */
+const screenBarRest = [0.45, 0.85, 0.6];
+
+/**
+ * The pocket player itself, for the top bar now that it holds more than
+ * music: its body, the screen, and the click wheel round its centre
+ * button. Bars on the screen dance while music plays and rest while it is
+ * paused; before any music the screen is empty, and they grow into it.
+ */
+export function PocketPlayerIcon({
+  bars,
+  playing,
+  ...props
+}: IconProps & {
+  /** Music has started, so the screen shows its bars. */
+  bars: boolean;
+  playing: boolean;
+}) {
+  return (
+    <Icon {...props}>
+      <rect height="16.5" rx="2.75" width="10.5" x="4.75" y="1.75" />
+      <rect
+        fill="currentColor"
+        height="5.25"
+        opacity={0.22}
+        rx="0.9"
+        stroke="none"
+        width="6.5"
+        x="6.75"
+        y="3.75"
+      />
+      {screenBarRest.map((rest, index) => (
+        <rect
+          className="origin-bottom animate-equalize transition-transform duration-300 [transform-box:fill-box] motion-reduce:animate-none"
+          fill="currentColor"
+          height="3.6"
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed decorative bars
+          key={index}
+          rx="0.5"
+          stroke="none"
+          style={
+            bars && playing
+              ? {
+                  animationDelay: `${-index * 0.27}s`,
+                  animationDuration: `${0.8 + index * 0.19}s`,
+                }
+              : {
+                  animation: "none",
+                  transform: `scaleY(${bars ? rest : 0})`,
+                }
+          }
+          width="1.2"
+          x={7.75 + index * 1.65}
+          y="4.65"
+        />
+      ))}
+      <circle cx="10" cy="13.35" r="2.9" strokeWidth={1.35} />
+      <circle cx="10" cy="13.35" fill="currentColor" r="0.95" stroke="none" />
+    </Icon>
+  );
+}
+
 const equalizerRest = [0.35, 0.6, 0.45, 0.3];
 
 /** Four bars that dance while music plays and settle when it stops. */
