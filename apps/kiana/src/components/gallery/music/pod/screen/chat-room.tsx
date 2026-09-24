@@ -12,7 +12,7 @@ const LINE = 13;
 const NEAR_END = 12;
 
 /**
- * The Chat Room under Extras: everyone with it open talks in one room.
+ * The Chat Room under Apps: everyone with it open talks in one room.
  * The strip at the top says how many are online and opens the list of
  * them (as does the centre button), the messages fill the middle with the
  * newest at the bottom, and the field below sends one with Enter. The wheel

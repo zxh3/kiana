@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 
+import { cx } from "../../../../../lib/class-names";
 import { fades } from "../../../../../lib/motion";
 import { type Track, trackArt } from "../../music-track";
-import type { MenuItem } from "../menu";
+import { type AppItem, appItems, type MenuItem } from "../menu";
 import { SpinnerIcon, type SpinnerLooks } from "./finger-spinner";
 
 /** How long each cover shows while Shuffle Songs is highlighted. */
@@ -104,11 +105,65 @@ function Gear() {
   );
 }
 
-/** The finger spinner, its body turning slowly, for Extras. */
-function Spinner({ looks }: { looks: SpinnerLooks }) {
+/** Each app's icon, as a tile on the Apps preview. */
+function AppTile({ app, looks }: { app: AppItem; looks: SpinnerLooks }) {
   return (
-    <div className="absolute inset-0 grid place-items-center bg-[linear-gradient(160deg,#f4f7fb_0%,#c9d3df_100%)]">
-      <SpinnerIcon looks={looks} size={66} />
+    <div className="flex flex-col items-center gap-[3px]">
+      <div
+        className={cx(
+          "grid size-[34px] place-items-center overflow-hidden rounded-[9px] shadow-[0_1px_2px_rgb(0_0_0/.3),inset_0_1px_0_rgb(255_255_255/.6)]",
+          appTileBackgrounds[app],
+        )}
+      >
+        {app === "spinner" ? (
+          <SpinnerIcon looks={looks} size={30} />
+        ) : (
+          <ChatBubble />
+        )}
+      </div>
+      <span className="text-[8.5px] leading-none font-semibold text-[#3d4652]">
+        {appTileLabels[app]}
+      </span>
+    </div>
+  );
+}
+
+const appTileBackgrounds: Record<AppItem, string> = {
+  spinner: "bg-[linear-gradient(180deg,#ffffff_0%,#dfe4ea_100%)]",
+  chat: "bg-[linear-gradient(180deg,#7cc8ff_0%,#2d7ae3_100%)]",
+};
+
+/** Short enough to sit under a tile. */
+const appTileLabels: Record<AppItem, string> = {
+  spinner: "Spinner",
+  chat: "Chat",
+};
+
+/** A speech bubble with three dots, for the Chat Room's tile. */
+function ChatBubble() {
+  return (
+    <svg aria-hidden="true" height="20" viewBox="0 0 20 20" width="20">
+      <path
+        d="M10 3.2c-4.3 0-7.3 2.6-7.3 5.8 0 1.9 1 3.5 2.7 4.6l-.7 2.9 3.2-1.9c.7.2 1.4.2 2.1.2 4.3 0 7.3-2.6 7.3-5.8S14.3 3.2 10 3.2Z"
+        fill="#ffffff"
+      />
+      {[6.6, 10, 13.4].map((cx) => (
+        <circle cx={cx} cy="9" fill="#2d7ae3" key={cx} r="1.05" />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * The apps, as tiles on a home screen: the finger spinner (in the looks
+ * chosen in Settings, turning slowly) and the Chat Room.
+ */
+function Apps({ looks }: { looks: SpinnerLooks }) {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-[linear-gradient(160deg,#f4f7fb_0%,#c9d3df_100%)]">
+      {appItems.map((app) => (
+        <AppTile app={app} key={app} looks={looks} />
+      ))}
     </div>
   );
 }
@@ -117,7 +172,7 @@ function Spinner({ looks }: { looks: SpinnerLooks }) {
  * The right half of the top menu, which changes with the highlighted item
  * as on the original: the covers for Cover Flow, the playing song's cover
  * drifting for Songs and Now Playing, covers dealt at random for Shuffle
- * Songs, a finger spinner for Extras, and a gear for Settings.
+ * Songs, the apps' icons for Apps, and a gear for Settings.
  */
 export function MenuPreview({
   index,
@@ -127,7 +182,7 @@ export function MenuPreview({
 }: {
   index: number;
   item: MenuItem;
-  /** The finger spinner's looks, for Extras. */
+  /** The finger spinner's looks, for its icon under Apps. */
   looks: SpinnerLooks;
   playlist: ReadonlyArray<Track>;
 }) {
@@ -147,8 +202,8 @@ export function MenuPreview({
             <Mosaic index={index} playlist={playlist} />
           ) : item === "shuffle" ? (
             <Shuffle playlist={playlist} />
-          ) : item === "extras" ? (
-            <Spinner looks={looks} />
+          ) : item === "apps" ? (
+            <Apps looks={looks} />
           ) : item === "settings" ? (
             <Gear />
           ) : (

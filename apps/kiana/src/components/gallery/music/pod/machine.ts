@@ -1,8 +1,8 @@
 import type { CueName } from "../../../../lib/sounds";
 import {
+  appItems,
   type ChoiceScreen,
   clamp,
-  extrasItems,
   menuItems,
   moveSelection,
   parentScreen,
@@ -169,7 +169,7 @@ export function initialPodState(index: number): PodState {
       menu: 0,
       covers: index,
       songs: index,
-      extras: 0,
+      apps: 0,
       online: 0,
       settings: 0,
     },
@@ -192,7 +192,7 @@ export function initialPodState(index: number): PodState {
 function choiceCount(screen: ChoiceScreen, context: PodContext) {
   if (screen === "menu") return menuItems.length;
   if (screen === "settings") return settingsItems.length;
-  if (screen === "extras") return extrasItems.length;
+  if (screen === "apps") return appItems.length;
   if (screen === "online") return context.online;
   return context.count;
 }
@@ -287,8 +287,8 @@ function activate(
       effects: [select, { type: "setting", item: settingsItems[index] }],
     };
   }
-  if (screen === "extras") {
-    const next = go(chosen, extrasItems[index], 1);
+  if (screen === "apps") {
+    const next = go(chosen, appItems[index], 1);
     return { ...next, effects: [select, ...next.effects] };
   }
   // In the Online list only the viewer's own row, the first, opens: to
