@@ -79,10 +79,10 @@ export function usePod({
 
   const run = (effect: PodEffect) => {
     switch (effect.type) {
-      // Every sound the player makes is also a tap on Android phones, so
-      // the wheel's clicks can be felt, and turning off the clicker stops
-      // both. iPhones only tap for a touch, which `HapticTap` handles on
-      // each button.
+      // Every sound the player makes is also a tap, so the wheel's clicks
+      // can be felt, and turning off the clicker stops both. Android taps
+      // anywhere; iPhones only while a finger is on the wheel, and
+      // `HapticTap` covers their presses of the other buttons.
       case "cue":
         cue(effect.cue);
         tap();
