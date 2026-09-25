@@ -13,13 +13,7 @@ import { cx } from "../../lib/class-names";
 import { cue } from "../../lib/sounds";
 import { Caption } from "./caption";
 import { CollectionMenu } from "./collection-menu";
-import {
-  type CollectionId,
-  chronologicalIndexes,
-  monthCollectionId,
-  resolveCollection,
-  yearCounts,
-} from "./collections";
+import { monthCollectionId } from "./collections";
 import { DisplayMenu } from "./display-menu";
 import { Dock } from "./dock";
 import { FavoriteButton } from "./favorite-button";
@@ -41,6 +35,7 @@ import { TopBar } from "./top-bar";
 import { useAccount } from "./use-account";
 import { useChromeHold } from "./use-chrome-hold";
 import { useChromeVisibility } from "./use-chrome-visibility";
+import { useCollection } from "./use-collection";
 import { useFavorites } from "./use-favorites";
 import { useFullscreen } from "./use-fullscreen";
 import { useGalleryShortcuts } from "./use-gallery-shortcuts";
@@ -48,8 +43,6 @@ import { useSlideshow } from "./use-slideshow";
 import { useStoredState } from "./use-stored-state";
 import { useToday } from "./use-today";
 import { useWakeLock, wakeLockSupported } from "./use-wake-lock";
-
-const NO_FAVORITES: ReadonlySet<string> = new Set();
 
 type Menu = "collection" | "display" | "sound" | "favorite" | null;
 
@@ -85,81 +78,23 @@ export function Gallery({
   const [helpOpen, setHelpOpen] = useState(false);
   const { toast, showToast } = useToast();
 
-  const chronological = useMemo(() => chronologicalIndexes(assets), [assets]);
-  const years = useMemo(() => yearCounts(assets), [assets]);
-  const [linkedIndex] = useState(() =>
-    initialPhotoId ? assets.findIndex(({ id }) => id === initialPhotoId) : -1,
-  );
-
-  // A shared link plays within Everything for this visit when the saved
-  // collection does not contain it, without overwriting the saved choice.
-  const [linkOverride, setLinkOverride] = useState<CollectionId | null>(() => {
-    if (linkedIndex < 0) return null;
-    const saved = resolveCollection(preferences.collectionId, {
-      assets,
-      chronological,
-      favorites,
-      today,
-    });
-    return saved.members.includes(linkedIndex) ? null : "all";
+  const {
+    chronological,
+    collection,
+    favoriteCount,
+    linkedIndex,
+    onThisDay,
+    setCollectionId,
+    years,
+  } = useCollection({
+    assets,
+    favorites,
+    favoritesSettled,
+    initialPhotoId,
+    savedId: preferences.collectionId,
+    saveId: preferences.setCollectionId,
+    today,
   });
-  const collectionId = linkOverride ?? preferences.collectionId;
-  const { setCollectionId: saveCollectionId } = preferences;
-  const setCollectionId = useCallback(
-    (id: CollectionId) => {
-      setLinkOverride(null);
-      saveCollectionId(id);
-    },
-    [saveCollectionId],
-  );
-
-  // Only the collections that depend on favorites or today recompute.
-  const favoritesKey = collectionId === "favorites" ? favorites : NO_FAVORITES;
-  const todayKey = collectionId === "on-this-day" ? today : "";
-  const chosen = useMemo(
-    () =>
-      resolveCollection(collectionId, {
-        assets,
-        chronological,
-        favorites: favoritesKey,
-        today: todayKey,
-      }),
-    [assets, chronological, collectionId, favoritesKey, todayKey],
-  );
-  const everything = useMemo(
-    () =>
-      resolveCollection("all", {
-        assets,
-        chronological,
-        favorites: NO_FAVORITES,
-        today: "",
-      }),
-    [assets, chronological],
-  );
-  const collection = chosen.members.length > 0 ? chosen : everything;
-  // An empty collection gives way to Everything, but Favorites only once
-  // they are known: they arrive a moment after the page, from the account.
-  useEffect(() => {
-    if (chosen.members.length > 0 || collectionId === "all") return;
-    if (collectionId === "favorites" && !favoritesSettled) return;
-    setCollectionId("all");
-  }, [chosen.members.length, collectionId, favoritesSettled, setCollectionId]);
-
-  const onThisDay = useMemo(
-    () =>
-      resolveCollection("on-this-day", {
-        assets,
-        chronological,
-        favorites: NO_FAVORITES,
-        today,
-      }),
-    [assets, chronological, today],
-  );
-  const favoriteCount = useMemo(
-    () =>
-      assets.reduce((count, { id }) => count + Number(favorites.has(id)), 0),
-    [assets, favorites],
-  );
 
   // Date order remembers where it left each collection; shuffle always
   // starts a fresh shuffle.
