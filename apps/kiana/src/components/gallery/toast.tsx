@@ -1,8 +1,28 @@
 import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fades, springs } from "../../lib/motion";
 
 export type ToastMessage = { id: number; text: string };
+
+/** How long a toast stays before it fades. */
+const TOAST_SHOWS_FOR = 2_200;
+
+/** A short word at the top of the screen, one at a time, gone on its own. */
+export function useToast() {
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const id = useRef(0);
+  const showToast = useCallback((text: string) => {
+    id.current += 1;
+    setToast({ id: id.current, text });
+  }, []);
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = window.setTimeout(() => setToast(null), TOAST_SHOWS_FOR);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
+  return { toast, showToast };
+}
 
 export function Toast({ message }: { message: ToastMessage | null }) {
   return (
