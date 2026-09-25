@@ -125,7 +125,7 @@ export function ChatRoom({
               <span
                 className={cx(
                   "font-bold",
-                  message.from === chat.you
+                  message.from === chat.you || message.mine
                     ? "text-[#2d7ae3]"
                     : "text-[#141414]",
                 )}

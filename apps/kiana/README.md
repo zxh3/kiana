@@ -81,7 +81,9 @@ Mediaforge release manifest and displays the responsive images described by it.
   Online list, which opens Your Name. Someone signed in with Google goes by
   their first name instead, marked with a blue tick in the messages and the
   Online list, and cannot pick another; a guest can take any name, but never
-  the tick. The room is a Cloudflare Durable
+  the tick. The viewer's own name is blue in the messages: a guest's only
+  on what they sent since connecting, and someone signed in's on everything
+  their account sent, from any device or visit. The room is a Cloudflare Durable
   Object (`src/server/chat-room.ts`) that the page reaches by WebSocket at
   `/api/chat`: it keeps the last 50 messages in its SQLite storage, deletes
   each a day after it was sent (by an alarm, even while nobody is there), tells

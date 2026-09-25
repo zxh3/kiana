@@ -66,15 +66,22 @@ export class ChatRoom extends DurableObject<Env> {
         text TEXT NOT NULL,
         at INTEGER NOT NULL
       )`);
-    // Whether each message was sent by someone signed in, added once
-    // signing in came, to a table that may already hold messages.
-    const columns = ctx.storage.sql
-      .exec<{ name: string }>("PRAGMA table_info(messages)")
-      .toArray();
-    if (!columns.some((column) => column.name === "verified")) {
+    // Whether each message was sent by someone signed in, and by which
+    // account, added once signing in came, to a table that may already
+    // hold messages.
+    const columns = new Set(
+      ctx.storage.sql
+        .exec<{ name: string }>("PRAGMA table_info(messages)")
+        .toArray()
+        .map((column) => column.name),
+    );
+    if (!columns.has("verified")) {
       ctx.storage.sql.exec(
         "ALTER TABLE messages ADD COLUMN verified INTEGER NOT NULL DEFAULT 0",
       );
+    }
+    if (!columns.has("account")) {
+      ctx.storage.sql.exec("ALTER TABLE messages ADD COLUMN account TEXT");
     }
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
   }
@@ -113,7 +120,7 @@ export class ChatRoom extends DurableObject<Env> {
           type: "welcome",
           you: guest.id,
           people: this.people(),
-          messages: this.history(),
+          messages: this.history(guest.account?.id),
         });
       }
       this.broadcast({ type: "people", people: this.people() });
@@ -158,20 +165,32 @@ export class ChatRoom extends DurableObject<Env> {
     if (guest.account) said.verified = true;
     const sql = this.ctx.storage.sql;
     sql.exec(
-      "INSERT INTO messages (id, sender, name, text, at, verified) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO messages (id, sender, name, text, at, verified, account) VALUES (?, ?, ?, ?, ?, ?, ?)",
       said.id,
       said.from,
       said.name,
       said.text,
       said.at,
       said.verified ? 1 : 0,
+      guest.account?.id ?? null,
     );
     sql.exec(
       "DELETE FROM messages WHERE seq <= (SELECT MAX(seq) FROM messages) - ?",
       HISTORY_SIZE,
     );
     this.expire(now);
-    this.broadcast({ type: "message", message: said });
+    // Each of the sender's own connections, on any device, hears it as
+    // theirs; the account itself is never sent.
+    for (const other of this.ctx.getWebSockets()) {
+      const listener = other.deserializeAttachment() as Guest | null;
+      if (listener?.name == null) continue;
+      const mine =
+        guest.account != null && listener.account?.id === guest.account.id;
+      send(other, {
+        type: "message",
+        message: mine ? { ...said, mine } : said,
+      });
+    }
   }
 
   async alarm() {
@@ -222,7 +241,8 @@ export class ChatRoom extends DurableObject<Env> {
       });
   }
 
-  private history(): ChatMessage[] {
+  /** The messages kept, those sent by `account` marked as its own. */
+  private history(account?: string): ChatMessage[] {
     return this.ctx.storage.sql
       .exec<{
         id: string;
@@ -231,8 +251,9 @@ export class ChatRoom extends DurableObject<Env> {
         text: string;
         at: number;
         verified: number;
+        account: string | null;
       }>(
-        "SELECT id, sender, name, text, at, verified FROM messages ORDER BY seq",
+        "SELECT id, sender, name, text, at, verified, account FROM messages ORDER BY seq",
       )
       .toArray()
       .map((row) => {
@@ -244,6 +265,7 @@ export class ChatRoom extends DurableObject<Env> {
           at: row.at,
         };
         if (row.verified) message.verified = true;
+        if (account && row.account === account) message.mine = true;
         return message;
       });
   }
