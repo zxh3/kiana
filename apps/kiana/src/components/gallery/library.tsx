@@ -13,20 +13,23 @@ import { CloseIcon, HeartIcon, LiveIcon, PlayIcon } from "./icons";
 import {
   buildRows,
   centeredOffset,
+  gridGeometry,
   groupByMonth,
   type LibraryFilter,
-  type LibraryRow,
+  libraryCounts,
   libraryFilterLabels,
   libraryFilters,
   libraryIndexes,
+  MAX_CONTENT_WIDTH,
   type MonthGroup,
   rowContaining,
+  rowHeightFor,
+  TILE_GAP,
   yearAnchors,
+  yearSpan,
 } from "./library-layout";
 import { formatMediaDuration, formatMonthName, formatPhotoDate } from "./model";
 
-const TILE_GAP = 3;
-const MAX_CONTENT_WIDTH = 1680;
 const numberFormatter = new Intl.NumberFormat("en-US");
 
 const filterNouns: Record<LibraryFilter, [string, string]> = {
@@ -46,13 +49,6 @@ function kindLabel(asset: GalleryAsset) {
   if (asset.type === "live_photo") return "Live Photo";
   if (asset.type === "video") return "Video";
   return "Photo";
-}
-
-function rowHeightFor(row: LibraryRow, compact: boolean, tileSize: number) {
-  if (row.kind === "intro") return compact ? 200 : 300;
-  if (row.kind === "empty") return 220;
-  if (row.kind === "month") return compact ? 76 : 108;
-  return tileSize + TILE_GAP;
 }
 
 const LibraryTile = memo(function LibraryTile({
@@ -268,34 +264,12 @@ export function Library({
     return () => observer.disconnect();
   }, []);
 
-  const compact = width < 640;
-  const sidePadding = compact ? 12 : 40;
-  const railSpace = compact ? 48 : 88;
-  const contentWidth = Math.max(
-    0,
-    Math.min(width, MAX_CONTENT_WIDTH) - sidePadding - railSpace,
+  const { compact, sidePadding, railSpace, columns, tileSize } =
+    gridGeometry(width);
+  const counts = useMemo(
+    () => libraryCounts(assets, favorites),
+    [assets, favorites],
   );
-  const targetTile = compact ? 112 : 172;
-  const columns = Math.max(
-    3,
-    Math.round((contentWidth + TILE_GAP) / (targetTile + TILE_GAP)),
-  );
-  const tileSize = (contentWidth - TILE_GAP * (columns - 1)) / columns;
-
-  const counts = useMemo(() => {
-    const result: Record<LibraryFilter, number> = {
-      all: assets.length,
-      photo: 0,
-      live_photo: 0,
-      video: 0,
-      favorites: 0,
-    };
-    for (const asset of assets) {
-      result[asset.type] += 1;
-      if (favorites.has(asset.id)) result.favorites += 1;
-    }
-    return result;
-  }, [assets, favorites]);
 
   const filteredFavorites = filter === "favorites" ? favorites : undefined;
   const indexes = useMemo(
@@ -314,12 +288,7 @@ export function Library({
   );
   const rows = useMemo(() => buildRows(groups, columns), [groups, columns]);
   const anchors = useMemo(() => yearAnchors(rows), [rows]);
-  const span = useMemo(() => {
-    const years = groups.flatMap((group) => (group.year ? [group.year] : []));
-    return years.length
-      ? { from: Math.min(...years), to: Math.max(...years) }
-      : null;
-  }, [groups]);
+  const span = useMemo(() => yearSpan(groups), [groups]);
 
   const heights = useMemo(
     () => rows.map((row) => rowHeightFor(row, compact, tileSize)),
