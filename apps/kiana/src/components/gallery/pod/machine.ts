@@ -6,8 +6,10 @@ import {
   appItems,
   type ChoiceScreen,
   clamp,
+  looksItems,
   menuItems,
   moveSelection,
+  musicItems,
   type Screen,
   screens,
   settingsItems,
@@ -169,12 +171,14 @@ export function initialPodState(index: number): PodState {
     direction: 1,
     selected: {
       menu: 0,
+      music: 0,
       covers: index,
       songs: index,
       apps: 0,
       online: 0,
       settings: 0,
       account: 0,
+      looks: 0,
     },
     overlay: null,
     overlayStamp: 0,
@@ -193,6 +197,8 @@ export function initialPodState(index: number): PodState {
 
 function choiceCount(screen: ChoiceScreen, context: PodContext) {
   if (screen === "menu") return menuItems.length;
+  if (screen === "music") return musicItems.length;
+  if (screen === "looks") return looksItems.length;
   if (screen === "settings") return settingsItems.length;
   if (screen === "apps") return appItems.length;
   if (screen === "online") return context.online;
@@ -317,8 +323,19 @@ function activate(
   }
   if (screen === "settings") {
     const item = settingsItems[index];
-    if (item === "account") return go(chosen, "account", 1, SELECT);
+    if (item === "account" || item === "looks") {
+      return go(chosen, item, 1, SELECT);
+    }
     return { state: chosen, effects: [SELECT, { type: "setting", item }] };
+  }
+  if (screen === "looks") {
+    const item = looksItems[index];
+    return { state: chosen, effects: [SELECT, { type: "setting", item }] };
+  }
+  // Song lists open on the song that is playing.
+  if (screen === "music") {
+    const item = musicItems[index];
+    return go(choose(chosen, item, context.index), item, 1, SELECT);
   }
   // Signing in leaves for Google and comes back; signing out stays, with
   // the highlight on the way back in.
@@ -349,12 +366,7 @@ function activate(
   if (item === "shuffle") {
     return go(chosen, "now", 1, SELECT, { type: "shuffle" });
   }
-  // Song lists open on the song that is playing.
-  const opened =
-    item === "covers" || item === "songs"
-      ? choose(chosen, item, context.index)
-      : chosen;
-  return go(opened, item, 1, SELECT);
+  return go(chosen, item, 1, SELECT);
 }
 
 export function podReducer(

@@ -48,14 +48,15 @@ Mediaforge release manifest and displays the responsive images described by it.
   account the first time it signs in there, then cleared.
 - **Share.** Copies a link that opens the current photo. The server renders
   that photo as the link preview image.
-- **Music.** The Music button in the top bar, drawn as the pocket player
-  with bars dancing on its screen while music plays, plays a five-song YouTube
-  playlist as background music. The player is made like the pocket music
-  players of the 2000s, in silver, graphite, or rose aluminium. Its colour
-  screen has a top menu titled with the device's name, laid out as on the
-  original (Cover Flow, Songs, Shuffle Songs, Apps, Settings, and Now Playing
-  last),
-  whose right half previews the highlighted item, and both the click wheel and
+- **Music.** The player button in the top bar, only an icon of the pocket
+  player with bars dancing on its screen while music plays (its label and
+  tooltip say what a press does), plays a five-song YouTube playlist as
+  background music. The player is made like the pocket music players of the
+  2000s, in silver, graphite, or rose aluminium. Its colour screen has a top
+  menu titled with the device's name, laid out as on the original: Music
+  (Cover Flow and Songs), Apps, and Settings, each a level down, then
+  Shuffle Songs and Now Playing last. Its right half previews the
+  highlighted item, and both the click wheel and
   the touch screen drive it. Circle a thumb or the pointer around the wheel,
   or scroll over the player, to move through lists and flip through covers; on
   the screen, drag a list or tap a row, swipe or tap the covers, press or drag
@@ -112,12 +113,12 @@ Mediaforge release manifest and displays the responsive images described by it.
   are patting. A guest's own merit is kept in their browser; someone
   signed in has it kept by their account, the same on every device, and
   their guest count stays behind for when they sign out. Her pictures and the hand were generated with OpenAI's
-  gpt-image-2.5-sunburst, Kiana from her photos. Settings, named as on the original, holds Shuffle (on or off)
-  and Repeat (all or one) as two separate settings, the backlight timer,
-  the clicker (the wheel's ticks), the finish, and the finger spinner's
-  looks: Spinner (Stealth, Claw, or Machined) and Kiana (Curious, Calm, or
-  Shades), and last, Account, which shows who is signed in and opens a
-  screen to sign in with Google or sign out. On phones the controls tap
+  gpt-image-2.5-sunburst, Kiana from her photos. Settings, named as on the original, holds first Account,
+  which shows who is signed in and opens a screen to sign in with Google or
+  sign out, then Shuffle (on or off) and Repeat (all or one) as two separate
+  settings, the backlight timer, the clicker (the wheel's ticks), the
+  finish, and last Finger Spinner, a screen of the spinner's looks: Spinner
+  (Stealth, Claw, or Machined) and Kiana (Curious, Calm, or Shades). On phones the controls tap
   back through the vibration motor. Android taps with every sound, including
   each click of a turning wheel, through the Vibration API; turning the
   clicker off stops the wheel's taps too. Safari on iOS has no Vibration API,

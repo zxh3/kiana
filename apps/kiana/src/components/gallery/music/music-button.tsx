@@ -4,34 +4,38 @@ import { focusRing } from "../control-button";
 import { PocketPlayerIcon } from "../icons";
 import type { Music, MusicStatus } from "./use-music";
 
-const statusLabels: Record<MusicStatus, string> = {
-  idle: "Music",
+/** What the button says, besides the song, while the music cannot play. */
+const troubles: Partial<Record<MusicStatus, string>> = {
   loading: "Loading",
-  playing: "Playing",
-  paused: "Paused",
   blocked: "Tap the video",
   error: "Unavailable",
 };
+
 /**
  * The top-bar switch: starts the music, which brings out the pocket player,
- * then pauses and resumes it. Its icon is the player, with the music's bars
- * on its screen.
+ * then pauses and resumes it. It is only an icon, the player with the
+ * music's bars on its screen, since the player is more than music now; its
+ * label and tooltip say what a press does.
  */
 export function MusicButton({ music }: { music: Music }) {
   const playing = music.status === "playing";
+  const { title } = music.track;
+  const trouble = troubles[music.status];
   const label =
     music.status === "idle"
-      ? `Play background music: ${music.track.title}`
-      : playing
-        ? `Pause ${music.track.title}`
-        : `Play ${music.track.title}`;
+      ? `Play background music: ${title}`
+      : trouble
+        ? `${trouble}: ${title}`
+        : playing
+          ? `Pause ${title}`
+          : `Play ${title}`;
 
   return (
     <button
       aria-label={label}
       aria-pressed={music.status === "idle" ? undefined : playing}
       className={cx(
-        "glass flex h-10 cursor-pointer items-center gap-2 rounded-full px-3 transition-[color,background-color] duration-200 hover:bg-night/70 hover:text-paper sm:pr-4 sm:pl-3.5",
+        "glass flex h-10 cursor-pointer items-center rounded-full px-3 transition-[color,background-color] duration-200 hover:bg-night/70 hover:text-paper",
         playing ? "text-paper" : "text-paper/85",
         focusRing,
       )}
@@ -49,7 +53,6 @@ export function MusicButton({ music }: { music: Music }) {
         playing={playing}
         size={20}
       />
-      <span className="label max-sm:sr-only">{statusLabels[music.status]}</span>
     </button>
   );
 }

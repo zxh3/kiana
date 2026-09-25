@@ -7,6 +7,7 @@ import type { AccountStatus } from "../account";
 
 export type Screen =
   | "menu"
+  | "music"
   | "covers"
   | "songs"
   | "apps"
@@ -17,6 +18,7 @@ export type Screen =
   | "name"
   | "settings"
   | "account"
+  | "looks"
   | "now";
 /**
  * Screens an app draws itself, where the wheel and the centre button
@@ -51,8 +53,9 @@ type ScreenInfo = {
  */
 export const screens: Record<Screen, ScreenInfo> = {
   menu: { title: "Kiana", parent: null },
-  covers: { title: "Cover Flow", parent: "menu" },
-  songs: { title: "Songs", parent: "menu" },
+  music: { title: "Music", parent: "menu" },
+  covers: { title: "Cover Flow", parent: "music" },
+  songs: { title: "Songs", parent: "music" },
   apps: { title: "Apps", parent: "menu" },
   spinner: { title: "Finger Spinner", parent: "apps" },
   muyu: { title: "电子木鱼", parent: "apps", lang: "zh", room: "muyu" },
@@ -61,45 +64,46 @@ export const screens: Record<Screen, ScreenInfo> = {
   name: { title: "Your Name", parent: "online", room: "chat" },
   settings: { title: "Settings", parent: "menu" },
   account: { title: "Account", parent: "settings" },
+  looks: { title: "Finger Spinner", parent: "settings" },
   now: { title: "Now Playing", parent: "menu" },
 };
 
 /**
- * The top menu, laid out as on the original: Shuffle Songs one press away,
- * Apps for the little programs, and Now Playing last. With a playlist this
- * short the song screens sit here too, rather than a level down under
- * "Music".
- * Putting the player away belongs to the widget's own minimize and close
- * buttons, not to the device's menus.
+ * The top menu, laid out as on the original: Music, Apps (where the
+ * original kept its games under Extras), and Settings, each a level down,
+ * then Shuffle Songs one press away and Now Playing last. Putting the
+ * player away belongs to the widget's own minimize and close buttons, not
+ * to the device's menus.
  */
 export const menuItems = [
-  "covers",
-  "songs",
-  "shuffle",
+  "music",
   "apps",
   "settings",
+  "shuffle",
   "now",
 ] as const;
 export type MenuItem = (typeof menuItems)[number];
 
 export const menuLabels: Record<MenuItem, string> = {
-  covers: "Cover Flow",
-  songs: "Songs",
-  shuffle: "Shuffle Songs",
+  music: "Music",
   apps: "Apps",
   settings: "Settings",
+  shuffle: "Shuffle Songs",
   now: "Now Playing",
 };
 
 /** Menu items that open another screen, drawn with a chevron. */
 export const menuOpens: Record<MenuItem, boolean> = {
-  covers: true,
-  songs: true,
-  shuffle: false,
+  music: true,
   apps: true,
   settings: true,
+  shuffle: false,
   now: true,
 };
+
+/** Music: the songs as covers to flip through, or as a list. */
+export const musicItems = ["covers", "songs"] as const;
+export type MusicItem = (typeof musicItems)[number];
 
 /**
  * The little apps, where the original kept its games under Extras: named
@@ -109,34 +113,47 @@ export const appItems = ["spinner", "chat", "muyu"] as const;
 export type AppItem = (typeof appItems)[number];
 
 /**
- * Settings, named as on the original where it had the same setting. Then
- * two choose the finger spinner's looks: which spinner, and which of
- * Kiana's faces sits on its cap. Account, last, opens its own screen.
+ * Settings, named as on the original where it had the same setting.
+ * Account comes first, as the one who is signed in does on a phone, and
+ * the finger spinner's looks have a screen of their own, last.
  */
 export const settingsItems = [
+  "account",
   "shuffle",
   "repeat",
   "backlight",
   "clicker",
   "finish",
-  "spinner",
-  "face",
-  "account",
+  "looks",
 ] as const;
 export type SettingsItem = (typeof settingsItems)[number];
-/** The settings a press changes in place; Account opens a screen instead. */
-export type ToggleSetting = Exclude<SettingsItem, "account">;
 
 export const settingsLabels: Record<SettingsItem, string> = {
+  account: "Account",
   shuffle: "Shuffle",
   repeat: "Repeat",
   backlight: "Backlight",
   clicker: "Clicker",
   finish: "Finish",
+  looks: "Finger Spinner",
+};
+
+/**
+ * The finger spinner's looks, under Settings: which spinner, and which of
+ * Kiana's faces sits on its cap.
+ */
+export const looksItems = ["spinner", "face"] as const;
+export type LooksItem = (typeof looksItems)[number];
+
+export const looksLabels: Record<LooksItem, string> = {
   spinner: "Spinner",
   face: "Kiana",
-  account: "Account",
 };
+
+/** Settings a press changes in place, rather than opening a screen. */
+export type ToggleSetting =
+  | Exclude<SettingsItem, "account" | "looks">
+  | LooksItem;
 
 /**
  * The Account screen's rows, which depend on whether the viewer is signed

@@ -16,9 +16,11 @@ describe("pocket player menus", () => {
     expect(scrollWindow(0, 4, 5, 7)).toBe(0);
   });
 
-  it("goes back to the menu from every screen, and nowhere from the menu", () => {
+  it("goes back up a level from every screen, and nowhere from the menu", () => {
     expect(screens.now.parent).toBe("menu");
-    expect(screens.covers.parent).toBe("menu");
+    expect(screens.music.parent).toBe("menu");
+    expect(screens.covers.parent).toBe("music");
+    expect(screens.looks.parent).toBe("settings");
     expect(screens.menu.parent).toBeNull();
   });
 

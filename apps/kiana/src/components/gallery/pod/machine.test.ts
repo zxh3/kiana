@@ -225,14 +225,25 @@ describe("pocket player machine", () => {
     expect(state.lockShown).toBe(true);
   });
 
-  it("opens song lists on the song that is playing", () => {
-    const menu = { ...at("menu"), selected: { ...at("menu").selected } };
-    const { state } = run([{ type: "pick", screen: "menu", index: 0 }], menu, {
-      ...context,
-      index: 3,
-    });
-    expect(state.screen).toBe("covers");
-    expect(state.selected.covers).toBe(3);
+  it("opens Music from the top menu, and its song lists on the song playing", () => {
+    const facts = { ...context, index: 3 };
+    const music = run([{ type: "pick", screen: "menu", index: 0 }], at("menu"));
+    expect(music.state.screen).toBe("music");
+    const covers = run(
+      [{ type: "pick", screen: "music", index: 0 }],
+      music.state,
+      facts,
+    );
+    expect(covers.state.screen).toBe("covers");
+    expect(covers.state.selected.covers).toBe(3);
+    expect(run([{ type: "back" }], covers.state).state.screen).toBe("music");
+    const songs = run(
+      [{ type: "pick", screen: "music", index: 1 }],
+      music.state,
+      facts,
+    );
+    expect(songs.state.screen).toBe("songs");
+    expect(songs.state.selected.songs).toBe(3);
   });
 
   it("brings a tapped side cover to the middle, and plays the middle one", () => {
@@ -257,7 +268,7 @@ describe("pocket player machine", () => {
   it("opens the finger spinner from Apps, and goes back the same way", () => {
     const menu = at("menu");
     const { state } = run(
-      [{ type: "pick", screen: "menu", index: 3 }, { type: "select" }],
+      [{ type: "pick", screen: "menu", index: 1 }, { type: "select" }],
       menu,
     );
     expect(state.screen).toBe("spinner");
@@ -359,16 +370,27 @@ describe("pocket player machine", () => {
     expect(run([{ type: "back" }], state).state.screen).toBe("apps");
   });
 
-  it("opens Account from the end of Settings, and back", () => {
-    const { state, effects } = run(
-      [{ type: "step", steps: 20 }, { type: "select" }],
-      at("settings"),
-    );
+  it("opens Account from the top of Settings, and back", () => {
+    const { state, effects } = run([{ type: "select" }], at("settings"));
     expect(state.screen).toBe("account");
     expect(effects).not.toContainEqual(
       expect.objectContaining({ type: "setting" }),
     );
     expect(run([{ type: "back" }], state).state.screen).toBe("settings");
+  });
+
+  it("changes the spinner's looks on their own screen, from the end of Settings", () => {
+    const looks = run(
+      [{ type: "step", steps: 20 }, { type: "select" }],
+      at("settings"),
+    );
+    expect(looks.state.screen).toBe("looks");
+    const { effects } = run(
+      [{ type: "step", steps: 1 }, { type: "select" }],
+      looks.state,
+    );
+    expect(effects).toContainEqual({ type: "setting", item: "face" });
+    expect(run([{ type: "back" }], looks.state).state.screen).toBe("settings");
   });
 
   it("signs a guest in from Account", () => {
