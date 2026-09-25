@@ -1,5 +1,3 @@
-import { excludedAssetIds } from "./excluded-assets";
-
 export type GalleryVideo = {
   src: string;
   width: number;
@@ -152,16 +150,23 @@ export function parseMediaforgeManifest(
   if (new Set(photos.map((photo) => photo.id)).size !== photos.length) {
     throw new Error("Mediaforge manifest contains duplicate asset IDs");
   }
-  const includedPhotos = photos.filter(
-    (photo) => !excludedAssetIds.has(photo.id),
-  );
-  if (includedPhotos.length === 0) {
-    throw new Error("Mediaforge manifest does not contain any included assets");
-  }
-  return includedPhotos;
+  return photos;
 }
 
-export async function loadGalleryAssets(): Promise<GalleryAsset[]> {
+/** The assets the gallery shows: all but those an admin hid. */
+export function withoutHidden(
+  assets: ReadonlyArray<GalleryAsset>,
+  hidden: ReadonlySet<string>,
+): GalleryAsset[] {
+  const shown = assets.filter(({ id }) => !hidden.has(id));
+  if (shown.length === 0) {
+    throw new Error("Every photo in the release is hidden");
+  }
+  return shown;
+}
+
+/** Every asset in the current release, hidden or not. */
+export async function loadManifest(): Promise<GalleryAsset[]> {
   const mediaReleaseUrl =
     import.meta.env.VITE_KIANA_MEDIA_BASE_URL?.trim() ||
     DEFAULT_MEDIA_RELEASE_URL;

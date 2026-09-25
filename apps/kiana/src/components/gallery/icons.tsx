@@ -401,3 +401,31 @@ export function ShuffleIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function EyeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2.25 10S5 4.75 10 4.75 17.75 10 17.75 10 15 15.25 10 15.25 2.25 10 2.25 10Z" />
+      <circle cx="10" cy="10" r="2.4" />
+    </Icon>
+  );
+}
+
+export function EyeOffIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M8.1 4.95A7.6 7.6 0 0 1 10 4.75c5 0 7.75 5.25 7.75 5.25a13.5 13.5 0 0 1-2.2 2.85M5.6 6.1C3.4 7.55 2.25 10 2.25 10S5 15.25 10 15.25c1.45 0 2.7-.45 3.8-1.1" />
+      <path d="M8.3 8.3a2.4 2.4 0 0 0 3.4 3.4" />
+      <path d="m3.5 3.5 13 13" />
+    </Icon>
+  );
+}
+
+export function ShieldIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M10 2.75 4.25 4.9v4.45c0 3.6 2.4 6.5 5.75 7.9 3.35-1.4 5.75-4.3 5.75-7.9V4.9L10 2.75Z" />
+      <path d="m7.6 10 1.7 1.7 3.1-3.3" />
+    </Icon>
+  );
+}

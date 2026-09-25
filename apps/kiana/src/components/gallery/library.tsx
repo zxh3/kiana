@@ -29,6 +29,7 @@ import {
   yearSpan,
 } from "./library-layout";
 import { formatMediaDuration, formatMonthName, formatPhotoDate } from "./model";
+import { YearRail } from "./year-rail";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
@@ -551,43 +552,16 @@ export function Library({
             </div>
           </section>
 
-          {anchors.length > 1 ? (
-            <nav
-              aria-label="Jump to a year"
-              className="absolute top-1/2 right-1 z-10 flex -translate-y-1/2 flex-col items-end gap-0.5 sm:right-5"
-            >
-              {anchors.map(({ year, row }) => (
-                <button
-                  aria-current={year === activeYear ? "true" : undefined}
-                  className={cx(
-                    "relative isolate cursor-pointer rounded-full px-2 py-1.5 text-[10px] tabular-nums tracking-[.08em] transition-colors duration-200 sm:px-2.5",
-                    year === activeYear
-                      ? "text-ink"
-                      : "text-paper/40 hover:text-paper",
-                    focusRing,
-                    "focus-visible:ring-offset-0",
-                  )}
-                  key={year}
-                  onClick={() => {
-                    cue("select");
-                    virtualizer.scrollToIndex(row, { align: "start" });
-                  }}
-                  title={`Jump to ${year}`}
-                  type="button"
-                >
-                  {/* The current year's marker glides along as you scroll. */}
-                  {year === activeYear ? (
-                    <motion.span
-                      className="absolute inset-0 -z-10 rounded-full bg-paper"
-                      layoutId="library-year"
-                      transition={springs.gentle}
-                    />
-                  ) : null}
-                  {compact ? `’${String(year).slice(2)}` : year}
-                </button>
-              ))}
-            </nav>
-          ) : null}
+          <YearRail
+            activeYear={activeYear}
+            anchors={anchors}
+            compact={compact}
+            layoutId="library-year"
+            onJump={(row) => {
+              cue("select");
+              virtualizer.scrollToIndex(row, { align: "start" });
+            }}
+          />
         </div>
       </div>
     </motion.dialog>

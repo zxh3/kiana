@@ -1,4 +1,5 @@
 import { cleanName } from "../../lib/chat";
+import { canManagePhotos } from "../../lib/permissions";
 
 /**
  * The viewer's Google account: whether they are signed in, and as whom,
@@ -15,14 +16,20 @@ export type AccountStatus =
   | "guest"
   | "member";
 
-/** Someone signed in: their account's id, and their name as shown. */
-export type Member = { id: string; name: string };
+/**
+ * Someone signed in: their account's id, their name as shown, and whether
+ * they are an admin, who may hide photos from the gallery.
+ */
+export type Member = { id: string; name: string; admin: boolean };
 
 export type PodAccount = { status: AccountStatus; member: Member | null };
 
 /** What Better Auth's session says, as the pod's account. */
 export function podAccount(session: {
-  data: { user: { id: string; name: string } } | null | undefined;
+  data:
+    | { user: { id: string; name: string; role?: string | null } }
+    | null
+    | undefined;
   isPending: boolean;
   error: unknown;
 }): PodAccount {
@@ -30,7 +37,11 @@ export function podAccount(session: {
   if (user) {
     return {
       status: "member",
-      member: { id: user.id, name: cleanName(user.name) },
+      member: {
+        id: user.id,
+        name: cleanName(user.name),
+        admin: canManagePhotos(user.role),
+      },
     };
   }
   if (session.isPending) return { status: "checking", member: null };

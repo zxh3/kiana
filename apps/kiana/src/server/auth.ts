@@ -1,16 +1,35 @@
 import { env } from "cloudflare:workers";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
+import {
+  APIError,
+  createAuthMiddleware,
+  getSessionFromCtx,
+} from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
+import { admin } from "better-auth/plugins";
 
 import { AUTH_PATH } from "../lib/auth";
+import {
+  accessControl,
+  canManagePhotos,
+  DEFAULT_ROLE,
+  roles,
+} from "../lib/permissions";
+import type { PhotoAdmin } from "../lib/request-context";
 import type { Account } from "./account";
 import { FAVORITES_TABLE } from "./favorites";
+import { photoAdminFor } from "./hidden-photos";
 
 /**
  * Signing in with Google, by Better Auth. People and their sessions are
  * kept in the `AUTH_DB` D1 database, and a signed copy of the session is
  * cached in a cookie for five minutes, so the live apps can check who is
  * connecting without asking the database each time.
+ *
+ * Each person has a role, by Better Auth's admin plugin, with what each
+ * role may do in `lib/permissions.ts`. Everyone starts as a user; the
+ * first admin is made in the database (see the README), and admins make
+ * others from the admin page.
  *
  * Without its secrets (in development, before `.env` is filled in)
  * there is no signing in, and everyone is a guest.
@@ -38,6 +57,20 @@ const options = {
     },
   },
   session: { cookieCache: { enabled: true, maxAge: 5 * 60 } },
+  plugins: [admin({ ac: accessControl, roles, defaultRole: DEFAULT_ROLE })],
+  hooks: {
+    // An admin cannot change their own role, so the last admin cannot
+    // leave the site without one by mistake.
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/admin/set-role") return;
+      const session = await getSessionFromCtx(ctx);
+      if (session && session.user.id === ctx.body?.userId) {
+        throw new APIError("BAD_REQUEST", {
+          message: "You can’t change your own role",
+        });
+      }
+    }),
+  },
   telemetry: { enabled: false },
 } satisfies BetterAuthOptions;
 
@@ -80,9 +113,7 @@ export async function handleAuth(request: Request) {
  */
 export async function accountOf(request: Request): Promise<Account | null> {
   if (!auth) return null;
-  if (!request.headers.get("Cookie")?.includes("better-auth.session_token")) {
-    return null;
-  }
+  if (!hasSessionCookie(request)) return null;
   try {
     await databaseReady();
     const session = await auth.api.getSession({ headers: request.headers });
@@ -91,4 +122,31 @@ export async function accountOf(request: Request): Promise<Account | null> {
     console.error("Could not check the session", error);
     return null;
   }
+}
+
+/**
+ * What the admin making a request may do with photos, or null for anyone
+ * else. It asks the database rather than the cached cookie, so an admin
+ * whose role was taken away loses it at once.
+ */
+export async function photoAdminOf(
+  request: Request,
+): Promise<PhotoAdmin | null> {
+  if (!auth) return null;
+  if (!hasSessionCookie(request)) return null;
+  await databaseReady();
+  const session = await auth.api.getSession({
+    headers: request.headers,
+    query: { disableCookieCache: true },
+  });
+  if (!session || !canManagePhotos(session.user.role)) return null;
+  return photoAdminFor({ id: session.user.id, name: session.user.name });
+}
+
+/** Whether a request carries Better Auth's session cookie at all. */
+function hasSessionCookie(request: Request) {
+  return (
+    request.headers.get("Cookie")?.includes("better-auth.session_token") ??
+    false
+  );
 }

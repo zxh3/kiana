@@ -1,3 +1,4 @@
+import { useServerFn } from "@tanstack/react-start";
 import { AnimatePresence, MotionConfig } from "motion/react";
 import {
   type PointerEvent,
@@ -8,6 +9,7 @@ import {
   useState,
 } from "react";
 
+import { changeHiddenPhotos } from "../../data/gallery";
 import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
 import { cue } from "../../lib/sounds";
@@ -112,12 +114,33 @@ export function Gallery({
   const resumeIndex =
     resumeId === undefined ? undefined : indexById.get(resumeId);
 
+  // Photos an admin hides here leave the slideshow and the library at
+  // once; for everyone else, and on the next visit, the Worker leaves
+  // them out.
+  const [hiddenHere, setHiddenHere] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const shows = useCallback(
+    (index: number) => !hiddenHere.has(assets[index].id),
+    [assets, hiddenHere],
+  );
+  const libraryOrder = useMemo(
+    () => (hiddenHere.size === 0 ? chronological : chronological.filter(shows)),
+    [chronological, hiddenHere.size, shows],
+  );
+  // A collection left with nothing shown plays everything that is.
+  const members = useMemo(() => {
+    if (hiddenHere.size === 0) return collection.members;
+    const shown = collection.members.filter(shows);
+    return shown.length > 0 ? shown : libraryOrder;
+  }, [collection.members, hiddenHere.size, libraryOrder, shows]);
+
   const paused = pausedByUser || libraryOpen;
   const slideshow = useSlideshow({
     assets,
     duration: preferences.duration,
     initialIndex: linkedIndex >= 0 ? linkedIndex : undefined,
-    members: collection.members,
+    members,
     order: preferences.order,
     paused,
     resumeIndex,
@@ -199,6 +222,26 @@ export function Gallery({
     },
     [favoriteAfterSignIn, signIn],
   );
+
+  // An admin hides the photo on screen, and the slideshow moves on from
+  // it, unless it already has while the Worker was asked.
+  const hidePhotos = useServerFn(changeHiddenPhotos);
+  const shownId = useRef(asset.id);
+  shownId.current = asset.id;
+  const hidePhoto = useCallback(async () => {
+    const { id } = asset;
+    try {
+      await hidePhotos({ data: { hide: [id], show: [] } });
+    } catch {
+      cue("error");
+      showToast("Couldn’t hide the photo");
+      return;
+    }
+    cue("switchOff");
+    if (shownId.current === id) slideshow.next();
+    setHiddenHere((current) => new Set(current).add(id));
+    showToast("Hidden from the gallery");
+  }, [asset, hidePhotos, showToast, slideshow.next]);
 
   // The share sheet speaks for itself; a copy is confirmed.
   const share = useCallback(async () => {
@@ -414,6 +457,14 @@ export function Gallery({
           }
           settings={
             <DisplayMenu
+              admin={
+                account.member?.admin
+                  ? {
+                      onHidePhoto: () => void hidePhoto(),
+                      onOpenAdmin: () => window.location.assign("/admin"),
+                    }
+                  : undefined
+              }
               duration={preferences.duration}
               frame={preferences.frame}
               keepAwake={wakeLockSupported ? preferences.keepAwake : null}
@@ -458,7 +509,7 @@ export function Gallery({
           <Library
             key="library"
             assets={assets}
-            chronological={chronological}
+            chronological={libraryOrder}
             currentIndex={slideshow.index}
             account={account.status}
             favorites={favorites}

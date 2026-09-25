@@ -168,6 +168,27 @@ Mediaforge release manifest and displays the responsive images described by it.
   database for five minutes at a time. In the browser it is Better Auth's
   client, in `src/lib/auth-client.ts`, read by the gallery and the player
   through `gallery/use-account.ts`.
+- **Admins.** Each account has a role, by Better Auth's admin plugin:
+  `user` for everyone who signs in, or `admin`. What each role may do is
+  in `src/lib/permissions.ts`, and admins get only what the admin page
+  uses: hiding photos, and listing people and changing their role. The
+  admin page, at `/admin`, has two tabs. Photos is every photo in the
+  release, newest first by month, with filters for all, shown, and
+  hidden; a photo opens large, with who hid it and when, and H or its
+  button hides it or shows it again; Select picks several (shift-click
+  for a run, or a month's Select all) to hide or show at once. People is
+  everyone who has signed in, to make admins of or take it away from; an
+  admin cannot change their own role, so the last one cannot lock the
+  site out. In the slideshow, an admin's settings menu adds Hide this
+  photo and a way to the admin page. Hidden photos are kept in the
+  accounts database (`src/server/hidden-photos.ts`) and left out on the
+  Worker, so they never reach a visitor's browser, though the release on
+  R2 still holds them. The page loads through TanStack Start server
+  functions (`src/data/gallery.ts`), which reach the database through
+  what the Worker hands each request (`src/lib/request-context.ts`); a
+  change checks the admin's role in the database afresh rather than
+  trusting the cached cookie, so taking someone's role away works at
+  once. The admin page's pieces are in `src/components/admin`.
 - **Interface sounds.** Soft clicks, ticks, and chimes answer the controls.
   They are on by default, with their own switch and level in the sound mixer.
   The sounds are generated in code with the Web Audio API, so there are no
@@ -250,6 +271,19 @@ it and finds it by the Worker after that. Locally it is simulated under
 `.wrangler/state` with the Durable Objects. Changing `BETTER_AUTH_SECRET`
 signs everyone out.
 
+### The first admin
+
+Admins make other admins from the admin page, so only the first is made by
+hand. Sign in with Google on the site once, then, from `apps/kiana`, give
+that account the role (`--local` in place of `--remote` for the development
+server):
+
+```bash
+npx wrangler d1 execute kiana-auth --remote --command "UPDATE user SET role = 'admin' WHERE email = 'you@example.com'"
+```
+
+It takes effect on the next page load.
+
 A change to the `migrations` in `wrangler.jsonc` (a new, renamed, or deleted
 Durable Object class) can only ship from `main`. Workers Builds uploads a
 branch as a version, and Cloudflare refuses a version that includes a
@@ -290,8 +324,8 @@ Restart the development server after changing the environment. The route fetches
 its image paths against the same release URL. A missing or invalid manifest
 fails visibly instead of silently serving stale media.
 
-Gallery-specific curation lives in `src/data/excluded-assets.ts`. Add an asset
-UUID there to keep it out of the gallery across regenerated manifest uploads.
+Which photos the gallery shows is up to its admins, on the admin page: a
+photo they hide stays hidden across new releases, since it is kept by its id.
 
 Cloudflare's `r2.dev` URL is suitable for temporary testing but is rate-limited;
 use a custom domain for production traffic and caching.

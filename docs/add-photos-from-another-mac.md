@@ -487,26 +487,14 @@ or wait for its cached response to expire.
 A media-only promotion does **not** require an application commit or Cloudflare
 Worker deployment. The deployed app always reads `releases/current`.
 
-## Persistent exclusions
+## Hiding photos
 
 Do not manually remove unwanted assets from generated `manifest.json`; the next
-Mediaforge run will recreate them. Add the asset UUID to:
-
-```text
-apps/kiana/src/data/excluded-assets.ts
-```
-
-The UUID is the filename portion before `-2400.webp`, `-1280.webp`, or `.mp4`.
-After editing the list, run:
-
-```bash
-npm run check
-npm run build --workspace apps/kiana
-```
-
-This is an application-code change, so commit it with a
-[Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) and push it
-only when requested. Cloudflare's Git integration will then deploy the change.
+Mediaforge run will recreate them. Hide them on the site instead: signed in as
+an admin, open [kiana.me/admin](https://kiana.me/admin), find the photo, and
+choose Hide from the gallery (or select several and Hide). A hidden photo is
+kept by its UUID, so it stays hidden in every later release, and needs no
+code change or deploy. The same page shows it again.
 
 ## Rollback
 
