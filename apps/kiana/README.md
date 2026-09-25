@@ -143,11 +143,14 @@ Mediaforge release manifest and displays the responsive images described by it.
   policies (III.I.9), so YouTube could stop the songs playing here. The player
   uses youtube.com rather than youtube-nocookie.com, because a YouTube sign-in
   in the same browser is what clears YouTube's "confirm you're not a bot"
-  check. The code lives in `src/components/gallery/music`: playback in
-  `use-music.ts`, the playlist in `music-track.ts`, the widget in
-  `music-player.tsx`, and the device in `pod/`: its behaviour as a pure,
-  tested state machine in `machine.ts`, run by `use-pod.ts`, and its screens
-  in `pod/screen`.
+  check. The music lives in `src/components/gallery/music`: playback in
+  `use-music.ts`, the playlist in `music-track.ts`, and the widget in
+  `music-player.tsx`. The device lives in `src/components/gallery/pod`: its
+  behaviour as a pure, tested state machine in `machine.ts`, run by
+  `use-pod.ts`, its shared screens in `pod/screen`, its hardware (the wheel,
+  the buttons, the hold switch) in `pod/device`, and each app, with its
+  rules, hook, screen, and art, in `pod/apps/spinner`, `pod/apps/chat`, and
+  `pod/apps/muyu`.
 - **Signing in.** Signing in with Google, from the player's Settings →
   Account or the heart, keeps favorites, and gives a verified name in the
   Chat Room and merit of one's own in 电子木鱼 that follows the account.
@@ -160,8 +163,8 @@ Mediaforge release manifest and displays the responsive images described by it.
   session cookie and passes the account on to the Durable Object; a signed
   copy of the session in a cookie lets it do so without asking the
   database for five minutes at a time. In the browser it is Better Auth's
-  client, in `src/lib/auth-client.ts`, read by the player in
-  `pod/use-account.ts`.
+  client, in `src/lib/auth-client.ts`, read by the gallery and the player
+  through `gallery/use-account.ts`.
 - **Interface sounds.** Soft clicks, ticks, and chimes answer the controls.
   They are on by default, with their own switch and level in the sound mixer.
   The sounds are generated in code with the Web Audio API, so there are no

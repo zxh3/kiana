@@ -10,11 +10,10 @@ import {
   nameFor,
   nextExpiry,
   type Person,
-  PING,
-  PONG,
   parseClientMessage,
   type ServerMessage,
 } from "../lib/chat";
+import { PING, PONG } from "../lib/live-socket";
 import { type Account, readAccount } from "./account";
 
 /**

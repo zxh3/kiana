@@ -36,8 +36,12 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
 ## Web app
 
 - **Layout.** `src/components/gallery` is the slideshow. `gallery/music` is
-  the background music: `use-music.ts` drives a YouTube embed, and `pod/` is
-  the click-wheel player. `gallery/sound` is the sound mixer. `src/lib/sounds`
+  the background music and the player's widget: `use-music.ts` drives a
+  YouTube embed. `gallery/pod` is the click-wheel player, which is more a
+  controller than a music player now: its state machine, menus, and shared
+  screens at the top, its hardware in `pod/device`, and each app (the
+  finger spinner, the Chat Room, 电子木鱼) in `pod/apps/<app>` with its
+  rules, hook, screen, and art together. `gallery/sound` is the sound mixer. `src/lib/sounds`
   generates the interface sounds, and `src/lib/motion.ts` holds the shared
   animation presets. `src/server.ts` is the Worker's entry: TanStack Start,
   with signing in, favorites, and the pod's live apps in front of it.
@@ -50,9 +54,9 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
   the wooden fish's merit in `src/server/wooden-fish.ts`, with
   `src/lib/muyu.ts`. The Worker's code has its own `tsconfig.worker.json`,
   since Cloudflare's runtime types clash with the browser's.
-- **Logic stays pure and tested.** The music player's behaviour is a pure
-  state machine in `pod/machine.ts` with unit tests; its components only
-  draw. Follow that shape: put rules in plain functions or reducers with
+- **Logic stays pure and tested.** The player's behaviour is a pure state
+  machine in `pod/machine.ts` with unit tests, each app's rules are a pure
+  reducer or module beside its hook, and the components only draw. Follow that shape: put rules in plain functions or reducers with
   tests next to them, and keep components thin.
 - **Stored preferences** live in localStorage under `kiana.*` keys through
   `useStoredState`. Their `parse*` functions must tolerate missing or junk

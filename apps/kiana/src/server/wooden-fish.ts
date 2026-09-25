@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-import { PING, PONG } from "../lib/chat";
+import { PING, PONG } from "../lib/live-socket";
 import {
   type KnockBudget,
   type MuyuServerMessage,

@@ -1,9 +1,23 @@
 import { motion, type Variants } from "motion/react";
-import { type CSSProperties, type ReactNode, useState } from "react";
+import { useState } from "react";
 
 import { cx } from "../../../lib/class-names";
 import { easeSoft, springs } from "../../../lib/motion";
 import { MusicNoteIcon } from "../icons";
+import { Body } from "../pod/device/body";
+import { DRAG_HANDLE } from "../pod/device/drag-handle";
+import {
+  BODY_PADDING,
+  BODY_RADIUS,
+  BODY_WIDTH,
+  glassFrame,
+  videoBelowTitleFrame,
+  videoFrame,
+} from "../pod/device/geometry";
+import { NanoPlayer } from "../pod/nano-player";
+import { PocketPlayer } from "../pod/pocket-player";
+import { usePodSettings } from "../pod/settings";
+import { usePod } from "../pod/use-pod";
 import { useStoredState } from "../use-stored-state";
 import {
   type Corner,
@@ -12,20 +26,6 @@ import {
   parsePlayerSize,
 } from "./music-layout";
 import { MusicNotice } from "./music-notice";
-import { DRAG_HANDLE } from "./pod/drag-handle";
-import { type Finish, finishStyles } from "./pod/finishes";
-import {
-  BODY_PADDING,
-  BODY_RADIUS,
-  BODY_WIDTH,
-  glassFrame,
-  videoBelowTitleFrame,
-  videoFrame,
-} from "./pod/geometry";
-import { NanoPlayer } from "./pod/nano-player";
-import { PocketPlayer } from "./pod/pocket-player";
-import { usePodSettings } from "./pod/settings";
-import { usePod } from "./pod/use-pod";
 import { useCornerDrag } from "./use-corner-drag";
 import { useMediaQuery } from "./use-media-query";
 import type { Music } from "./use-music";
@@ -85,55 +85,6 @@ const reveal = (delay: number): Variants => ({
     transitionEnd: { visibility: "hidden" },
   },
 });
-
-const BODY_SHADOW =
-  "inset 0 1px 0 var(--pod-rim), inset 0 -1px 1px rgb(0 0 0 / 0.18), 0 22px 56px -20px rgb(0 0 0 / 0.75)";
-
-/** An aluminium body in the chosen finish, with its brushed grain. */
-function Body({
-  children,
-  finish,
-  lifted,
-  radius,
-  style,
-}: {
-  children: ReactNode;
-  finish: Finish;
-  lifted: boolean;
-  radius: number;
-  style?: CSSProperties;
-}) {
-  return (
-    <div
-      className={cx(
-        "relative isolate transition-[scale] duration-300 ease-soft",
-        lifted && "scale-[1.03]",
-      )}
-      style={{
-        ...(finishStyles[finish] as CSSProperties),
-        backgroundImage: "var(--pod-body)",
-        borderRadius: radius,
-        boxShadow: BODY_SHADOW,
-        ...style,
-      }}
-    >
-      {/* The deeper shadow of a lifted player, faded in rather than
-      animating the blur, which would repaint it on every frame. */}
-      <div
-        aria-hidden="true"
-        className={cx(
-          "pointer-events-none absolute inset-0 -z-20 rounded-[inherit] shadow-[0_34px_80px_-24px_rgb(0_0_0/.85)] transition-opacity duration-300 ease-soft",
-          lifted ? "opacity-100" : "opacity-0",
-        )}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 rounded-[inherit] opacity-45 [background-image:repeating-linear-gradient(90deg,rgb(255_255_255/.07)_0_1px,transparent_1px_3px)]"
-      />
-      {children}
-    </div>
-  );
-}
 
 /**
  * The now-playing widget, above the photos, menus, and library, made like
