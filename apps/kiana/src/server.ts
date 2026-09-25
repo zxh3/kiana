@@ -17,18 +17,24 @@ export { WoodenFish } from "./server/wooden-fish";
  * Object that all visitors share (everyone talks in the one chat room, and
  * adds to the one wooden fish's merit), and the viewer's favorites.
  */
-const routes: Record<
-  string,
-  (request: Request, account: Account | null) => Promise<Response> | Response
-> = {
-  [CHAT_PATH]: (request, account) =>
-    env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName("lobby")).fetch(
-      withAccount(request, account),
-    ),
-  [MUYU_PATH]: (request, account) =>
-    env.WOODEN_FISH.get(env.WOODEN_FISH.idFromName("muyu")).fetch(
-      withAccount(request, account),
-    ),
+type Route = (
+  request: Request,
+  account: Account | null,
+) => Promise<Response> | Response;
+
+/**
+ * A live app's WebSocket, passed on with who is asking to its one Durable
+ * Object. The name picks the object, and with it everything it stores,
+ * so it must not change.
+ */
+const liveApp =
+  (namespace: DurableObjectNamespace, name: string): Route =>
+  (request, account) =>
+    namespace.getByName(name).fetch(withAccount(request, account));
+
+const routes: Record<string, Route> = {
+  [CHAT_PATH]: liveApp(env.CHAT_ROOM, "lobby"),
+  [MUYU_PATH]: liveApp(env.WOODEN_FISH, "muyu"),
   [FAVORITES_PATH]: handleFavorites,
 };
 
