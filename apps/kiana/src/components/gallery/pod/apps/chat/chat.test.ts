@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  HISTORY_SIZE,
-  type ServerMessage,
-  TYPING_SHOWS_FOR,
-} from "../../../../../lib/chat";
+import { type ServerMessage, TYPING_SHOWS_FOR } from "../../../../../lib/chat";
 import {
   type ChatEvent,
   chatReducer,
   initialChatState,
+  olderPageBefore,
   otherPeople,
   parseChatName,
   typingChangesAt,
@@ -30,7 +27,7 @@ const said = (id: string, from = "p1") => ({
   at: 1,
 });
 
-const welcomed = chatReducer(initialChatState, {
+const welcome: ChatEvent = {
   type: "received",
   at: 0,
   message: {
@@ -42,8 +39,10 @@ const welcomed = chatReducer(initialChatState, {
       { id: "p2", name: "amy" },
     ],
     messages: [said("a")],
+    more: true,
   },
-});
+};
+const welcomed = chatReducer(initialChatState, welcome);
 
 describe("chatReducer", () => {
   it("opens with the room's people and history", () => {
@@ -52,16 +51,44 @@ describe("chatReducer", () => {
     expect(welcomed.messages).toEqual([said("a")]);
   });
 
-  it("adds messages, keeping only the last ones", () => {
+  it("keeps every message it hears, newest last", () => {
     let state = welcomed;
-    for (let index = 0; index < HISTORY_SIZE + 5; index += 1) {
+    for (let index = 0; index < 150; index += 1) {
       state = chatReducer(
         state,
         received({ type: "message", message: said(String(index)) }),
       );
     }
-    expect(state.messages).toHaveLength(HISTORY_SIZE);
-    expect(state.messages.at(-1)?.id).toBe(String(HISTORY_SIZE + 4));
+    expect(state.messages).toHaveLength(151);
+    expect(state.messages.at(-1)?.id).toBe("149");
+  });
+
+  it("asks for the page before the first message, once at a time", () => {
+    expect(olderPageBefore(welcomed)).toBe("a");
+    const asked = chatReducer(welcomed, { type: "loadingOlder" });
+    expect(olderPageBefore(asked)).toBeNull();
+    expect(olderPageBefore({ ...welcomed, more: false })).toBeNull();
+    expect(olderPageBefore({ ...welcomed, status: "offline" })).toBeNull();
+  });
+
+  it("puts earlier pages in front, once each, until there are no more", () => {
+    expect(welcomed.more).toBe(true);
+    const asked = chatReducer(welcomed, { type: "loadingOlder" });
+    expect(asked.loadingOlder).toBe(true);
+    const paged = chatReducer(
+      asked,
+      received({
+        type: "history",
+        messages: [said("y"), said("z"), said("a")],
+        more: false,
+      }),
+    );
+    expect(paged.messages.map((each) => each.id)).toEqual(["y", "z", "a"]);
+    expect(paged.more).toBe(false);
+    expect(paged.loadingOlder).toBe(false);
+    // A dropped connection stops waiting; joining again starts afresh.
+    expect(chatReducer(asked, { type: "offline" }).loadingOlder).toBe(false);
+    expect(chatReducer(paged, welcome).messages).toEqual([said("a")]);
   });
 
   it("shows a notice until the next message", () => {

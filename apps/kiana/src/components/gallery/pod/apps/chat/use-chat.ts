@@ -13,7 +13,12 @@ import {
 import type { Member } from "../../../account";
 import { useStoredState } from "../../../use-stored-state";
 import { useLiveSocket } from "../use-live-socket";
-import { chatReducer, initialChatState, parseChatName } from "./chat";
+import {
+  chatReducer,
+  initialChatState,
+  olderPageBefore,
+  parseChatName,
+} from "./chat";
 
 /**
  * The connection to the chat room, open only while `open` (the Chat Room's
@@ -28,6 +33,8 @@ import { chatReducer, initialChatState, parseChatName } from "./chat";
 export function useChat(open: boolean, member: Member | null) {
   const [name, setName] = useStoredState("kiana.chat-name", parseChatName);
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
+  const latest = useRef(state);
+  latest.current = state;
   const typed = useRef(quietTyping);
   const nameRef = useRef(name);
   nameRef.current = name;
@@ -70,8 +77,17 @@ export function useChat(open: boolean, member: Member | null) {
     [post],
   );
 
+  /** Scrolled up to the top: asks for the page before, if there is one. */
+  const loadOlder = useCallback(() => {
+    const before = olderPageBefore(latest.current);
+    if (before && post({ type: "history", before })) {
+      dispatch({ type: "loadingOlder" });
+    }
+  }, [post]);
+
   return {
     ...state,
+    loadOlder,
     name: nameFor(member, name),
     say,
     typing,

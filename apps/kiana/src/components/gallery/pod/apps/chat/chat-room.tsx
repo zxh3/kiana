@@ -13,6 +13,8 @@ import type { Chat } from "./use-chat";
 const LINE = 13;
 /** Within this of the end counts as reading the newest message. */
 const NEAR_END = 12;
+/** Within this of the top, the earlier messages are asked for. */
+const NEAR_TOP = 24;
 
 /**
  * The Chat Room under Apps: everyone with it open talks in one room.
@@ -20,7 +22,8 @@ const NEAR_END = 12;
  * them (as does the centre button), the messages fill the middle with the
  * newest at the bottom, followed by who is typing, and the field below
  * sends one with Enter. The wheel scrolls the messages; new ones scroll
- * into view unless the viewer has scrolled up to read.
+ * into view unless the viewer has scrolled up to read, and scrolling up to
+ * the top brings in the messages before.
  */
 export function ChatRoom({
   chat,
@@ -66,6 +69,22 @@ export function ChatRoom({
     if (element && atEnd.current) element.scrollTop = element.scrollHeight;
   }, [count, chat.notice, typing]);
 
+  // Earlier messages come in above the ones being read, which stay where
+  // they were on the screen rather than jumping down by the page's height.
+  const firstId = chat.messages[0]?.id;
+  const shown = useRef({ firstId, height: 0 });
+  useLayoutEffect(() => {
+    const element = list.current;
+    if (!element) return;
+    const before = shown.current;
+    const prepended =
+      before.firstId !== undefined &&
+      firstId !== before.firstId &&
+      chat.messages.some((message) => message.id === before.firstId);
+    if (prepended) element.scrollTop += element.scrollHeight - before.height;
+    shown.current = { firstId, height: element.scrollHeight };
+  });
+
   useCountChange(steps, (moved) =>
     list.current?.scrollBy({ top: moved * LINE }),
   );
@@ -79,7 +98,15 @@ export function ChatRoom({
   };
 
   return (
-    <div className="flex h-full flex-col text-[11px] leading-[13px]">
+    <div className="relative flex h-full flex-col text-[11px] leading-[13px]">
+      {/* Over the messages rather than above them, so nothing moves. */}
+      {chat.loadingOlder ? (
+        <p className="pointer-events-none absolute inset-x-0 top-[18px] z-10 text-center">
+          <span className="rounded-full bg-white/90 px-2 py-[1px] text-[10px] text-[#8a8a8a] shadow-[0_1px_2px_rgb(0_0_0/.15)]">
+            Loading earlier messages…
+          </span>
+        </p>
+      ) : null}
       <button
         aria-label={open ? "Show who is online" : "Connecting"}
         className="relative flex h-[15px] shrink-0 cursor-pointer items-center gap-1 border-b border-[#c9c9c9] bg-[linear-gradient(180deg,#f7f8fa,#e8ebef)] px-2 text-[10px] font-semibold text-[#3d3d3d] outline-none"
@@ -110,6 +137,7 @@ export function ChatRoom({
           atEnd.current =
             element.scrollHeight - element.scrollTop - element.clientHeight <
             NEAR_END;
+          if (element.scrollTop < NEAR_TOP) chat.loadOlder();
         }}
         ref={list}
       >
