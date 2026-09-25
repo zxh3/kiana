@@ -51,6 +51,63 @@ function kindLabel(asset: GalleryAsset) {
   return "Photo";
 }
 
+/** The top of the library: its line of verse, and what is in it. */
+function LibraryIntro({
+  count,
+  span,
+}: {
+  count: string;
+  span: { from: number; to: number } | null;
+}) {
+  return (
+    <div className="flex h-full flex-col justify-end pb-6">
+      <p
+        className="font-serif text-[clamp(40px,6.4vw,84px)] leading-[1.05] tracking-[.02em] text-paper/92"
+        lang="zh-Hans"
+      >
+        当时只道是寻常
+      </p>
+      <p className="label mt-5 text-paper/45">
+        {count}
+        {span
+          ? `  ·  ${span.from === span.to ? span.from : `${span.from} – ${span.to}`}`
+          : ""}
+      </p>
+    </div>
+  );
+}
+
+/** Favorites with nothing in them: how to save one, or to sign in first. */
+function FavoritesEmpty({
+  account,
+  onSignIn,
+}: {
+  account: AccountStatus;
+  onSignIn: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col items-start justify-center gap-3 border-t border-paper/8">
+      <HeartIcon className="text-rose" size={22} />
+      <p className="font-serif text-[26px] leading-tight italic">
+        {account === "member"
+          ? "Nothing saved yet."
+          : "Sign in to save favorites."}
+      </p>
+      {account === "member" ? (
+        <p className="max-w-sm text-[12px] leading-relaxed text-paper/50">
+          Tap the heart on a photo to save it.
+        </p>
+      ) : (
+        <SignInButton
+          account={account}
+          className="mt-1 w-auto"
+          onSignIn={onSignIn}
+        />
+      )}
+    </div>
+  );
+}
+
 const LibraryTile = memo(function LibraryTile({
   asset,
   current,
@@ -456,40 +513,12 @@ export function Library({
                     }}
                   >
                     {row.kind === "intro" ? (
-                      <div className="flex h-full flex-col justify-end pb-6">
-                        <p
-                          className="font-serif text-[clamp(40px,6.4vw,84px)] leading-[1.05] tracking-[.02em] text-paper/92"
-                          lang="zh-Hans"
-                        >
-                          当时只道是寻常
-                        </p>
-                        <p className="label mt-5 text-paper/45">
-                          {describeCount(filter, indexes.length)}
-                          {span
-                            ? `  ·  ${span.from === span.to ? span.from : `${span.from} – ${span.to}`}`
-                            : ""}
-                        </p>
-                      </div>
+                      <LibraryIntro
+                        count={describeCount(filter, indexes.length)}
+                        span={span}
+                      />
                     ) : row.kind === "empty" ? (
-                      <div className="flex h-full flex-col items-start justify-center gap-3 border-t border-paper/8">
-                        <HeartIcon className="text-rose" size={22} />
-                        <p className="font-serif text-[26px] leading-tight italic">
-                          {account === "member"
-                            ? "Nothing saved yet."
-                            : "Sign in to save favorites."}
-                        </p>
-                        {account === "member" ? (
-                          <p className="max-w-sm text-[12px] leading-relaxed text-paper/50">
-                            Tap the heart on a photo to save it.
-                          </p>
-                        ) : (
-                          <SignInButton
-                            account={account}
-                            className="mt-1 w-auto"
-                            onSignIn={onSignIn}
-                          />
-                        )}
-                      </div>
+                      <FavoritesEmpty account={account} onSignIn={onSignIn} />
                     ) : row.kind === "month" ? (
                       <MonthHeader
                         compact={compact}
