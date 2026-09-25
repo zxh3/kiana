@@ -504,26 +504,21 @@ export function Library({
                     ) : row.kind === "empty" ? (
                       <div className="flex h-full flex-col items-start justify-center gap-3 border-t border-paper/8">
                         <HeartIcon className="text-rose" size={22} />
+                        <p className="font-serif text-[26px] leading-tight italic">
+                          {account === "member"
+                            ? "Nothing saved yet."
+                            : "Sign in to save favorites."}
+                        </p>
                         {account === "member" ? (
-                          <>
-                            <p className="font-serif text-[26px] leading-tight italic">
-                              Nothing saved yet.
-                            </p>
-                            <p className="max-w-sm text-[12px] leading-relaxed text-paper/50">
-                              Tap the heart on a photo to save it.
-                            </p>
-                          </>
+                          <p className="max-w-sm text-[12px] leading-relaxed text-paper/50">
+                            Tap the heart on a photo to save it.
+                          </p>
                         ) : (
-                          <>
-                            <p className="font-serif text-[26px] leading-tight italic">
-                              Sign in to save favorites.
-                            </p>
-                            <SignInButton
-                              account={account}
-                              className="mt-1 w-auto"
-                              onSignIn={onSignIn}
-                            />
-                          </>
+                          <SignInButton
+                            account={account}
+                            className="mt-1 w-auto"
+                            onSignIn={onSignIn}
+                          />
                         )}
                       </div>
                     ) : row.kind === "month" ? (

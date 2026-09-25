@@ -84,7 +84,7 @@ export function Gallery({
     failures: favoriteFailures,
     settled: favoritesSettled,
     toggle: toggleFavoriteId,
-  } = useFavorites(account.member?.id ?? null);
+  } = useFavorites(account);
   const today = useToday();
   const fullscreen = useFullscreen();
   const [pausedByUser, setPausedByUser] = useState(false);
@@ -148,12 +148,11 @@ export function Gallery({
   const collection = chosen.members.length > 0 ? chosen : everything;
   // An empty collection gives way to Everything, but Favorites only once
   // they are known: they arrive a moment after the page, from the account.
-  const favoritesKnown = account.status !== "checking" && favoritesSettled;
   useEffect(() => {
     if (chosen.members.length > 0 || collectionId === "all") return;
-    if (collectionId === "favorites" && !favoritesKnown) return;
+    if (collectionId === "favorites" && !favoritesSettled) return;
     setCollectionId("all");
-  }, [chosen.members.length, collectionId, favoritesKnown, setCollectionId]);
+  }, [chosen.members.length, collectionId, favoritesSettled, setCollectionId]);
 
   const onThisDay = useMemo(
     () =>
@@ -276,18 +275,18 @@ export function Gallery({
   );
 
   const share = useCallback(async () => {
-    const url = new URL(photoLink(asset.id));
+    const url = photoLink(asset.id);
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     if (coarse && navigator.share) {
       try {
-        await navigator.share({ title: "Kiana", url: url.href });
+        await navigator.share({ title: "Kiana", url });
         return;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
       }
     }
-    const copied = await copyText(url.href);
+    const copied = await copyText(url);
     cue(copied ? "copied" : "error");
     showToast(copied ? "Link copied" : "Couldn’t copy the link");
   }, [asset.id, showToast]);

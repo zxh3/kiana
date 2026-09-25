@@ -10,8 +10,8 @@ import type { FavoritesChange } from "../../lib/favorites";
  */
 
 export type FavoritesState = {
-  /** Idle while signed out; the rest only while signed in. */
-  status: "idle" | "loading" | "ready" | "error";
+  /** Idle while signed out, or until the first read answers. */
+  status: "idle" | "ready" | "error";
   /** The favorites as the Worker last said. */
   saved: ReadonlySet<string>;
   /** Changes not saved yet, oldest first; the first is on its way. */
@@ -29,7 +29,6 @@ export type PendingChange = FavoritesChange & {
 
 export type FavoritesEvent =
   | { type: "signedOut" }
-  | { type: "loading" }
   /** A read of every favorite, begun when `version` changes were saved. */
   | { type: "loaded"; ids: ReadonlyArray<string>; version: number }
   | { type: "loadFailed" }
@@ -55,28 +54,25 @@ export function favoritesReducer(
   switch (event.type) {
     case "signedOut":
       return { ...initialFavoritesState, failures: state.failures };
-    case "loading":
-      return state.status === "idle" ? { ...state, status: "loading" } : state;
     case "loaded":
       // A read begun before a change was saved may not have it.
       if (event.version !== state.version) return state;
-      return { ...state, status: "ready", saved: new Set(event.ids) };
+      return { ...state, status: "ready", saved: keep(state.saved, event.ids) };
     case "loadFailed":
       return state.status === "ready" ? state : { ...state, status: "error" };
-    case "toggle":
-      return {
-        ...state,
-        pending: [
-          ...state.pending,
-          toggleChange(shownFavorites(state), event.id),
-        ],
-      };
+    case "toggle": {
+      const on = shownFavorites(state).has(event.id);
+      const change = on
+        ? { add: [], remove: [event.id] }
+        : { add: [event.id], remove: [] };
+      return { ...state, pending: [...state.pending, change] };
+    }
     case "change":
       return { ...state, pending: [...state.pending, event.change] };
     case "saved":
       return {
         ...state,
-        saved: new Set(event.ids),
+        saved: keep(state.saved, event.ids),
         pending: state.pending.slice(1),
         version: state.version + 1,
       };
@@ -102,10 +98,15 @@ export function shownFavorites(
   return shown;
 }
 
-/** The change that turns one photo's heart over. */
-export function toggleChange(
-  shown: ReadonlySet<string>,
-  id: string,
-): FavoritesChange {
-  return shown.has(id) ? { add: [], remove: [id] } : { add: [id], remove: [] };
+/**
+ * The saved set, kept as it is when the Worker's answer holds the same
+ * ids, so the slideshow's collections are not worked out again for
+ * nothing.
+ */
+function keep(saved: ReadonlySet<string>, ids: ReadonlyArray<string>) {
+  const next = new Set(ids);
+  if (next.size === saved.size && ids.every((id) => saved.has(id))) {
+    return saved;
+  }
+  return next;
 }

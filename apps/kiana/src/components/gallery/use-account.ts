@@ -1,3 +1,5 @@
+import { useCallback } from "react";
+
 import { authClient } from "../../lib/auth-client";
 import { podAccount } from "./account";
 
@@ -8,12 +10,11 @@ import { podAccount } from "./account";
  */
 export function useAccount() {
   const session = authClient.useSession();
-  return {
-    ...podAccount(session),
-    signIn: (returnTo = window.location.href) =>
+  const signIn = useCallback(
+    (returnTo = window.location.href) =>
       authClient.signIn.social({ provider: "google", callbackURL: returnTo }),
-    signOut: () => authClient.signOut(),
-  };
+    [],
+  );
+  const signOut = useCallback(() => authClient.signOut(), []);
+  return { ...podAccount(session), signIn, signOut };
 }
-
-export type AccountControls = ReturnType<typeof useAccount>;

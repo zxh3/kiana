@@ -16,6 +16,14 @@ export function writeStorage(key: string, value: string) {
   }
 }
 
+export function removeStorage(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Nothing to remove where storage is blocked.
+  }
+}
+
 /**
  * State mirrored to localStorage. `parse` must tolerate null and junk so a
  * blocked or stale store falls back to defaults.

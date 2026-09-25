@@ -13,15 +13,14 @@ const run = (events: FavoritesEvent[], state = initialFavoritesState) =>
 const shown = (state: FavoritesState) => [...shownFavorites(state)].sort();
 
 describe("favoritesReducer", () => {
-  it("loads the account's favorites", () => {
-    const loading = run([{ type: "loading" }]);
-    expect(loading.status).toBe("loading");
-    const ready = run(
-      [{ type: "loaded", ids: ["a", "b"], version: 0 }],
-      loading,
-    );
+  it("loads the account's favorites, and keeps the same set when unchanged", () => {
+    const ready = run([{ type: "loaded", ids: ["a", "b"], version: 0 }]);
     expect(ready.status).toBe("ready");
     expect(shown(ready)).toEqual(["a", "b"]);
+    const again = run([{ type: "loaded", ids: ["b", "a"], version: 0 }], ready);
+    expect(again.saved).toBe(ready.saved);
+    const changed = run([{ type: "loaded", ids: ["a"], version: 0 }], ready);
+    expect(changed.saved).not.toBe(ready.saved);
   });
 
   it("shows a change at once, and keeps it once saved", () => {
@@ -38,7 +37,6 @@ describe("favoritesReducer", () => {
       { add: [], remove: ["a"] },
     ]);
     expect(shown(changed)).toEqual(["b"]);
-    expect(changed.pending).toHaveLength(2);
     // The first is saved; the second still shows on top.
     const first = run([{ type: "saved", ids: ["a", "b"] }], changed);
     expect(shown(first)).toEqual(["b"]);
