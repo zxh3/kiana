@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useStoredState } from "../use-stored-state";
+import { parseFlag, parseLevel, useStoredState } from "../use-stored-state";
 import {
   nextTrackIndex,
   parseRepeat,
@@ -35,20 +35,13 @@ const RESTART_AFTER = 3;
 const SHUFFLE_MEMORY = 50;
 
 function parseVolume(raw: string | null) {
-  const value = Number(raw);
-  return raw !== null && raw !== "" && value >= 0 && value <= 100
-    ? Math.round(value)
-    : DEFAULT_VOLUME;
+  return parseLevel(raw, DEFAULT_VOLUME);
 }
 
 /** The saved track is stored by video id, so reordering keeps the place. */
 function parseTrackIndex(raw: string | null) {
   const index = playlist.findIndex(({ videoId }) => videoId === raw);
   return index >= 0 ? index : 0;
-}
-
-function parseMuted(raw: string | null) {
-  return raw === "true";
 }
 
 function serializeTrackIndex(index: number) {
@@ -80,7 +73,7 @@ export function useMusic() {
   const [shuffle, saveShuffle] = useStoredState(SHUFFLE_KEY, parseShuffle);
   const [repeat, saveRepeat] = useStoredState(REPEAT_KEY, parseRepeat);
   // Muting keeps the volume, so unmuting returns to the same level.
-  const [muted, saveMuted] = useStoredState(MUTED_KEY, parseMuted);
+  const [muted, saveMuted] = useStoredState(MUTED_KEY, parseFlag);
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const blockedTimer = useRef<number>(undefined);

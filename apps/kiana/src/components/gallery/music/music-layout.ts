@@ -1,11 +1,11 @@
-export const corners = [
+const corners = [
   "top-left",
   "top-right",
   "bottom-left",
   "bottom-right",
 ] as const;
 export type Corner = (typeof corners)[number];
-export type PlayerSize = "mini" | "full";
+type PlayerSize = "mini" | "full";
 
 export const PHONE_QUERY = "(max-width: 639px)";
 

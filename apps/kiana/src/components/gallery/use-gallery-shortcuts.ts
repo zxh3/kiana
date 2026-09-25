@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 import type { Frame } from "./model";
 
-export type ShortcutHandlers = {
+type ShortcutHandlers = {
   onNext: () => void;
   onOpenHelp: () => void;
   onOpenLibrary: () => void;

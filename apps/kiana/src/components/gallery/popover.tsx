@@ -10,7 +10,7 @@ import {
 import { cx } from "../../lib/class-names";
 import { fades, springs } from "../../lib/motion";
 
-export type PopoverTriggerProps = {
+type PopoverTriggerProps = {
   "aria-controls": string;
   "aria-expanded": boolean;
   "aria-haspopup": "menu" | "dialog";

@@ -6,24 +6,11 @@ import {
   setSoundsVolume,
   soundsSupported,
 } from "../../../lib/sounds";
-import { useStoredState } from "../use-stored-state";
+import { parseFlagOn, parseLevel, useStoredState } from "../use-stored-state";
 
 const VIDEO_VOLUME_KEY = "kiana.clip-volume";
 const INTERFACE_KEY = "kiana.ui-sounds";
 const INTERFACE_VOLUME_KEY = "kiana.ui-volume";
-
-/** A saved level from 0 to 100, or `fallback`. */
-export function parseLevel(raw: string | null, fallback = 100) {
-  const value = Number(raw);
-  return raw !== null && raw !== "" && value >= 0 && value <= 100
-    ? Math.round(value)
-    : fallback;
-}
-
-/** On unless it was turned off. */
-export function parseFlagOn(raw: string | null) {
-  return raw !== "false";
-}
 
 /**
  * The page's own sound channels; music keeps its own in `useMusic`.

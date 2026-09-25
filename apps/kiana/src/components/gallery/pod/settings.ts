@@ -1,4 +1,4 @@
-import { useStoredState } from "../use-stored-state";
+import { parseFlagOn, useStoredState } from "../use-stored-state";
 import { parseKianaFace, parseSpinnerStyle } from "./apps/spinner/spinner";
 import { type Finish, parseFinish } from "./device/finishes";
 
@@ -16,11 +16,6 @@ export function parseBacklight(raw: string | null): Backlight {
   return raw === "always" ? "always" : "timed";
 }
 
-/** The wheel clicks unless the clicker was turned off. */
-export function parseClicker(raw: string | null) {
-  return raw !== "false";
-}
-
 /** The device's own settings, kept between visits like the real one's. */
 export function usePodSettings() {
   const [finish, setFinish] = useStoredState<Finish>(
@@ -33,7 +28,7 @@ export function usePodSettings() {
   );
   const [clicker, setClicker] = useStoredState(
     "kiana.music-clicker",
-    parseClicker,
+    parseFlagOn,
   );
   // The finger spinner's looks, chosen under Settings like the finish.
   const [spinner, setSpinner] = useStoredState(

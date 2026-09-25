@@ -272,14 +272,6 @@ export function MusicNoteIcon(props: IconProps) {
   );
 }
 
-export function MinimizeIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M5.5 10.5h9" strokeWidth={1.7} />
-    </Icon>
-  );
-}
-
 export function ExternalIcon(props: IconProps) {
   return (
     <Icon {...props}>

@@ -2,7 +2,7 @@ import type { Order } from "./model";
 import { buildQueue, neighborMember } from "./slideshow-order";
 
 /** How many shown assets "previous" can step back through. */
-export const HISTORY_LIMIT = 250;
+const HISTORY_LIMIT = 250;
 
 export type Playback = {
   /** Asset indexes in the order they were shown. */

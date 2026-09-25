@@ -18,6 +18,7 @@ import { NanoPlayer } from "../pod/nano-player";
 import { PocketPlayer } from "../pod/pocket-player";
 import { usePodSettings } from "../pod/settings";
 import { usePod } from "../pod/use-pod";
+import { useMediaQuery } from "../use-media-query";
 import { useStoredState } from "../use-stored-state";
 import {
   type Corner,
@@ -27,7 +28,6 @@ import {
 } from "./music-layout";
 import { MusicNotice } from "./music-notice";
 import { useCornerDrag } from "./use-corner-drag";
-import { useMediaQuery } from "./use-media-query";
 import type { Music } from "./use-music";
 import { useMusicProgress } from "./use-music-progress";
 
@@ -85,6 +85,8 @@ const reveal = (delay: number): Variants => ({
     transitionEnd: { visibility: "hidden" },
   },
 });
+const revealFull = reveal(0);
+const revealNano = reveal(0.08);
 
 /**
  * The now-playing widget, above the photos, menus, and library, made like
@@ -174,7 +176,7 @@ export function MusicPlayer({
           className="flex flex-col items-center"
           initial={false}
           style={{ transformOrigin: docked ? "50% 100%" : origins[corner] }}
-          variants={reveal(0)}
+          variants={revealFull}
         >
           <Body
             finish={settings.finish}
@@ -256,7 +258,7 @@ export function MusicPlayer({
           initial={false}
           style={{ transformOrigin: origins[corner] }}
           // The small player waits for the big one to start tucking away.
-          variants={reveal(0.08)}
+          variants={revealNano}
         >
           <Body
             finish={settings.finish}

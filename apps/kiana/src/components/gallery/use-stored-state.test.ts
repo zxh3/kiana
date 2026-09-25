@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { parseFlagOn, parseLevel } from "./use-sound-mix";
+import { parseFlag, parseFlagOn, parseLevel } from "./use-stored-state";
 
-describe("sound mix", () => {
+describe("stored preference parsers", () => {
   it("keeps a saved level and falls back on junk", () => {
     expect(parseLevel("40")).toBe(40);
     expect(parseLevel("0")).toBe(0);
@@ -12,9 +12,15 @@ describe("sound mix", () => {
     expect(parseLevel("loud", 70)).toBe(70);
   });
 
-  it("keeps interface sounds on unless they were turned off", () => {
+  it("keeps a switch on unless it was turned off", () => {
     expect(parseFlagOn(null)).toBe(true);
     expect(parseFlagOn("true")).toBe(true);
     expect(parseFlagOn("false")).toBe(false);
+  });
+
+  it("keeps a switch off unless it was turned on", () => {
+    expect(parseFlag(null)).toBe(false);
+    expect(parseFlag("yes")).toBe(false);
+    expect(parseFlag("true")).toBe(true);
   });
 });

@@ -25,6 +25,29 @@ export function removeStorage(key: string) {
 }
 
 /**
+ * The parsers most stored preferences share. Each tolerates a missing or
+ * junk value by falling back to the default, as every `parse` must.
+ */
+
+/** A saved level from 0 to 100, or `fallback`. */
+export function parseLevel(raw: string | null, fallback = 100) {
+  const value = Number(raw);
+  return raw !== null && raw !== "" && value >= 0 && value <= 100
+    ? Math.round(value)
+    : fallback;
+}
+
+/** Off unless it was turned on. */
+export function parseFlag(raw: string | null) {
+  return raw === "true";
+}
+
+/** On unless it was turned off. */
+export function parseFlagOn(raw: string | null) {
+  return raw !== "false";
+}
+
+/**
  * State mirrored to localStorage. `parse` must tolerate null and junk so a
  * blocked or stale store falls back to defaults.
  */
