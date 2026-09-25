@@ -66,8 +66,7 @@ export function FavoriteButton({
     >
       <p className="label px-3 pt-3 text-paper/40">Favorites</p>
       <p className="px-3 pt-2 pb-3 text-[13px] leading-relaxed text-paper/75">
-        Sign in with Google to save this photo. Favorites are kept in your
-        account, the same on every device.
+        Sign in to save favorites across devices.
       </p>
       <SignInButton account={account} onSignIn={onSignIn} />
     </Popover>
@@ -98,7 +97,7 @@ export function SignInButton({
       {account === "checking"
         ? "Checking…"
         : account === "unavailable"
-          ? "Signing in is unavailable"
+          ? "Sign-in unavailable"
           : "Sign in with Google"}
     </button>
   );

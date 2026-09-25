@@ -41,9 +41,9 @@ Mediaforge release manifest and displays the responsive images described by it.
   `/api/favorites`) in the accounts database, so favorites are the same on
   every device, and are read again whenever the page comes back into view.
   A heart shows at once and is saved in the background; if saving fails it
-  goes back, with a word saying so. For a guest the heart (and L) opens a
-  word on signing in, which comes back to the same photo and saves it;
-  Favorites in the collection menu and the library ask them to sign in.
+  goes back, with a short notice. For a guest the heart (and L) offers to
+  sign in, which comes back to the same photo and saves it; Favorites in
+  the collection menu and the library ask them to sign in.
   Favorites kept in a browser before signing in came are added to the
   account the first time it signs in there, then cleared.
 - **Share.** Copies a link that opens the current photo. The server renders

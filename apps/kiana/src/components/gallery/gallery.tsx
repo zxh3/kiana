@@ -221,7 +221,7 @@ export function Gallery({
   }, [toast]);
   // The heart already went back; this says why.
   useEffect(() => {
-    if (favoriteFailures > 0) showToast("Couldn’t save that favorite");
+    if (favoriteFailures > 0) showToast("Couldn’t save favorite");
   }, [favoriteFailures, showToast]);
 
   // Actions the viewer takes make a sound; the timer and song ends do not.

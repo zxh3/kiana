@@ -510,18 +510,13 @@ export function Library({
                               Nothing saved yet.
                             </p>
                             <p className="max-w-sm text-[12px] leading-relaxed text-paper/50">
-                              Tap the heart on a photo in the slideshow and it
-                              will wait for you here, on every device.
+                              Tap the heart on a photo to save it.
                             </p>
                           </>
                         ) : (
                           <>
                             <p className="font-serif text-[26px] leading-tight italic">
-                              Sign in to keep favorites.
-                            </p>
-                            <p className="max-w-sm text-[12px] leading-relaxed text-paper/50">
-                              Favorites are kept in your Google account, so they
-                              wait for you here on every device.
+                              Sign in to save favorites.
                             </p>
                             <SignInButton
                               account={account}
