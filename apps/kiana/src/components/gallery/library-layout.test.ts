@@ -5,10 +5,15 @@ import { chronologicalIndexes } from "./collections";
 import {
   buildRows,
   centeredOffset,
+  gridGeometry,
   groupByMonth,
+  libraryCounts,
   libraryIndexes,
   rowContaining,
+  rowHeightFor,
+  TILE_GAP,
   yearAnchors,
+  yearSpan,
 } from "./library-layout";
 
 function asset(id: string, date: string | null, type: GalleryAsset["type"]) {
@@ -90,5 +95,37 @@ describe("library layout", () => {
 
   it("shows an empty row when nothing matches", () => {
     expect(buildRows([], 4).map((row) => row.kind)).toEqual(["intro", "empty"]);
+  });
+
+  it("fits tiles near the target size, at least three, filling the width", () => {
+    const phone = gridGeometry(390);
+    expect(phone.compact).toBe(true);
+    expect(phone.columns).toBe(3);
+    const wide = gridGeometry(1440);
+    expect(wide.compact).toBe(false);
+    expect(wide.columns).toBe(8);
+    expect(
+      wide.columns * wide.tileSize + (wide.columns - 1) * TILE_GAP,
+    ).toBeCloseTo(1440 - wide.sidePadding - wide.railSpace);
+    expect(gridGeometry(0).columns).toBe(3);
+    const [intro, , tiles] = buildRows(groupByMonth(assets, chronological), 4);
+    expect(rowHeightFor(intro, true, 100)).toBe(200);
+    expect(tiles.kind).toBe("tiles");
+    expect(rowHeightFor(tiles, false, 170)).toBe(170 + TILE_GAP);
+  });
+
+  it("counts each kind and the favorites, and spans the years", () => {
+    expect(libraryCounts(assets, new Set(["sep", "old"]))).toEqual({
+      all: 5,
+      photo: 3,
+      live_photo: 1,
+      video: 1,
+      favorites: 2,
+    });
+    expect(yearSpan(groupByMonth(assets, chronological))).toEqual({
+      from: 2023,
+      to: 2024,
+    });
+    expect(yearSpan([])).toBeNull();
   });
 });

@@ -13,20 +13,23 @@ import { CloseIcon, HeartIcon, LiveIcon, PlayIcon } from "./icons";
 import {
   buildRows,
   centeredOffset,
+  gridGeometry,
   groupByMonth,
   type LibraryFilter,
-  type LibraryRow,
+  libraryCounts,
   libraryFilterLabels,
   libraryFilters,
   libraryIndexes,
+  MAX_CONTENT_WIDTH,
   type MonthGroup,
   rowContaining,
+  rowHeightFor,
+  TILE_GAP,
   yearAnchors,
+  yearSpan,
 } from "./library-layout";
 import { formatMediaDuration, formatMonthName, formatPhotoDate } from "./model";
 
-const TILE_GAP = 3;
-const MAX_CONTENT_WIDTH = 1680;
 const numberFormatter = new Intl.NumberFormat("en-US");
 
 const filterNouns: Record<LibraryFilter, [string, string]> = {
@@ -48,11 +51,61 @@ function kindLabel(asset: GalleryAsset) {
   return "Photo";
 }
 
-function rowHeightFor(row: LibraryRow, compact: boolean, tileSize: number) {
-  if (row.kind === "intro") return compact ? 200 : 300;
-  if (row.kind === "empty") return 220;
-  if (row.kind === "month") return compact ? 76 : 108;
-  return tileSize + TILE_GAP;
+/** The top of the library: its line of verse, and what is in it. */
+function LibraryIntro({
+  count,
+  span,
+}: {
+  count: string;
+  span: { from: number; to: number } | null;
+}) {
+  return (
+    <div className="flex h-full flex-col justify-end pb-6">
+      <p
+        className="font-serif text-[clamp(40px,6.4vw,84px)] leading-[1.05] tracking-[.02em] text-paper/92"
+        lang="zh-Hans"
+      >
+        当时只道是寻常
+      </p>
+      <p className="label mt-5 text-paper/45">
+        {count}
+        {span
+          ? `  ·  ${span.from === span.to ? span.from : `${span.from} – ${span.to}`}`
+          : ""}
+      </p>
+    </div>
+  );
+}
+
+/** Favorites with nothing in them: how to save one, or to sign in first. */
+function FavoritesEmpty({
+  account,
+  onSignIn,
+}: {
+  account: AccountStatus;
+  onSignIn: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col items-start justify-center gap-3 border-t border-paper/8">
+      <HeartIcon className="text-rose" size={22} />
+      <p className="font-serif text-[26px] leading-tight italic">
+        {account === "member"
+          ? "Nothing saved yet."
+          : "Sign in to save favorites."}
+      </p>
+      {account === "member" ? (
+        <p className="max-w-sm text-[12px] leading-relaxed text-paper/50">
+          Tap the heart on a photo to save it.
+        </p>
+      ) : (
+        <SignInButton
+          account={account}
+          className="mt-1 w-auto"
+          onSignIn={onSignIn}
+        />
+      )}
+    </div>
+  );
 }
 
 const LibraryTile = memo(function LibraryTile({
@@ -268,34 +321,12 @@ export function Library({
     return () => observer.disconnect();
   }, []);
 
-  const compact = width < 640;
-  const sidePadding = compact ? 12 : 40;
-  const railSpace = compact ? 48 : 88;
-  const contentWidth = Math.max(
-    0,
-    Math.min(width, MAX_CONTENT_WIDTH) - sidePadding - railSpace,
+  const { compact, sidePadding, railSpace, columns, tileSize } =
+    gridGeometry(width);
+  const counts = useMemo(
+    () => libraryCounts(assets, favorites),
+    [assets, favorites],
   );
-  const targetTile = compact ? 112 : 172;
-  const columns = Math.max(
-    3,
-    Math.round((contentWidth + TILE_GAP) / (targetTile + TILE_GAP)),
-  );
-  const tileSize = (contentWidth - TILE_GAP * (columns - 1)) / columns;
-
-  const counts = useMemo(() => {
-    const result: Record<LibraryFilter, number> = {
-      all: assets.length,
-      photo: 0,
-      live_photo: 0,
-      video: 0,
-      favorites: 0,
-    };
-    for (const asset of assets) {
-      result[asset.type] += 1;
-      if (favorites.has(asset.id)) result.favorites += 1;
-    }
-    return result;
-  }, [assets, favorites]);
 
   const filteredFavorites = filter === "favorites" ? favorites : undefined;
   const indexes = useMemo(
@@ -314,12 +345,7 @@ export function Library({
   );
   const rows = useMemo(() => buildRows(groups, columns), [groups, columns]);
   const anchors = useMemo(() => yearAnchors(rows), [rows]);
-  const span = useMemo(() => {
-    const years = groups.flatMap((group) => (group.year ? [group.year] : []));
-    return years.length
-      ? { from: Math.min(...years), to: Math.max(...years) }
-      : null;
-  }, [groups]);
+  const span = useMemo(() => yearSpan(groups), [groups]);
 
   const heights = useMemo(
     () => rows.map((row) => rowHeightFor(row, compact, tileSize)),
@@ -487,40 +513,12 @@ export function Library({
                     }}
                   >
                     {row.kind === "intro" ? (
-                      <div className="flex h-full flex-col justify-end pb-6">
-                        <p
-                          className="font-serif text-[clamp(40px,6.4vw,84px)] leading-[1.05] tracking-[.02em] text-paper/92"
-                          lang="zh-Hans"
-                        >
-                          当时只道是寻常
-                        </p>
-                        <p className="label mt-5 text-paper/45">
-                          {describeCount(filter, indexes.length)}
-                          {span
-                            ? `  ·  ${span.from === span.to ? span.from : `${span.from} – ${span.to}`}`
-                            : ""}
-                        </p>
-                      </div>
+                      <LibraryIntro
+                        count={describeCount(filter, indexes.length)}
+                        span={span}
+                      />
                     ) : row.kind === "empty" ? (
-                      <div className="flex h-full flex-col items-start justify-center gap-3 border-t border-paper/8">
-                        <HeartIcon className="text-rose" size={22} />
-                        <p className="font-serif text-[26px] leading-tight italic">
-                          {account === "member"
-                            ? "Nothing saved yet."
-                            : "Sign in to save favorites."}
-                        </p>
-                        {account === "member" ? (
-                          <p className="max-w-sm text-[12px] leading-relaxed text-paper/50">
-                            Tap the heart on a photo to save it.
-                          </p>
-                        ) : (
-                          <SignInButton
-                            account={account}
-                            className="mt-1 w-auto"
-                            onSignIn={onSignIn}
-                          />
-                        )}
-                      </div>
+                      <FavoritesEmpty account={account} onSignIn={onSignIn} />
                     ) : row.kind === "month" ? (
                       <MonthHeader
                         compact={compact}

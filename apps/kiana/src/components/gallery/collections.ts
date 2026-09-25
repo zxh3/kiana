@@ -21,7 +21,7 @@ export type Collection = {
   members: ReadonlyArray<number>;
 };
 
-export type CollectionContext = {
+type CollectionContext = {
   assets: ReadonlyArray<GalleryAsset>;
   chronological: ReadonlyArray<number>;
   favorites: ReadonlySet<string>;
@@ -29,7 +29,7 @@ export type CollectionContext = {
 };
 
 /** "On this day" widens to the surrounding week when a date is sparse. */
-export const ON_THIS_DAY_MINIMUM = 6;
+const ON_THIS_DAY_MINIMUM = 6;
 const ON_THIS_DAY_WINDOW = 3;
 
 export function parseCollectionId(value: unknown): CollectionId | null {

@@ -122,11 +122,6 @@ export function SoundMenu({
   const videosHeard = mix.videos.on && mix.videos.volume > 0;
   const silent = !videosHeard && !musicHeard && !interfaceHeard;
 
-  const toggle = (on: boolean, apply: (on: boolean) => void) => {
-    cue(on ? "switchOn" : "switchOff");
-    apply(on);
-  };
-
   return (
     <Popover
       className="w-[min(300px,calc(100vw-24px))]"
@@ -153,11 +148,8 @@ export function SoundMenu({
         icon={<VideoIcon size={16} />}
         label="Videos"
         on={mix.videos.on}
-        onToggle={(on) => toggle(on, mix.videos.setOn)}
-        onVolume={(volume) => {
-          mix.videos.setVolume(volume);
-          if (!mix.videos.on) mix.videos.setOn(true);
-        }}
+        onToggle={mix.videos.setOn}
+        onVolume={mix.videos.setVolume}
         shortcut="M"
         volume={mix.videos.volume}
       />
@@ -172,7 +164,10 @@ export function SoundMenu({
         icon={<MusicNoteIcon size={16} />}
         label="Music"
         on={!music.muted}
-        onToggle={(on) => toggle(on, (heard) => music.setMuted(!heard))}
+        onToggle={(on) => {
+          cue(on ? "switchOn" : "switchOff");
+          music.setMuted(!on);
+        }}
         onVolume={music.setVolume}
         volume={music.volume}
       />
@@ -185,10 +180,7 @@ export function SoundMenu({
             label="Interface"
             on={mix.interface.on}
             onToggle={mix.interface.setOn}
-            onVolume={(volume) => {
-              mix.interface.setVolume(volume);
-              if (!mix.interface.on) mix.interface.setOn(true);
-            }}
+            onVolume={mix.interface.setVolume}
             // A click at the new level, so it can be judged by ear.
             onVolumeSettled={() => cue("press")}
             volume={mix.interface.volume}

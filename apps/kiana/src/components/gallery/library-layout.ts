@@ -1,5 +1,9 @@
 import type { GalleryAsset } from "../../data/photos";
 
+/** The space between tiles, and the widest the grid grows. */
+export const TILE_GAP = 3;
+export const MAX_CONTENT_WIDTH = 1680;
+
 export const libraryFilters = [
   "all",
   "photo",
@@ -131,4 +135,65 @@ export function yearAnchors(rows: ReadonlyArray<LibraryRow>) {
     }
   });
   return anchors;
+}
+
+/**
+ * The grid's measurements for a library `width` wide: compact on phones,
+ * its padding and the year rail's room, and as many columns as fit tiles
+ * near the target size, at least three, filling the width exactly.
+ */
+export function gridGeometry(width: number) {
+  const compact = width < 640;
+  const sidePadding = compact ? 12 : 40;
+  const railSpace = compact ? 48 : 88;
+  const contentWidth = Math.max(
+    0,
+    Math.min(width, MAX_CONTENT_WIDTH) - sidePadding - railSpace,
+  );
+  const targetTile = compact ? 112 : 172;
+  const columns = Math.max(
+    3,
+    Math.round((contentWidth + TILE_GAP) / (targetTile + TILE_GAP)),
+  );
+  const tileSize = (contentWidth - TILE_GAP * (columns - 1)) / columns;
+  return { compact, sidePadding, railSpace, columns, tileSize };
+}
+
+/** How tall each kind of row is drawn. */
+export function rowHeightFor(
+  row: LibraryRow,
+  compact: boolean,
+  tileSize: number,
+) {
+  if (row.kind === "intro") return compact ? 200 : 300;
+  if (row.kind === "empty") return 220;
+  if (row.kind === "month") return compact ? 76 : 108;
+  return tileSize + TILE_GAP;
+}
+
+/** How many of each kind, and of the viewer's favorites, for the filters. */
+export function libraryCounts(
+  assets: ReadonlyArray<GalleryAsset>,
+  favorites: ReadonlySet<string>,
+) {
+  const counts: Record<LibraryFilter, number> = {
+    all: assets.length,
+    photo: 0,
+    live_photo: 0,
+    video: 0,
+    favorites: 0,
+  };
+  for (const asset of assets) {
+    counts[asset.type] += 1;
+    if (favorites.has(asset.id)) counts.favorites += 1;
+  }
+  return counts;
+}
+
+/** The first and last years the months cover, if any has a year. */
+export function yearSpan(groups: ReadonlyArray<MonthGroup>) {
+  const years = groups.flatMap((group) => (group.year ? [group.year] : []));
+  return years.length
+    ? { from: Math.min(...years), to: Math.max(...years) }
+    : null;
 }

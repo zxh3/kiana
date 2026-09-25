@@ -7,7 +7,7 @@ import {
   type Order,
   SLIDE_DURATION,
 } from "./model";
-import { useStoredState } from "./use-stored-state";
+import { parseFlag, useStoredState } from "./use-stored-state";
 
 const FRAME_KEY = "kiana.frame";
 const DURATION_KEY = "kiana.duration";
@@ -35,10 +35,6 @@ export function parseOrder(raw: string | null): Order {
 
 export function parseStoredCollection(raw: string | null): CollectionId {
   return parseCollectionId(raw) ?? "all";
-}
-
-export function parseFlag(raw: string | null) {
-  return raw === "true";
 }
 
 export function useGalleryPreferences() {

@@ -18,7 +18,7 @@ export type YouTubePlayer = {
 
 type PlayerEvent = { target: YouTubePlayer; data: number };
 
-export type YouTubePlayerOptions = {
+type YouTubePlayerOptions = {
   events: {
     onError: (event: PlayerEvent) => void;
     onReady: (event: PlayerEvent) => void;

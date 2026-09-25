@@ -6,24 +6,11 @@ import {
   setSoundsVolume,
   soundsSupported,
 } from "../../../lib/sounds";
-import { useStoredState } from "../use-stored-state";
+import { parseFlagOn, parseLevel, useStoredState } from "../use-stored-state";
 
 const VIDEO_VOLUME_KEY = "kiana.clip-volume";
 const INTERFACE_KEY = "kiana.ui-sounds";
 const INTERFACE_VOLUME_KEY = "kiana.ui-volume";
-
-/** A saved level from 0 to 100, or `fallback`. */
-export function parseLevel(raw: string | null, fallback = 100) {
-  const value = Number(raw);
-  return raw !== null && raw !== "" && value >= 0 && value <= 100
-    ? Math.round(value)
-    : fallback;
-}
-
-/** On unless it was turned off. */
-export function parseFlagOn(raw: string | null) {
-  return raw !== "false";
-}
 
 /**
  * The page's own sound channels; music keeps its own in `useMusic`.
@@ -34,7 +21,7 @@ export function parseFlagOn(raw: string | null) {
  */
 export function useSoundMix() {
   const [videosOn, setVideosOn] = useState(false);
-  const [videoVolume, setVideoVolume] = useStoredState(
+  const [videoVolume, saveVideoVolume] = useStoredState(
     VIDEO_VOLUME_KEY,
     parseLevel,
   );
@@ -42,7 +29,7 @@ export function useSoundMix() {
     INTERFACE_KEY,
     parseFlagOn,
   );
-  const [interfaceVolume, setInterfaceVolume] = useStoredState(
+  const [interfaceVolume, saveInterfaceVolume] = useStoredState(
     INTERFACE_VOLUME_KEY,
     parseLevel,
   );
@@ -65,15 +52,38 @@ export function useSoundMix() {
     [saveInterfaceOn],
   );
 
+  /** The videos' switch, from the mixer or the M key, sounds as it turns. */
+  const setVideosHeard = useCallback((on: boolean) => {
+    cue(on ? "switchOn" : "switchOff");
+    setVideosOn(on);
+  }, []);
+
+  // Moving a channel's slider while it is off turns it on: the videos
+  // quietly, the interface with its switch's sound, as a turn of it would.
+  const setVideoVolume = useCallback(
+    (volume: number) => {
+      saveVideoVolume(volume);
+      if (!videosOn) setVideosOn(true);
+    },
+    [saveVideoVolume, videosOn],
+  );
+  const setInterfaceVolume = useCallback(
+    (volume: number) => {
+      saveInterfaceVolume(volume);
+      if (!interfaceOn) setInterfaceOn(true);
+    },
+    [interfaceOn, saveInterfaceVolume, setInterfaceOn],
+  );
+
   return {
     videos: {
       on: videosOn,
-      setOn: setVideosOn,
+      setOn: setVideosHeard,
       volume: videoVolume,
       setVolume: setVideoVolume,
     },
     interface: {
-      /** Null where the browser cannot play generated sound. */
+      /** Whether the browser can play generated sound at all. */
       supported: soundsSupported(),
       on: interfaceOn,
       setOn: setInterfaceOn,

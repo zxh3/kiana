@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
+import { frameStyles } from "./frame-styles";
 import { type LayerDirection, mediaTransition } from "./media-transition";
 import {
   type Frame,
@@ -151,8 +152,8 @@ export function PhotoLayer({
             className={cx(
               "block h-auto w-auto object-contain",
               frame === "fill"
-                ? "max-h-[100dvh] max-w-[100vw]"
-                : "max-h-[76dvh] max-w-[min(82vw,1060px)] shadow-[0_46px_100px_-40px_rgba(0,0,0,.95)] max-sm:max-h-[70dvh] max-sm:max-w-[90vw]",
+                ? frameStyles.media.fill
+                : frameStyles.media.backdrop,
             )}
           />
         </div>
@@ -165,14 +166,18 @@ export function PhotoLayer({
       aria-hidden={!current}
       className={cx(
         presentation.className,
-        "grid place-items-center bg-[#e9e2d6]",
+        "grid place-items-center",
+        frameStyles.wall,
       )}
       style={presentation.style}
     >
-      <div className="flex max-h-[78dvh] max-w-[84vw] bg-[#f6f0e6] p-[clamp(12px,1.8vw,26px)] shadow-[0_1px_2px_rgba(23,18,15,.18),0_26px_60px_-26px_rgba(23,18,15,.5)] max-sm:max-h-[72dvh] max-sm:max-w-[90vw] max-sm:p-3">
+      <div className={frameStyles.card}>
         <PhotoContent
           {...mediaProps}
-          className="block h-auto w-auto max-h-[calc(78dvh-clamp(24px,3.6vw,52px))] max-w-[calc(84vw-clamp(24px,3.6vw,52px))] object-contain max-sm:max-h-[calc(72dvh-24px)] max-sm:max-w-[calc(90vw-24px)]"
+          className={cx(
+            "block h-auto w-auto object-contain",
+            frameStyles.media.mat,
+          )}
         />
       </div>
     </div>

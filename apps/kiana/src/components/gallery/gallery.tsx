@@ -13,17 +13,11 @@ import { cx } from "../../lib/class-names";
 import { cue } from "../../lib/sounds";
 import { Caption } from "./caption";
 import { CollectionMenu } from "./collection-menu";
-import {
-  type CollectionId,
-  chronologicalIndexes,
-  monthCollectionId,
-  resolveCollection,
-  yearCounts,
-} from "./collections";
-import { copyText } from "./copy-text";
+import { monthCollectionId } from "./collections";
 import { DisplayMenu } from "./display-menu";
 import { Dock } from "./dock";
 import { FavoriteButton } from "./favorite-button";
+import { classifyTouch, type TouchPoint } from "./gesture";
 import { Library } from "./library";
 import { frameLabels } from "./model";
 import { MusicButton, MusicPlayer, useMusic } from "./music";
@@ -31,15 +25,17 @@ import { useGalleryPreferences } from "./preferences";
 import { ProgressBar } from "./progress-bar";
 import { createProgressChannel } from "./progress-channel";
 import { parseResume, type ResumePositions, resumeKey } from "./resume";
+import { photoLink, shareLink } from "./share";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { SoundMenu } from "./sound/sound-menu";
 import { useSoundMix } from "./sound/use-sound-mix";
 import { Stage } from "./stage";
-import { Toast, type ToastMessage } from "./toast";
+import { Toast, useToast } from "./toast";
 import { TopBar } from "./top-bar";
 import { useAccount } from "./use-account";
 import { useChromeHold } from "./use-chrome-hold";
 import { useChromeVisibility } from "./use-chrome-visibility";
+import { useCollection } from "./use-collection";
 import { useFavorites } from "./use-favorites";
 import { useFullscreen } from "./use-fullscreen";
 import { useGalleryShortcuts } from "./use-gallery-shortcuts";
@@ -48,18 +44,7 @@ import { useStoredState } from "./use-stored-state";
 import { useToday } from "./use-today";
 import { useWakeLock, wakeLockSupported } from "./use-wake-lock";
 
-const NO_FAVORITES: ReadonlySet<string> = new Set();
-const SWIPE_DISTANCE = 48;
-const TAP_SLOP = 10;
-
 type Menu = "collection" | "display" | "sound" | "favorite" | null;
-
-/** The link that opens one photo, for sharing and for coming back to. */
-function photoLink(id: string) {
-  const url = new URL("/", window.location.origin);
-  url.searchParams.set("photo", id);
-  return url.href;
-}
 
 export function Gallery({
   assets,
@@ -91,84 +76,25 @@ export function Gallery({
   const [videoProgress] = useState(createProgressChannel);
   const [menu, setMenu] = useState<Menu>(null);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const toastId = useRef(0);
+  const { toast, showToast } = useToast();
 
-  const chronological = useMemo(() => chronologicalIndexes(assets), [assets]);
-  const years = useMemo(() => yearCounts(assets), [assets]);
-  const [linkedIndex] = useState(() =>
-    initialPhotoId ? assets.findIndex(({ id }) => id === initialPhotoId) : -1,
-  );
-
-  // A shared link plays within Everything for this visit when the saved
-  // collection does not contain it, without overwriting the saved choice.
-  const [linkOverride, setLinkOverride] = useState<CollectionId | null>(() => {
-    if (linkedIndex < 0) return null;
-    const saved = resolveCollection(preferences.collectionId, {
-      assets,
-      chronological,
-      favorites,
-      today,
-    });
-    return saved.members.includes(linkedIndex) ? null : "all";
+  const {
+    chronological,
+    collection,
+    favoriteCount,
+    linkedIndex,
+    onThisDay,
+    setCollectionId,
+    years,
+  } = useCollection({
+    assets,
+    favorites,
+    favoritesSettled,
+    initialPhotoId,
+    savedId: preferences.collectionId,
+    saveId: preferences.setCollectionId,
+    today,
   });
-  const collectionId = linkOverride ?? preferences.collectionId;
-  const { setCollectionId: saveCollectionId } = preferences;
-  const setCollectionId = useCallback(
-    (id: CollectionId) => {
-      setLinkOverride(null);
-      saveCollectionId(id);
-    },
-    [saveCollectionId],
-  );
-
-  // Only the collections that depend on favorites or today recompute.
-  const favoritesKey = collectionId === "favorites" ? favorites : NO_FAVORITES;
-  const todayKey = collectionId === "on-this-day" ? today : "";
-  const chosen = useMemo(
-    () =>
-      resolveCollection(collectionId, {
-        assets,
-        chronological,
-        favorites: favoritesKey,
-        today: todayKey,
-      }),
-    [assets, chronological, collectionId, favoritesKey, todayKey],
-  );
-  const everything = useMemo(
-    () =>
-      resolveCollection("all", {
-        assets,
-        chronological,
-        favorites: NO_FAVORITES,
-        today: "",
-      }),
-    [assets, chronological],
-  );
-  const collection = chosen.members.length > 0 ? chosen : everything;
-  // An empty collection gives way to Everything, but Favorites only once
-  // they are known: they arrive a moment after the page, from the account.
-  useEffect(() => {
-    if (chosen.members.length > 0 || collectionId === "all") return;
-    if (collectionId === "favorites" && !favoritesSettled) return;
-    setCollectionId("all");
-  }, [chosen.members.length, collectionId, favoritesSettled, setCollectionId]);
-
-  const onThisDay = useMemo(
-    () =>
-      resolveCollection("on-this-day", {
-        assets,
-        chronological,
-        favorites: NO_FAVORITES,
-        today,
-      }),
-    [assets, chronological, today],
-  );
-  const favoriteCount = useMemo(
-    () =>
-      assets.reduce((count, { id }) => count + Number(favorites.has(id)), 0),
-    [assets, favorites],
-  );
 
   // Date order remembers where it left each collection; shuffle always
   // starts a fresh shuffle.
@@ -209,15 +135,6 @@ export function Gallery({
   const { held, holdProps } = useChromeHold();
   const chrome = useChromeVisibility(held || menu !== null);
 
-  const showToast = useCallback((text: string) => {
-    toastId.current += 1;
-    setToast({ id: toastId.current, text });
-  }, []);
-  useEffect(() => {
-    if (!toast) return;
-    const timeout = window.setTimeout(() => setToast(null), 2_200);
-    return () => window.clearTimeout(timeout);
-  }, [toast]);
   // The heart already went back; this says why.
   useEffect(() => {
     if (favoriteFailures > 0) showToast("Couldn’t save favorite");
@@ -249,10 +166,19 @@ export function Gallery({
   const music = useMusic();
   const sound = useSoundMix();
   const { on: videosOn, setOn: setVideosOn } = sound.videos;
-  const toggleVideoSound = useCallback(() => {
-    cue(videosOn ? "switchOff" : "switchOn");
-    setVideosOn(!videosOn);
-  }, [setVideosOn, videosOn]);
+  const toggleVideoSound = useCallback(
+    () => setVideosOn(!videosOn),
+    [setVideosOn, videosOn],
+  );
+  /** A menu's open state, and its switch, which sounds as it opens. */
+  const menuProps = (name: NonNullable<Menu>) => ({
+    open: menu === name,
+    onOpenChange: (open: boolean) => {
+      if (open) cue("open");
+      setMenu(open ? name : null);
+    },
+  });
+
   // A guest's heart asks them to sign in instead.
   const toggleFavorite = useCallback(() => {
     if (!signedIn) {
@@ -274,19 +200,11 @@ export function Gallery({
     [favoriteAfterSignIn, signIn],
   );
 
+  // The share sheet speaks for itself; a copy is confirmed.
   const share = useCallback(async () => {
-    const url = photoLink(asset.id);
-    const coarse = window.matchMedia("(pointer: coarse)").matches;
-    if (coarse && navigator.share) {
-      try {
-        await navigator.share({ title: "Kiana", url });
-        return;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-      }
-    }
-    const copied = await copyText(url);
+    const shared = await shareLink(photoLink(asset.id));
+    if (shared === "shared" || shared === "cancelled") return;
+    const copied = shared === "copied";
     cue(copied ? "copied" : "error");
     showToast(copied ? "Link copied" : "Couldn’t copy the link");
   }, [asset.id, showToast]);
@@ -339,9 +257,7 @@ export function Gallery({
   });
 
   // Touch: swipe sideways to move through photos, tap to show the controls.
-  const gesture = useRef<{ id: number; time: number; x: number; y: number }>(
-    null,
-  );
+  const gesture = useRef<(TouchPoint & { id: number }) | null>(null);
   const ignoresGesture = (target: EventTarget) =>
     target instanceof Element &&
     target.closest("button, a, [role='menu'], [role='dialog']") !== null;
@@ -359,18 +275,14 @@ export function Gallery({
     const start = gesture.current;
     gesture.current = null;
     if (!start || start.id !== event.pointerId) return;
-    const dx = event.clientX - start.x;
-    const dy = event.clientY - start.y;
-    if (Math.abs(dx) > SWIPE_DISTANCE && Math.abs(dx) > Math.abs(dy) * 1.4) {
-      if (dx < 0) goNext();
-      else goPrevious();
-      return;
-    }
-    const tap =
-      Math.abs(dx) < TAP_SLOP &&
-      Math.abs(dy) < TAP_SLOP &&
-      performance.now() - start.time < 400;
-    if (!tap) return;
+    const touch = classifyTouch(start, {
+      x: event.clientX,
+      y: event.clientY,
+      time: performance.now(),
+    });
+    if (touch === "next") goNext();
+    if (touch === "previous") goPrevious();
+    if (touch !== "tap") return;
     if (chrome.visible) {
       setMenu(null);
       chrome.sleep();
@@ -453,10 +365,7 @@ export function Gallery({
                 },
                 years,
               }}
-              onOpenChange={(open) => {
-                if (open) cue("open");
-                setMenu(open ? "collection" : null);
-              }}
+              {...menuProps("collection")}
               favoritesLocked={!signedIn}
               onOpenLibrary={openLibrary}
               onSelect={(id) => {
@@ -464,7 +373,6 @@ export function Gallery({
                 setCollectionId(id);
                 setPausedByUser(false);
               }}
-              open={menu === "collection"}
             />
           }
           holdProps={holdProps}
@@ -488,13 +396,9 @@ export function Gallery({
             <FavoriteButton
               account={account.status}
               favorite={favorite}
-              onOpenChange={(open) => {
-                if (open) cue("open");
-                setMenu(open ? "favorite" : null);
-              }}
+              {...menuProps("favorite")}
               onSignIn={() => signInToFavorite(asset.id)}
               onToggle={toggleFavorite}
-              open={menu === "favorite"}
             />
           }
           fullscreen={fullscreen}
@@ -506,15 +410,7 @@ export function Gallery({
           onTogglePause={togglePause}
           paused={pausedByUser}
           sound={
-            <SoundMenu
-              mix={sound}
-              music={music}
-              onOpenChange={(open) => {
-                if (open) cue("open");
-                setMenu(open ? "sound" : null);
-              }}
-              open={menu === "sound"}
-            />
+            <SoundMenu mix={sound} music={music} {...menuProps("sound")} />
           }
           settings={
             <DisplayMenu
@@ -533,16 +429,12 @@ export function Gallery({
                 cue(keepAwake ? "switchOn" : "switchOff");
                 preferences.setKeepAwake(keepAwake);
               }}
-              onOpenChange={(open) => {
-                if (open) cue("open");
-                setMenu(open ? "display" : null);
-              }}
+              {...menuProps("display")}
               onOpenHelp={openHelp}
               onOrderChange={(order) => {
                 cue("select");
                 preferences.setOrder(order);
               }}
-              open={menu === "display"}
               order={preferences.order}
             />
           }
