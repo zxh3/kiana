@@ -11,7 +11,7 @@ import type { Account } from "./account";
  * cached in a cookie for five minutes, so the live apps can check who is
  * connecting without asking the database each time.
  *
- * Without its secrets (in development, before `.dev.vars` is filled in)
+ * Without its secrets (in development, before `.env` is filled in)
  * there is no signing in, and everyone is a guest.
  */
 const options = {

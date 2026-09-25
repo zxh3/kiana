@@ -1,5 +1,0 @@
-# Copy to .dev.vars for signing in with Google locally. The Worker's own
-# values are set with `wrangler secret put`; see README.md.
-BETTER_AUTH_SECRET=
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=

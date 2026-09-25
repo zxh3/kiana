@@ -212,12 +212,10 @@ in a fresh checkout, Account shows Off and everyone is a guest.
    redirect URIs `https://kiana.me/api/auth/callback/google` and
    `http://localhost:3000/api/auth/callback/google`. The consent screen
    asks for an app name and a privacy policy link.
-2. For local development, copy the example and fill it in, with a secret
-   from `openssl rand -base64 32`:
-
-   ```bash
-   cp apps/kiana/.dev.vars.example apps/kiana/.dev.vars
-   ```
+2. For local development, put the same three in `apps/kiana/.env`, as
+   listed in `.env.example`, with a secret from
+   `openssl rand -base64 32`. The development server passes them to the
+   Worker.
 
 3. For the site, set the same three on the Worker, in the Cloudflare
    dashboard (Workers → kiana → Settings → Variables and Secrets) or from
