@@ -107,9 +107,9 @@ function Gear() {
 
 /**
  * The right half of the top menu, which changes with the highlighted item
- * as on the original: the covers for Cover Flow, the playing song's cover
- * drifting for Songs and Now Playing, covers dealt at random for Shuffle
- * Songs, the apps' icons for Apps, and a gear for Settings.
+ * as on the original: the covers for Music, the apps' icons for Apps, a
+ * gear for Settings, covers dealt at random for Shuffle Songs, and the
+ * playing song's cover drifting for Now Playing.
  */
 export function MenuPreview({
   index,
@@ -132,10 +132,10 @@ export function MenuPreview({
           className="absolute inset-0"
           exit={{ opacity: 0 }}
           initial={{ opacity: 0 }}
-          key={item === "now" ? "songs" : item}
+          key={item}
           transition={fades.in}
         >
-          {item === "covers" ? (
+          {item === "music" ? (
             <Mosaic index={index} playlist={playlist} />
           ) : item === "shuffle" ? (
             <Shuffle playlist={playlist} />

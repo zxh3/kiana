@@ -17,9 +17,13 @@ import {
   accountLabels,
   appItems,
   type ListScreen,
+  type LooksItem,
+  looksItems,
+  looksLabels,
   menuItems,
   menuLabels,
   menuOpens,
+  musicItems,
   type SettingsItem,
   screens,
   settingsItems,
@@ -77,21 +81,31 @@ const accountDetails: Record<Exclude<AccountStatus, "member">, string> = {
 export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
   const { member, status } = view.account;
   const memberName = member?.name || "Signed In";
-  const details: Record<SettingsItem, string> = {
+  // Each setting's value, on the right; the spinner's looks open a screen
+  // that shows theirs.
+  const details: Record<SettingsItem, string | undefined> = {
+    account: status === "member" ? memberName : accountDetails[status],
     shuffle: view.shuffle ? "On" : "Off",
     repeat: view.repeat === "one" ? "One" : "All",
     backlight: backlightLabels[view.backlight],
     clicker: view.clicker ? "On" : "Off",
     finish: finishLabels[view.finish],
+    looks: undefined,
+  };
+  const looks: Record<LooksItem, string> = {
     spinner: spinnerStyleLabels[view.spinner],
     face: kianaFaceLabels[view.face],
-    account: status === "member" ? memberName : accountDetails[status],
   };
   return {
     menu: menuItems.map((item) => ({
       key: item,
       label: menuLabels[item],
       opens: menuOpens[item],
+    })),
+    music: musicItems.map((item) => ({
+      key: item,
+      label: screens[item].title,
+      opens: true,
     })),
     songs: view.playlist.map((song, position) => ({
       key: song.videoId,
@@ -125,7 +139,12 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
       key: item,
       label: settingsLabels[item],
       detail: details[item],
-      opens: item === "account",
+      opens: item === "account" || item === "looks",
+    })),
+    looks: looksItems.map((item) => ({
+      key: item,
+      label: looksLabels[item],
+      detail: looks[item],
     })),
     account: accountItems(status).map((item) =>
       item === "member"

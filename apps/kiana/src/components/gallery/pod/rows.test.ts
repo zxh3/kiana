@@ -44,7 +44,7 @@ describe("pocket player screen", () => {
         {
           ...state,
           screen: "settings",
-          selected: { ...state.selected, settings: 3 },
+          selected: { ...state.selected, settings: 4 },
         },
         rows,
         view,
@@ -69,11 +69,28 @@ describe("pocket player screen", () => {
         view,
       ),
     ).toBe("amy, verified");
-    expect(rows.settings.at(-1)).toMatchObject({
+    expect(rows.settings[0]).toMatchObject({
       label: "Account",
       detail: "Guest",
       opens: true,
     });
+    expect(rows.settings.at(-1)).toMatchObject({
+      label: "Finger Spinner",
+      detail: undefined,
+      opens: true,
+    });
+    expect(rows.looks.map((row) => `${row.label}: ${row.detail}`)).toEqual([
+      "Spinner: Stealth",
+      "Kiana: Curious",
+    ]);
+    expect(rows.menu.map((row) => row.label)).toEqual([
+      "Music",
+      "Apps",
+      "Settings",
+      "Shuffle Songs",
+      "Now Playing",
+    ]);
+    expect(rows.music.map((row) => row.label)).toEqual(["Cover Flow", "Songs"]);
     expect(rows.account.map((row) => row.label)).toEqual([
       "Sign In with Google",
     ]);
@@ -98,7 +115,7 @@ describe("pocket player screen", () => {
       duration: 100,
     };
     const rows = podRows(view);
-    expect(rows.settings.at(-1)?.detail).toBe("Xiaohua");
+    expect(rows.settings[0]?.detail).toBe("Xiaohua");
     expect(rows.account.map((row) => row.label)).toEqual([
       "Xiaohua",
       "Sign Out",
