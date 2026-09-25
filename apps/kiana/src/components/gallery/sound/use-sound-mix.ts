@@ -21,7 +21,7 @@ const INTERFACE_VOLUME_KEY = "kiana.ui-volume";
  */
 export function useSoundMix() {
   const [videosOn, setVideosOn] = useState(false);
-  const [videoVolume, setVideoVolume] = useStoredState(
+  const [videoVolume, saveVideoVolume] = useStoredState(
     VIDEO_VOLUME_KEY,
     parseLevel,
   );
@@ -29,7 +29,7 @@ export function useSoundMix() {
     INTERFACE_KEY,
     parseFlagOn,
   );
-  const [interfaceVolume, setInterfaceVolume] = useStoredState(
+  const [interfaceVolume, saveInterfaceVolume] = useStoredState(
     INTERFACE_VOLUME_KEY,
     parseLevel,
   );
@@ -52,15 +52,38 @@ export function useSoundMix() {
     [saveInterfaceOn],
   );
 
+  /** The videos' switch, from the mixer or the M key, sounds as it turns. */
+  const setVideosHeard = useCallback((on: boolean) => {
+    cue(on ? "switchOn" : "switchOff");
+    setVideosOn(on);
+  }, []);
+
+  // Moving a channel's slider while it is off turns it on: the videos
+  // quietly, the interface with its switch's sound, as a turn of it would.
+  const setVideoVolume = useCallback(
+    (volume: number) => {
+      saveVideoVolume(volume);
+      if (!videosOn) setVideosOn(true);
+    },
+    [saveVideoVolume, videosOn],
+  );
+  const setInterfaceVolume = useCallback(
+    (volume: number) => {
+      saveInterfaceVolume(volume);
+      if (!interfaceOn) setInterfaceOn(true);
+    },
+    [interfaceOn, saveInterfaceVolume, setInterfaceOn],
+  );
+
   return {
     videos: {
       on: videosOn,
-      setOn: setVideosOn,
+      setOn: setVideosHeard,
       volume: videoVolume,
       setVolume: setVideoVolume,
     },
     interface: {
-      /** Null where the browser cannot play generated sound. */
+      /** Whether the browser can play generated sound at all. */
       supported: soundsSupported(),
       on: interfaceOn,
       setOn: setInterfaceOn,

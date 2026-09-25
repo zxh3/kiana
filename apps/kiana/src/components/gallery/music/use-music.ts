@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+
 import { parseFlag, parseLevel, useStoredState } from "../use-stored-state";
 import {
+  afterFailure,
   nextTrackIndex,
   parseRepeat,
   parseShuffle,
-  previousTrackIndex,
+  previousMove,
   type Repeat,
+  rememberTrack,
 } from "./music-queue";
 import { playlist } from "./music-track";
 import { loadYouTubeApi, PlayerState, type YouTubePlayer } from "./youtube-api";
@@ -30,9 +33,6 @@ const REPEAT_KEY = "kiana.music-repeat";
 const MUTED_KEY = "kiana.music-muted";
 const DEFAULT_VOLUME = 60;
 const BLOCKED_AFTER = 2_500;
-/** Past this many seconds, previous restarts the song instead. */
-const RESTART_AFTER = 3;
-const SHUFFLE_MEMORY = 50;
 
 function parseVolume(raw: string | null) {
   return parseLevel(raw, DEFAULT_VOLUME);
@@ -78,7 +78,7 @@ export function useMusic() {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const blockedTimer = useRef<number>(undefined);
   const failures = useRef(0);
-  const shuffleHistory = useRef<number[]>([]);
+  const shuffleHistory = useRef<ReadonlyArray<number>>([]);
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
   const mutedRef = useRef(muted);
@@ -100,11 +100,12 @@ export function useMusic() {
   /** Switch to a track; the player keeps running, so sound never stops. */
   const load = useCallback(
     (next: number, remember = true) => {
-      if (remember && shuffleRef.current) {
-        shuffleHistory.current = [
-          ...shuffleHistory.current,
+      if (remember) {
+        shuffleHistory.current = rememberTrack(
+          shuffleHistory.current,
           indexRef.current,
-        ].slice(-SHUFFLE_MEMORY);
+          shuffleRef.current,
+        );
       }
       indexRef.current = next;
       saveIndex(next);
@@ -186,12 +187,17 @@ export function useMusic() {
               // One song refusing to embed skips ahead; every song failing
               // (YouTube's bot check, no network) stops with an explanation.
               failures.current += 1;
-              if (failures.current >= playlist.length) {
+              const next = afterFailure(
+                indexRef.current,
+                playlist.length,
+                failures.current,
+              );
+              if (next === null) {
                 window.clearTimeout(blockedTimer.current);
                 setStatus("error");
                 return;
               }
-              load((indexRef.current + 1) % playlist.length, false);
+              load(next, false);
             },
           },
         });
@@ -236,17 +242,19 @@ export function useMusic() {
 
   const previous = useCallback(() => {
     const player = playerRef.current;
-    if (player && (player.getCurrentTime?.() ?? 0) > RESTART_AFTER) {
-      player.seekTo(0, true);
+    const move = previousMove({
+      elapsed: player?.getCurrentTime?.() ?? 0,
+      history: shuffleHistory.current,
+      index: indexRef.current,
+      length: playlist.length,
+      shuffle: shuffleRef.current,
+    });
+    if ("restart" in move) {
+      player?.seekTo(0, true);
       return;
     }
-    const remembered = shuffleRef.current
-      ? shuffleHistory.current.pop()
-      : undefined;
-    load(
-      remembered ?? previousTrackIndex(indexRef.current, playlist.length),
-      false,
-    );
+    shuffleHistory.current = move.history;
+    load(move.index, false);
   }, [load]);
 
   /** Pick a song from the playlist; picking the current one resumes it. */

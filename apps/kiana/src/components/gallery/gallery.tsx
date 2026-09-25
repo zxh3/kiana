@@ -166,10 +166,10 @@ export function Gallery({
   const music = useMusic();
   const sound = useSoundMix();
   const { on: videosOn, setOn: setVideosOn } = sound.videos;
-  const toggleVideoSound = useCallback(() => {
-    cue(videosOn ? "switchOff" : "switchOn");
-    setVideosOn(!videosOn);
-  }, [setVideosOn, videosOn]);
+  const toggleVideoSound = useCallback(
+    () => setVideosOn(!videosOn),
+    [setVideosOn, videosOn],
+  );
   /** A menu's open state, and its switch, which sounds as it opens. */
   const menuProps = (name: NonNullable<Menu>) => ({
     open: menu === name,

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  afterFailure,
   nextTrackIndex,
   parseRepeat,
   parseShuffle,
+  previousMove,
   previousTrackIndex,
+  rememberTrack,
 } from "./music-queue";
 
 describe("music queue", () => {
@@ -31,5 +34,36 @@ describe("music queue", () => {
     expect(parseShuffle(null)).toBe(false);
     expect(parseRepeat("one")).toBe("one");
     expect(parseRepeat("loop")).toBe("all");
+  });
+
+  it("remembers shuffled songs to step back through, the last 50", () => {
+    expect(rememberTrack([1, 2], 3, true)).toEqual([1, 2, 3]);
+    const long = Array.from({ length: 50 }, (_, index) => index);
+    expect(rememberTrack(long, 99, true)).toHaveLength(50);
+    expect(rememberTrack(long, 99, true).at(-1)).toBe(99);
+    const inOrder = [4];
+    expect(rememberTrack(inOrder, 3, false)).toBe(inOrder);
+  });
+
+  it("restarts a song past three seconds, or goes back", () => {
+    const base = { history: [2, 4], index: 1, length: 5, shuffle: false };
+    expect(previousMove({ ...base, elapsed: 3.5 })).toEqual({ restart: true });
+    expect(previousMove({ ...base, elapsed: 1 })).toEqual({
+      index: 0,
+      history: [2, 4],
+    });
+    expect(previousMove({ ...base, elapsed: 1, shuffle: true })).toEqual({
+      index: 4,
+      history: [2],
+    });
+    expect(
+      previousMove({ ...base, elapsed: 1, shuffle: true, history: [] }),
+    ).toEqual({ index: 0, history: [] });
+  });
+
+  it("tries the next song in order after a failure, until all have failed", () => {
+    expect(afterFailure(4, 5, 1)).toBe(0);
+    expect(afterFailure(1, 5, 4)).toBe(2);
+    expect(afterFailure(1, 5, 5)).toBeNull();
   });
 });
