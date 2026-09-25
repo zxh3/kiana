@@ -40,8 +40,10 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
   the click-wheel player. `gallery/sound` is the sound mixer. `src/lib/sounds`
   generates the interface sounds, and `src/lib/motion.ts` holds the shared
   animation presets. `src/server.ts` is the Worker's entry: TanStack Start,
-  with signing in and the pod's live apps in front of it. Signing in with
-  Google is Better Auth in `src/server/auth.ts`, on a D1 database; the
+  with signing in, favorites, and the pod's live apps in front of it.
+  Signing in with Google is Better Auth in `src/server/auth.ts`, on a D1
+  database, which also keeps each account's favorites
+  (`src/server/favorites.ts`, with `src/lib/favorites.ts`); the
   live apps are each a Durable Object, told who is connecting by the
   Worker (`src/server/account.ts`): the chat room in
   `src/server/chat-room.ts`, whose rules live in `src/lib/chat.ts`, and

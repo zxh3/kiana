@@ -81,6 +81,7 @@ function MenuItem({
 export function CollectionMenu({
   collection,
   counts,
+  favoritesLocked,
   onOpenChange,
   onOpenLibrary,
   onSelect,
@@ -88,6 +89,8 @@ export function CollectionMenu({
 }: {
   collection: Collection;
   counts: CollectionCounts;
+  /** A guest has no favorites until they sign in. */
+  favoritesLocked: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenLibrary: () => void;
   onSelect: (id: CollectionId) => void;
@@ -166,9 +169,13 @@ export function CollectionMenu({
           checked={collection.id === "favorites"}
           count={counts.favorites}
           detail={
-            counts.favorites === 0 ? "Tap the heart to save one" : undefined
+            favoritesLocked
+              ? "Sign in to save favorites"
+              : counts.favorites === 0
+                ? "Tap the heart to save one"
+                : undefined
           }
-          disabled={counts.favorites === 0}
+          disabled={favoritesLocked || counts.favorites === 0}
           icon={<HeartIcon size={18} />}
           label="Favorites"
           onSelect={() => choose("favorites")}

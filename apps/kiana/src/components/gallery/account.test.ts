@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { podAccount } from "./account";
-import { accountItems } from "./menu";
+import { accountItems } from "./music/pod/menu";
 
 describe("podAccount", () => {
   const user = { id: "u1", name: "  Xiaohua " };

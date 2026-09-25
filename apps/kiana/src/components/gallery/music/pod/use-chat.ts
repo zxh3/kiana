@@ -10,8 +10,8 @@ import {
   randomName,
   typingSignal,
 } from "../../../../lib/chat";
+import type { Member } from "../../account";
 import { useStoredState } from "../../use-stored-state";
-import type { Member } from "./account";
 import { chatReducer, initialChatState, parseChatName } from "./chat";
 import { useLiveSocket } from "./use-live-socket";
 

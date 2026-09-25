@@ -36,8 +36,16 @@ Mediaforge release manifest and displays the responsive images described by it.
   filters for photos, Live Photos, videos, and favorites, plus a year rail. It
   opens centred on the playing photo, marked "Now playing". Selecting a tile
   plays from that photo; each month has a Play button.
-- **Favorites.** Stored in this browser's local storage and synced between its
-  tabs.
+- **Favorites.** For people signed in with Google: the heart saves a photo to
+  their account, kept by the Worker (`src/server/favorites.ts`, at
+  `/api/favorites`) in the accounts database, so favorites are the same on
+  every device, and are read again whenever the page comes back into view.
+  A heart shows at once and is saved in the background; if saving fails it
+  goes back, with a word saying so. For a guest the heart (and L) opens a
+  word on signing in, which comes back to the same photo and saves it;
+  Favorites in the collection menu and the library ask them to sign in.
+  Favorites kept in a browser before signing in came are added to the
+  account the first time it signs in there, then cleared.
 - **Share.** Copies a link that opens the current photo. The server renders
   that photo as the link preview image.
 - **Music.** The Music button in the top bar, drawn as the pocket player
@@ -141,8 +149,8 @@ Mediaforge release manifest and displays the responsive images described by it.
   tested state machine in `machine.ts`, run by `use-pod.ts`, and its screens
   in `pod/screen`.
 - **Signing in.** Signing in with Google, from the player's Settings →
-  Account, is only for the player's live apps: it gives a verified name in
-  the Chat Room and merit of one's own in 电子木鱼 that follows the account.
+  Account or the heart, keeps favorites, and gives a verified name in the
+  Chat Room and merit of one's own in 电子木鱼 that follows the account.
   It goes to Google and comes back to the same page; signing out stays on
   it. It is run by [Better Auth](https://www.better-auth.com) in the Worker
   (`src/server/auth.ts`), at `/api/auth`, which keeps each person's Google
@@ -165,7 +173,7 @@ Mediaforge release manifest and displays the responsive images described by it.
 - **Keep screen awake.** An optional setting that holds a screen wake lock
   while photos play.
 
-Preferences, favorites, date-order positions, and the music volume, song,
+Preferences, date-order positions, and the music volume, song,
 mute, shuffle, repeat, player size, corner, finish, backlight, and clicker, the
 finger spinner's best speed, spinner, and face, the Chat Room name, a guest's own 猫德, the video sound level, and the interface sounds switch and level are stored in
 local storage under `kiana.*` keys.

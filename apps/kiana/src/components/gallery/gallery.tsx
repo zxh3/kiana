@@ -23,6 +23,7 @@ import {
 import { copyText } from "./copy-text";
 import { DisplayMenu } from "./display-menu";
 import { Dock } from "./dock";
+import { FavoriteButton } from "./favorite-button";
 import { Library } from "./library";
 import { frameLabels } from "./model";
 import { MusicButton, MusicPlayer, useMusic } from "./music";
@@ -36,6 +37,7 @@ import { useSoundMix } from "./sound/use-sound-mix";
 import { Stage } from "./stage";
 import { Toast, type ToastMessage } from "./toast";
 import { TopBar } from "./top-bar";
+import { useAccount } from "./use-account";
 import { useChromeHold } from "./use-chrome-hold";
 import { useChromeVisibility } from "./use-chrome-visibility";
 import { useFavorites } from "./use-favorites";
@@ -50,7 +52,14 @@ const NO_FAVORITES: ReadonlySet<string> = new Set();
 const SWIPE_DISTANCE = 48;
 const TAP_SLOP = 10;
 
-type Menu = "collection" | "display" | "sound" | null;
+type Menu = "collection" | "display" | "sound" | "favorite" | null;
+
+/** The link that opens one photo, for sharing and for coming back to. */
+function photoLink(id: string) {
+  const url = new URL("/", window.location.origin);
+  url.searchParams.set("photo", id);
+  return url.href;
+}
 
 export function Gallery({
   assets,
@@ -66,7 +75,16 @@ export function Gallery({
   onOpenLibrary: () => void;
 }) {
   const preferences = useGalleryPreferences();
-  const { favorites, toggle: toggleFavoriteId } = useFavorites();
+  // Favorites are kept by the account the viewer signed in with.
+  const account = useAccount();
+  const signedIn = account.status === "member";
+  const {
+    favorites,
+    favoriteAfterSignIn,
+    failures: favoriteFailures,
+    settled: favoritesSettled,
+    toggle: toggleFavoriteId,
+  } = useFavorites(account.member?.id ?? null);
   const today = useToday();
   const fullscreen = useFullscreen();
   const [pausedByUser, setPausedByUser] = useState(false);
@@ -128,11 +146,14 @@ export function Gallery({
     [assets, chronological],
   );
   const collection = chosen.members.length > 0 ? chosen : everything;
+  // An empty collection gives way to Everything, but Favorites only once
+  // they are known: they arrive a moment after the page, from the account.
+  const favoritesKnown = account.status !== "checking" && favoritesSettled;
   useEffect(() => {
-    if (chosen.members.length === 0 && collectionId !== "all") {
-      setCollectionId("all");
-    }
-  }, [chosen.members.length, collectionId, setCollectionId]);
+    if (chosen.members.length > 0 || collectionId === "all") return;
+    if (collectionId === "favorites" && !favoritesKnown) return;
+    setCollectionId("all");
+  }, [chosen.members.length, collectionId, favoritesKnown, setCollectionId]);
 
   const onThisDay = useMemo(
     () =>
@@ -198,6 +219,10 @@ export function Gallery({
     const timeout = window.setTimeout(() => setToast(null), 2_200);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+  // The heart already went back; this says why.
+  useEffect(() => {
+    if (favoriteFailures > 0) showToast("Couldn’t save that favorite");
+  }, [favoriteFailures, showToast]);
 
   // Actions the viewer takes make a sound; the timer and song ends do not.
   const togglePause = useCallback(() => {
@@ -229,14 +254,29 @@ export function Gallery({
     cue(videosOn ? "switchOff" : "switchOn");
     setVideosOn(!videosOn);
   }, [setVideosOn, videosOn]);
+  // A guest's heart asks them to sign in instead.
   const toggleFavorite = useCallback(() => {
+    if (!signedIn) {
+      cue("open");
+      setMenu("favorite");
+      return;
+    }
     cue(favorite ? "unfavorite" : "favorite");
     toggleFavoriteId(asset.id);
-  }, [asset.id, favorite, toggleFavoriteId]);
+  }, [asset.id, favorite, signedIn, toggleFavoriteId]);
+  // Signing in to favorite a photo comes back to it, and favorites it.
+  const { signIn } = account;
+  const signInToFavorite = useCallback(
+    (id: string) => {
+      cue("select");
+      favoriteAfterSignIn(id);
+      void signIn(photoLink(id));
+    },
+    [favoriteAfterSignIn, signIn],
+  );
 
   const share = useCallback(async () => {
-    const url = new URL("/", window.location.origin);
-    url.searchParams.set("photo", asset.id);
+    const url = new URL(photoLink(asset.id));
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     if (coarse && navigator.share) {
       try {
@@ -418,6 +458,7 @@ export function Gallery({
                 if (open) cue("open");
                 setMenu(open ? "collection" : null);
               }}
+              favoritesLocked={!signedIn}
               onOpenLibrary={openLibrary}
               onSelect={(id) => {
                 cue("select");
@@ -444,13 +485,24 @@ export function Gallery({
 
         <Dock
           canGoBack={slideshow.canGoBack}
-          favorite={favorite}
+          favoriteButton={
+            <FavoriteButton
+              account={account.status}
+              favorite={favorite}
+              onOpenChange={(open) => {
+                if (open) cue("open");
+                setMenu(open ? "favorite" : null);
+              }}
+              onSignIn={() => signInToFavorite(asset.id)}
+              onToggle={toggleFavorite}
+              open={menu === "favorite"}
+            />
+          }
           fullscreen={fullscreen}
           holdProps={holdProps}
           onNext={goNext}
           onPrevious={goPrevious}
           onShare={() => void share()}
-          onToggleFavorite={toggleFavorite}
           onToggleFullscreen={toggleFullscreen}
           onTogglePause={togglePause}
           paused={pausedByUser}
@@ -517,8 +569,13 @@ export function Gallery({
             assets={assets}
             chronological={chronological}
             currentIndex={slideshow.index}
+            account={account.status}
             favorites={favorites}
             onClose={closeLibrary}
+            onSignIn={() => {
+              cue("select");
+              void signIn(photoLink(asset.id));
+            }}
             onOpenAsset={openAsset}
             onPlayMonth={playMonth}
           />

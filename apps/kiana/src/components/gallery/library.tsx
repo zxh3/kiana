@@ -6,7 +6,9 @@ import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
 import { fades, springs } from "../../lib/motion";
 import { cue } from "../../lib/sounds";
+import type { AccountStatus } from "./account";
 import { ControlButton, focusRing } from "./control-button";
+import { SignInButton } from "./favorite-button";
 import { CloseIcon, HeartIcon, LiveIcon, PlayIcon } from "./icons";
 import {
   buildRows,
@@ -197,12 +199,16 @@ function MonthHeader({
 export function Library({
   assets,
   chronological,
+  account,
   currentIndex,
   favorites,
   onClose,
   onOpenAsset,
   onPlayMonth,
+  onSignIn,
 }: {
+  /** A guest's Favorites asks them to sign in. */
+  account: AccountStatus;
   assets: ReadonlyArray<GalleryAsset>;
   chronological: ReadonlyArray<number>;
   currentIndex: number;
@@ -210,6 +216,7 @@ export function Library({
   onClose: () => void;
   onOpenAsset: (index: number) => void;
   onPlayMonth: (monthKey: string) => void;
+  onSignIn: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const scrollRef = useRef<HTMLElement>(null);
@@ -497,13 +504,32 @@ export function Library({
                     ) : row.kind === "empty" ? (
                       <div className="flex h-full flex-col items-start justify-center gap-3 border-t border-paper/8">
                         <HeartIcon className="text-rose" size={22} />
-                        <p className="font-serif text-[26px] leading-tight italic">
-                          Nothing saved yet.
-                        </p>
-                        <p className="max-w-sm text-[12px] leading-relaxed text-paper/50">
-                          Tap the heart on a photo in the slideshow and it will
-                          wait for you here.
-                        </p>
+                        {account === "member" ? (
+                          <>
+                            <p className="font-serif text-[26px] leading-tight italic">
+                              Nothing saved yet.
+                            </p>
+                            <p className="max-w-sm text-[12px] leading-relaxed text-paper/50">
+                              Tap the heart on a photo in the slideshow and it
+                              will wait for you here, on every device.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-serif text-[26px] leading-tight italic">
+                              Sign in to keep favorites.
+                            </p>
+                            <p className="max-w-sm text-[12px] leading-relaxed text-paper/50">
+                              Favorites are kept in your Google account, so they
+                              wait for you here on every device.
+                            </p>
+                            <SignInButton
+                              account={account}
+                              className="mt-1 w-auto"
+                              onSignIn={onSignIn}
+                            />
+                          </>
+                        )}
                       </div>
                     ) : row.kind === "month" ? (
                       <MonthHeader
