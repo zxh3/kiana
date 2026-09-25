@@ -46,6 +46,11 @@ export type ChatMessage = {
   at: number;
   /** Sent by someone signed in with Google. */
   verified?: boolean;
+  /**
+   * Sent by the account this browser is signed in with, from any device
+   * or visit; the room marks it for that account's connections alone.
+   */
+  mine?: boolean;
 };
 
 /** From the browser to the room. */
@@ -212,7 +217,10 @@ function parsePeople(raw: unknown) {
 
 function parseChatMessage(raw: unknown): ChatMessage | null {
   if (typeof raw !== "object" || raw === null) return null;
-  const { id, from, name, text, at, verified } = raw as Record<string, unknown>;
+  const { id, from, name, text, at, verified, mine } = raw as Record<
+    string,
+    unknown
+  >;
   if (
     typeof id !== "string" ||
     typeof from !== "string" ||
@@ -224,6 +232,7 @@ function parseChatMessage(raw: unknown): ChatMessage | null {
   }
   const message: ChatMessage = { id, from, name, text, at };
   if (verified === true) message.verified = true;
+  if (mine === true) message.mine = true;
   return message;
 }
 

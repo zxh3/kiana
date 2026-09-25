@@ -200,7 +200,7 @@ describe("parseServerMessage", () => {
     ).toEqual({ type: "notice", text: "slow" });
   });
 
-  it("reads who is verified, and only a true mark", () => {
+  it("reads who is verified and what is mine, and only a true mark", () => {
     const raw = JSON.stringify({
       type: "welcome",
       you: "p",
@@ -208,7 +208,10 @@ describe("parseServerMessage", () => {
         { id: "p", name: "kiana", verified: true },
         { id: "q", name: "amy", verified: "yes" },
       ],
-      messages: [{ ...message, verified: true }],
+      messages: [
+        { ...message, verified: true, mine: true },
+        { ...message, id: "n", mine: 1 },
+      ],
     });
     expect(parseServerMessage(raw)).toEqual({
       type: "welcome",
@@ -217,7 +220,10 @@ describe("parseServerMessage", () => {
         { id: "p", name: "kiana", verified: true },
         { id: "q", name: "amy" },
       ],
-      messages: [{ ...message, verified: true }],
+      messages: [
+        { ...message, verified: true, mine: true },
+        { ...message, id: "n" },
+      ],
     });
   });
 
