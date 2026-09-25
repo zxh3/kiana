@@ -4,6 +4,7 @@ import { AUTH_PATH } from "./lib/auth";
 import { CHAT_PATH } from "./lib/chat";
 import { FAVORITES_PATH } from "./lib/favorites";
 import { MUYU_PATH } from "./lib/muyu";
+import { fromElsewhere } from "./lib/origin";
 import { type Account, withAccount } from "./server/account";
 import { accountOf, handleAuth } from "./server/auth";
 import { handleFavorites } from "./server/favorites";
@@ -51,8 +52,7 @@ export default createServerEntry({
     if (!route) return handler.fetch(request, ...rest);
     // Only the site's own pages may use these, not scripts on other sites
     // riding on a visitor's browser.
-    const origin = request.headers.get("Origin");
-    if (origin && new URL(origin).host !== url.host) {
+    if (fromElsewhere(request.headers.get("Origin"), url.host)) {
       return new Response("Forbidden", { status: 403 });
     }
     // Who is asking comes from the Worker's check of their session, not
