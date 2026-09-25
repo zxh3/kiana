@@ -1,5 +1,5 @@
 /**
- * What the live apps' WebSockets (the Chat Room and 电子木鱼) share, in the
+ * What the live apps' WebSockets (Chat and 电子木鱼) share, in the
  * browser and in their Durable Objects: the words that keep a quiet
  * connection open. The Durable Objects answer them without waking.
  */

@@ -17,7 +17,7 @@ export { WoodenFish } from "./server/wooden-fish";
 /**
  * What the Worker answers ahead of TanStack Start, each told who is asking
  * if they signed in: the live apps' WebSockets, each served by one Durable
- * Object that all visitors share (everyone talks in the one chat room, and
+ * Object that all visitors share (everyone talks in the one room, and
  * adds to the one wooden fish's merit), and the viewer's favorites.
  */
 type Route = (

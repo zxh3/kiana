@@ -249,7 +249,7 @@ export function usePod({
     lit: backlight.lit,
     /** The finger spinner's looks, chosen in Settings. */
     looks: { spinner: settings.spinner, face: settings.face },
-    /** The Chat Room's connection, messages, and who is here. */
+    /** Chat's connection, messages, and who is here. */
     chat,
     /** The electronic wooden fish's merit, everyone's and the viewer's. */
     muyu,

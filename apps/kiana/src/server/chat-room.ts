@@ -50,8 +50,8 @@ type MessageRow = {
 };
 
 /**
- * The click-wheel player's chat room: one Durable Object that every
- * browser with the Chat Room open connects to by WebSocket. It keeps every
+ * The room behind the click-wheel player's Chat: one Durable Object that
+ * every browser with Chat open connects to by WebSocket. It keeps every
  * message in its SQLite storage and sends whoever joins the latest page of
  * them; scrolling up to the top asks for the page before, and so on. It
  * tells everyone who is here whenever someone joins, leaves, or changes

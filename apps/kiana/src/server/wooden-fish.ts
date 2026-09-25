@@ -28,7 +28,7 @@ type Knocker = { budget?: KnockBudget; account?: string };
  * browsers hears it with the total. A guest's own merit stays in their
  * browser.
  *
- * It uses the WebSocket Hibernation API, as the chat room does, and keeps
+ * It uses the WebSocket Hibernation API, as Chat does, and keeps
  * the counts in its SQLite storage. The limits are in `lib/muyu.ts`.
  */
 export class WoodenFish extends DurableObject<Env> {

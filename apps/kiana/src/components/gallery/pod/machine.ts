@@ -54,7 +54,7 @@ export type PodState = {
   asleep: boolean;
   /**
    * What the wheel has done on an app's own screen, counted up: its clicks
-   * (signed), which wind the finger spinner and scroll the Chat Room, and
+   * (signed), which wind the finger spinner and scroll Chat, and
    * presses of the centre button, which flick the spinner and save Your
    * Name. The screen showing turns each new one into motion or an action,
    * counting from where they were when it opened.
@@ -76,7 +76,7 @@ export type PodContext = {
   videoOpen: boolean;
   /** The video covers the display (turned on, or YouTube needs a tap). */
   videoCovers: boolean;
-  /** Rows in the Chat Room's Online list, the viewer's own first. */
+  /** Rows in Chat's Online list, the viewer's own first. */
   online: number;
   /** Whether the viewer is signed in with Google. */
   account: AccountStatus;
@@ -117,7 +117,7 @@ export type PodAction =
   | { type: "hover"; screen: ChoiceScreen; index: number }
   | { type: "scrubTo"; fraction: number; done: boolean }
   | { type: "volumeTo"; fraction: number; done: boolean }
-  // The Chat Room's text fields.
+  // Chat's text fields.
   | { type: "say"; text: string }
   | { type: "saveName"; name: string }
   // The hold switch.
@@ -399,7 +399,7 @@ export function podReducer(
           ? turnScrubber(state, action.steps, context)
           : turnVolume(state, action.steps, context);
       }
-      // The finger spinner winds with every click, and the Chat Room
+      // The finger spinner winds with every click, and Chat
       // scrolls; both click to be felt.
       if (state.screen === "spinner" || state.screen === "chat") {
         return {
@@ -428,7 +428,7 @@ export function podReducer(
       if (state.screen === "muyu") {
         return { state, effects: [PRESS, { type: "pat" }] };
       }
-      // In the Chat Room the centre button opens the Online list, and on
+      // In Chat the centre button opens the Online list, and on
       // Your Name it saves the name, which the screen answers with
       // `saveName`.
       if (state.screen === "chat") return go(state, "online", 1, SELECT);

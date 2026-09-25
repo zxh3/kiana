@@ -7,7 +7,7 @@ import {
 } from "../../../../../lib/chat";
 
 /**
- * The Chat Room's side of the conversation, as a pure reducer: what the
+ * Chat's side of the conversation, as a pure reducer: what the
  * connection is doing, who is here and who is typing, and the messages so
  * far: the latest page from joining, earlier pages added in front as the
  * viewer scrolls up for them, and every new one. `use-chat.ts` feeds it

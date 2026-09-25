@@ -5,7 +5,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
   // The click-wheel player's live apps, each one Durable Object that every
-  // visitor shares: the chat room, with its last messages, and the
+  // visitor shares: Chat, with its messages, and the
   // electronic wooden fish, with everyone's merit.
   "durable_objects": {
     "bindings": [

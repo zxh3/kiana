@@ -17,7 +17,7 @@ const NEAR_END = 12;
 const NEAR_TOP = 24;
 
 /**
- * The Chat Room under Apps: everyone with it open talks in one room.
+ * Chat under Apps: everyone with it open talks in one room.
  * The strip at the top says how many are online and opens the list of
  * them (as does the centre button), the messages fill the middle with the
  * newest at the bottom, followed by who is typing, and the field below

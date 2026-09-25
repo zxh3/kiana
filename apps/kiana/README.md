@@ -79,7 +79,7 @@ Mediaforge release manifest and displays the responsive images described by it.
   Kiana sits on its cap, which stays upright while the rest spins. Its art
   was generated with OpenAI's gpt-image-2.5-sunburst, Kiana's faces from
   her photos, and each spinner made exactly symmetric so it turns without
-  wobbling. The second is a Chat Room, where everyone with it open
+  wobbling. The second is Chat, where everyone with it open
   talks in one room. Its top strip says how many are online and opens the
   Online list (as does the centre button), the messages fill the middle,
   newest at the bottom, followed by who is typing ("amy is typing…", for a
@@ -155,14 +155,14 @@ Mediaforge release manifest and displays the responsive images described by it.
   rules, hook, screen, and art, in `pod/apps/spinner`, `pod/apps/chat`, and
   `pod/apps/muyu`.
 - **Signing in.** Signing in with Google, from the player's Settings →
-  Account or the heart, keeps favorites, and gives a verified name in the
-  Chat Room and merit of one's own in 电子木鱼 that follows the account.
+  Account or the heart, keeps favorites, and gives a verified name in
+  Chat and merit of one's own in 电子木鱼 that follows the account.
   It goes to Google and comes back to the same page; signing out stays on
   it. It is run by [Better Auth](https://www.better-auth.com) in the Worker
   (`src/server/auth.ts`), at `/api/auth`, which keeps each person's Google
   name (first name only), email, and picture, and their sessions, in a
   Cloudflare D1 database, `kiana-auth`, and creates or updates its tables
-  itself. When the Chat Room or 电子木鱼 connects, the Worker checks the
+  itself. When Chat or 电子木鱼 connects, the Worker checks the
   session cookie and passes the account on to the Durable Object; a signed
   copy of the session in a cookie lets it do so without asking the
   database for five minutes at a time. In the browser it is Better Auth's
@@ -202,7 +202,7 @@ Mediaforge release manifest and displays the responsive images described by it.
 
 Preferences, date-order positions, and the music volume, song,
 mute, shuffle, repeat, player size, corner, finish, backlight, and clicker, the
-finger spinner's best speed, spinner, and face, the Chat Room name, a guest's own 猫德, the video sound level, and the interface sounds switch and level are stored in
+finger spinner's best speed, spinner, and face, the name in Chat, a guest's own 猫德, the video sound level, and the interface sounds switch and level are stored in
 local storage under `kiana.*` keys.
 
 ### Keyboard shortcuts
@@ -231,8 +231,8 @@ npm run dev
 Without configuration, the app loads the current release from
 `https://media.kiana.me/releases/current`.
 
-The development server runs the Worker in Cloudflare's own runtime, so the
-Chat Room and 电子木鱼 work locally too: their Durable Objects and storage are
+The development server runs the Worker in Cloudflare's own runtime, so
+Chat and 电子木鱼 work locally too: their Durable Objects and storage are
 simulated under `.wrangler/state`, separate from production's. Delete that
 folder to empty the local room and count. The Worker's entry is
 `src/server.ts`, which puts their WebSockets in front of TanStack Start and

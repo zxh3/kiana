@@ -29,7 +29,7 @@ import { useScrollSteps } from "./use-scroll-steps";
  * Keyboard: the wheel's buttons are ordinary buttons (Enter on the centre
  * chooses, on Menu goes back). With focus anywhere in the player, ↑ and ↓
  * turn the wheel (← and → too in Cover Flow, whose covers run sideways),
- * and Escape goes back. In the Chat Room's text fields the keys type.
+ * and Escape goes back. In Chat's text fields the keys type.
  */
 export function PocketPlayer({
   active,
@@ -76,7 +76,7 @@ export function PocketPlayer({
       controls.back();
       return;
     }
-    // In the Chat Room's text fields the keys type, and keep the screen lit.
+    // In Chat's text fields the keys type, and keep the screen lit.
     if (event.target instanceof HTMLInputElement) {
       wake();
       return;
