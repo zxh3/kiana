@@ -107,7 +107,10 @@ describe("pocket player screen", () => {
       finish: "silver",
       spinner: "stealth",
       face: "curious",
-      account: { status: "member", member: { id: "u1", name: "Xiaohua" } },
+      account: {
+        status: "member",
+        member: { id: "u1", name: "Xiaohua", admin: false },
+      },
       chat: { name: "Xiaohua", status: "open", others: [], last: undefined },
       videoOpen: false,
       volume: 50,

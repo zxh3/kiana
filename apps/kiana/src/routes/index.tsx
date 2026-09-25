@@ -7,7 +7,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Gallery } from "../components/gallery";
-import { loadGalleryAssets } from "../data/photos";
+import { loadGallery } from "../data/gallery";
 
 type GallerySearch = {
   /** A shared photo to open first. */
@@ -23,9 +23,10 @@ export const Route = createFileRoute("/")({
         : undefined,
     view: search.view === "library" ? "library" : undefined,
   }),
-  loader: loadGalleryAssets,
-  // The manifest is large and changes only with a new release, so opening
-  // the library or a shared link must not fetch it again.
+  loader: () => loadGallery(),
+  // The manifest is large and changes only with a new release or an
+  // admin's change, so opening the library or a shared link must not fetch
+  // it again.
   shouldReload: false,
   staleTime: Number.POSITIVE_INFINITY,
   head: ({ loaderData, match }) => {

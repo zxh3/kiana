@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { cx } from "../../lib/class-names";
 import { springs } from "../../lib/motion";
 import { ControlButton, focusRing } from "./control-button";
-import { KeyboardIcon, SlidersIcon } from "./icons";
+import { EyeOffIcon, KeyboardIcon, ShieldIcon, SlidersIcon } from "./icons";
 import {
   type Duration,
   durations,
@@ -101,7 +101,37 @@ function Segmented<T extends string | number>({
   );
 }
 
+/** A row at the foot of the menu that does one thing. */
+function MenuRow({
+  hint,
+  icon,
+  label,
+  onClick,
+}: {
+  hint?: ReactNode;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={cx(
+        "flex w-full cursor-pointer items-center gap-3 rounded-[14px] px-2 py-2.5 text-left text-paper/75 transition-colors hover:bg-paper/8 hover:text-paper",
+        focusRing,
+        "focus-visible:ring-offset-0",
+      )}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="text-paper/55">{icon}</span>
+      <span className="flex-1 text-[12px]">{label}</span>
+      {hint}
+    </button>
+  );
+}
+
 export function DisplayMenu({
+  admin,
   duration,
   frame,
   keepAwake,
@@ -114,6 +144,8 @@ export function DisplayMenu({
   open,
   order,
 }: {
+  /** For an admin: hiding the photo on screen, and the admin page. */
+  admin?: { onHidePhoto: () => void; onOpenAdmin: () => void };
   duration: Duration;
   frame: Frame;
   keepAwake: boolean | null;
@@ -219,23 +251,36 @@ export function DisplayMenu({
       ) : null}
 
       <div className="mt-1 border-t border-paper/8 px-1 pt-1">
-        <button
-          className={cx(
-            "flex w-full cursor-pointer items-center gap-3 rounded-[14px] px-2 py-2.5 text-left text-paper/75 transition-colors hover:bg-paper/8 hover:text-paper",
-            focusRing,
-            "focus-visible:ring-offset-0",
-          )}
+        <MenuRow
+          hint={<kbd className="text-[10px] text-paper/40">?</kbd>}
+          icon={<KeyboardIcon size={18} />}
+          label="Keyboard shortcuts"
           onClick={() => {
             onOpenChange(false);
             onOpenHelp();
           }}
-          type="button"
-        >
-          <KeyboardIcon className="text-paper/55" size={18} />
-          <span className="flex-1 text-[12px]">Keyboard shortcuts</span>
-          <kbd className="text-[10px] text-paper/40">?</kbd>
-        </button>
+        />
       </div>
+
+      {admin ? (
+        <div className="mt-1 border-t border-paper/8 px-1 pt-1">
+          <p className="label px-2 pt-2.5 pb-1.5 text-paper/40">Admin</p>
+          <MenuRow
+            icon={<EyeOffIcon size={18} />}
+            label="Hide this photo"
+            onClick={() => {
+              onOpenChange(false);
+              admin.onHidePhoto();
+            }}
+          />
+          <MenuRow
+            hint={<span className="text-[12px] text-paper/40">→</span>}
+            icon={<ShieldIcon size={18} />}
+            label="Manage photos and people"
+            onClick={admin.onOpenAdmin}
+          />
+        </div>
+      ) : null}
     </Popover>
   );
 }

@@ -5,9 +5,11 @@ import { CHAT_PATH } from "./lib/chat";
 import { FAVORITES_PATH } from "./lib/favorites";
 import { MUYU_PATH } from "./lib/muyu";
 import { fromElsewhere } from "./lib/origin";
+import type { RequestContext } from "./lib/request-context";
 import { type Account, withAccount } from "./server/account";
-import { accountOf, handleAuth } from "./server/auth";
+import { accountOf, handleAuth, photoAdminOf } from "./server/auth";
 import { handleFavorites } from "./server/favorites";
+import { hiddenPhotoIds } from "./server/hidden-photos";
 
 export { ChatRoom } from "./server/chat-room";
 export { WoodenFish } from "./server/wooden-fish";
@@ -39,21 +41,34 @@ const routes: Record<string, Route> = {
   [FAVORITES_PATH]: handleFavorites,
 };
 
+/** Where TanStack Start answers the browser's calls to server functions. */
+const SERVER_FUNCTIONS_PATH = "/_serverFn/";
+
 /**
  * The Worker's entry: TanStack Start's own for every page, with signing
  * in and `routes` in front of it, and the Durable Object classes exported
- * so Cloudflare can run them.
+ * so Cloudflare can run them. TanStack Start's server functions reach the
+ * database through the request's context.
  */
 export default createServerEntry({
-  async fetch(request, ...rest) {
+  async fetch(request) {
     const url = new URL(request.url);
     if (url.pathname.startsWith(`${AUTH_PATH}/`)) return handleAuth(request);
-    const route = routes[url.pathname];
-    if (!route) return handler.fetch(request, ...rest);
+    const route = routes[url.pathname] as Route | undefined;
     // Only the site's own pages may use these, not scripts on other sites
     // riding on a visitor's browser.
-    if (fromElsewhere(request.headers.get("Origin"), url.host)) {
+    if (
+      (route || url.pathname.startsWith(SERVER_FUNCTIONS_PATH)) &&
+      fromElsewhere(request.headers.get("Origin"), url.host)
+    ) {
       return new Response("Forbidden", { status: 403 });
+    }
+    if (!route) {
+      const context: RequestContext = {
+        hiddenPhotoIds,
+        photoAdmin: () => photoAdminOf(request),
+      };
+      return handler.fetch(request, { context });
     }
     // Who is asking comes from the Worker's check of their session, not
     // from the browser.

@@ -20,7 +20,18 @@ describe("podAccount", () => {
     });
     expect(
       podAccount({ data: { user }, isPending: false, error: null }),
-    ).toEqual({ status: "member", member: { id: "u1", name: "Xiaohua" } });
+    ).toEqual({
+      status: "member",
+      member: { id: "u1", name: "Xiaohua", admin: false },
+    });
+  });
+
+  it("knows an admin by their role", () => {
+    const admin = { ...user, role: "admin" };
+    expect(
+      podAccount({ data: { user: admin }, isPending: false, error: null })
+        .member?.admin,
+    ).toBe(true);
   });
 
   it("keeps a member while the session is checked again", () => {

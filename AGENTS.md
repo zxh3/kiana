@@ -47,7 +47,15 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
   with signing in, favorites, and the pod's live apps in front of it.
   Signing in with Google is Better Auth in `src/server/auth.ts`, on a D1
   database, which also keeps each account's favorites
-  (`src/server/favorites.ts`, with `src/lib/favorites.ts`); the
+  (`src/server/favorites.ts`, with `src/lib/favorites.ts`) and the photos
+  admins hid (`src/server/hidden-photos.ts`, with
+  `src/lib/hidden-photos.ts`). Roles are Better Auth's admin plugin, with
+  what each may do in `src/lib/permissions.ts`; the admin page is
+  `src/routes/admin.tsx` and `src/components/admin`. The gallery and the
+  admin page load through server functions in `src/data/gallery.ts`,
+  which reach the database only through what the Worker hands each
+  request (`src/lib/request-context.ts`), so app code never imports the
+  Worker's; the
   live apps are each a Durable Object, told who is connecting by the
   Worker (`src/server/account.ts`): the chat room in
   `src/server/chat-room.ts`, whose rules live in `src/lib/chat.ts`, and

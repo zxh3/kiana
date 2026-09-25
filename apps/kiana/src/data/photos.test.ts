@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { excludedAssetIds } from "./excluded-assets";
-import { parseMediaforgeManifest } from "./photos";
+import { parseMediaforgeManifest, withoutHidden } from "./photos";
 
 const image = {
   small: "images/example-1280.webp",
@@ -68,20 +67,29 @@ describe("parseMediaforgeManifest", () => {
       ),
     ).toThrow("assets[0].video must be an object");
   });
+});
 
-  it("filters curated exclusions from regenerated manifests", () => {
-    const [excludedId] = excludedAssetIds;
-    const assets = parseMediaforgeManifest(
-      {
-        schemaVersion: 1,
-        assets: [
-          { id: excludedId, type: "photo", date: null, image },
-          { id: "included", type: "photo", date: null, image },
-        ],
-      },
-      "https://media.kiana.me/releases/current",
+describe("withoutHidden", () => {
+  const release = parseMediaforgeManifest(
+    {
+      schemaVersion: 1,
+      assets: [
+        { id: "hidden", type: "photo", date: null, image },
+        { id: "shown", type: "photo", date: null, image },
+      ],
+    },
+    "https://media.kiana.me/releases/current",
+  );
+
+  it("leaves out the photos an admin hid", () => {
+    expect(
+      withoutHidden(release, new Set(["hidden"])).map(({ id }) => id),
+    ).toEqual(["shown"]);
+  });
+
+  it("refuses a gallery with nothing left in it", () => {
+    expect(() => withoutHidden(release, new Set(["hidden", "shown"]))).toThrow(
+      "Every photo in the release is hidden",
     );
-
-    expect(assets.map(({ id }) => id)).toEqual(["included"]);
   });
 });
