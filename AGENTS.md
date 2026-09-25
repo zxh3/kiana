@@ -36,8 +36,12 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
 ## Web app
 
 - **Layout.** `src/components/gallery` is the slideshow. `gallery/music` is
-  the background music: `use-music.ts` drives a YouTube embed, and `pod/` is
-  the click-wheel player. `gallery/sound` is the sound mixer. `src/lib/sounds`
+  the background music and the player's widget: `use-music.ts` drives a
+  YouTube embed. `gallery/pod` is the click-wheel player, which is more a
+  controller than a music player now: its state machine, menus, and shared
+  screens at the top, its hardware in `pod/device`, and each app (the
+  finger spinner, the Chat Room, 电子木鱼) in `pod/apps/<app>` with its
+  rules, hook, screen, and art together. `gallery/sound` is the sound mixer. `src/lib/sounds`
   generates the interface sounds, and `src/lib/motion.ts` holds the shared
   animation presets. `src/server.ts` is the Worker's entry: TanStack Start,
   with signing in, favorites, and the pod's live apps in front of it.

@@ -25,7 +25,7 @@ import {
   type ChoiceScreen,
   chatScreens,
   parentScreen,
-  type SettingsItem,
+  type ToggleSetting,
 } from "./menu";
 import { describePod, type PodView, podRows } from "./rows";
 import { BACKLIGHT_TIMEOUT, type PodSettings } from "./settings";
@@ -81,19 +81,18 @@ export function usePod({
     account: account.status,
   };
 
-  const applySetting = (item: SettingsItem) => {
-    if (item === "shuffle") music.setShuffle(!music.shuffle);
-    else if (item === "repeat") {
-      music.setRepeat(music.repeat === "one" ? "all" : "one");
-    } else if (item === "backlight") {
+  // What a press on each setting does: the next value, in place.
+  const toggleSetting: Record<ToggleSetting, () => void> = {
+    shuffle: () => music.setShuffle(!music.shuffle),
+    repeat: () => music.setRepeat(music.repeat === "one" ? "all" : "one"),
+    backlight: () =>
       settings.setBacklight(
         settings.backlight === "timed" ? "always" : "timed",
-      );
-    } else if (item === "clicker") settings.setClicker(!settings.clicker);
-    else if (item === "finish") settings.setFinish(nextFinish(settings.finish));
-    else if (item === "spinner") {
-      settings.setSpinner(nextSpinnerStyle(settings.spinner));
-    } else settings.setFace(nextKianaFace(settings.face));
+      ),
+    clicker: () => settings.setClicker(!settings.clicker),
+    finish: () => settings.setFinish(nextFinish(settings.finish)),
+    spinner: () => settings.setSpinner(nextSpinnerStyle(settings.spinner)),
+    face: () => settings.setFace(nextKianaFace(settings.face)),
   };
 
   const run = (effect: PodEffect) => {
@@ -137,7 +136,7 @@ export function usePod({
         else backlight.wake();
         break;
       case "setting":
-        applySetting(effect.item);
+        toggleSetting[effect.item]();
         break;
       case "video":
         onVideoChange(effect.on);

@@ -108,12 +108,6 @@ export const menuOpens: Record<MenuItem, boolean> = {
 export const appItems = ["spinner", "chat", "muyu"] as const;
 export type AppItem = (typeof appItems)[number];
 
-export const appLabels: Record<AppItem, string> = {
-  spinner: "Finger Spinner",
-  chat: "Chat Room",
-  muyu: "电子木鱼",
-};
-
 /** The language of each app's name, where it is not English. */
 export const appLangs: Partial<Record<AppItem, string>> = { muyu: "zh" };
 
@@ -143,6 +137,8 @@ export const settingsItems = [
   "account",
 ] as const;
 export type SettingsItem = (typeof settingsItems)[number];
+/** The settings a press changes in place; Account opens a screen instead. */
+export type ToggleSetting = Exclude<SettingsItem, "account">;
 
 export const settingsLabels: Record<SettingsItem, string> = {
   shuffle: "Shuffle",

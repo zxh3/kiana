@@ -9,8 +9,8 @@ import {
   moveSelection,
   parentScreen,
   type Screen,
-  type SettingsItem,
   settingsItems,
+  type ToggleSetting,
 } from "./menu";
 
 /**
@@ -53,16 +53,13 @@ export type PodState = {
   /** Put to sleep by holding play: paused, the screen dark. */
   asleep: boolean;
   /**
-   * What the viewer has done to the finger spinner, counted up: the wheel's
-   * clicks (signed) and the flicks. Its screen turns each new one into
-   * motion; the spinning itself is only drawn.
+   * What the wheel has done on an app's own screen, counted up: its clicks
+   * (signed), which wind the finger spinner and scroll the Chat Room, and
+   * presses of the centre button, which flick the spinner and save Your
+   * Name. The screen showing turns each new one into motion or an action,
+   * counting from where they were when it opened.
    */
-  spin: { steps: number; flicks: number };
-  /**
-   * The same for the Chat Room: the wheel's clicks, which scroll the
-   * messages, and presses of the centre button on Your Name, which save it.
-   */
-  chat: { steps: number; saves: number };
+  wheel: { steps: number; presses: number };
 };
 
 /** What the machine needs to know about the music and the widget. */
@@ -96,7 +93,7 @@ export type PodEffect =
   | { type: "seek"; seconds: number }
   | { type: "pause" }
   | { type: "backlight" }
-  | { type: "setting"; item: SettingsItem }
+  | { type: "setting"; item: ToggleSetting }
   | { type: "video"; on: boolean }
   | { type: "say"; text: string }
   | { type: "rename"; name: string }
@@ -192,8 +189,7 @@ export function initialPodState(index: number): PodState {
     seeking: 0,
     seekTicks: 0,
     asleep: false,
-    spin: { steps: 0, flicks: 0 },
-    chat: { steps: 0, saves: 0 },
+    wheel: { steps: 0, presses: 0 },
   };
 }
 
@@ -209,6 +205,15 @@ function choiceCount(screen: ChoiceScreen, context: PodContext) {
 /** The wheel's own tick, unless the clicker is off. */
 function tick(context: PodContext): PodEffect[] {
   return context.clicker ? [{ type: "cue", cue: "wheel" }] : [];
+}
+
+/** The wheel's clicks and presses, counted up for the app showing. */
+function countWheel(state: PodState, steps: number, presses: number) {
+  const { wheel } = state;
+  return {
+    ...state,
+    wheel: { steps: wheel.steps + steps, presses: wheel.presses + presses },
+  };
 }
 
 function show(state: PodState, overlay: Overlay): PodState {
@@ -371,25 +376,11 @@ export function podReducer(
           ? turnScrubber(state, action.steps, context)
           : turnVolume(state, action.steps, context);
       }
-      // The finger spinner: every click winds it, and clicks to be felt.
-      if (state.screen === "spinner") {
-        const { spin } = state;
+      // The finger spinner winds with every click, and the Chat Room
+      // scrolls; both click to be felt.
+      if (state.screen === "spinner" || state.screen === "chat") {
         return {
-          state: {
-            ...state,
-            spin: { ...spin, steps: spin.steps + action.steps },
-          },
-          effects: tick(context),
-        };
-      }
-      // In the Chat Room the wheel scrolls the messages.
-      if (state.screen === "chat") {
-        const { chat } = state;
-        return {
-          state: {
-            ...state,
-            chat: { ...chat, steps: chat.steps + action.steps },
-          },
+          state: countWheel(state, action.steps, 0),
           effects: tick(context),
         };
       }
@@ -409,11 +400,7 @@ export function podReducer(
       if (context.videoCovers) return { state, effects: [press] };
       // The centre button flicks the finger spinner.
       if (state.screen === "spinner") {
-        const { spin } = state;
-        return {
-          state: { ...state, spin: { ...spin, flicks: spin.flicks + 1 } },
-          effects: [press],
-        };
+        return { state: countWheel(state, 0, 1), effects: [press] };
       }
       // The electronic wooden fish: each press pats Kiana's head, for merit.
       if (state.screen === "muyu") {
@@ -427,11 +414,7 @@ export function podReducer(
         return { ...next, effects: [{ type: "cue", cue: "select" }] };
       }
       if (state.screen === "name") {
-        const { chat } = state;
-        return {
-          state: { ...state, chat: { ...chat, saves: chat.saves + 1 } },
-          effects: [],
-        };
+        return { state: countWheel(state, 0, 1), effects: [] };
       }
       if (state.screen !== "now") {
         return activate(

@@ -274,7 +274,7 @@ describe("pocket player machine", () => {
       ],
       at("spinner"),
     );
-    expect(state.spin).toEqual({ steps: 1, flicks: 2 });
+    expect(state.wheel).toEqual({ steps: 1, presses: 2 });
     expect(state.screen).toBe("spinner");
     expect(effects).toContainEqual({ type: "cue", cue: "wheel" });
     const quiet = run([{ type: "step", steps: 1 }], at("spinner"), {
@@ -282,7 +282,7 @@ describe("pocket player machine", () => {
       clicker: false,
     });
     expect(quiet.effects).toEqual([]);
-    expect(quiet.state.spin.steps).toBe(1);
+    expect(quiet.state.wheel.steps).toBe(1);
   });
 
   it("goes from Apps to the Chat Room, its Online list, and Your Name", () => {
@@ -310,7 +310,7 @@ describe("pocket player machine", () => {
       ],
       at("chat"),
     );
-    expect(state.chat.steps).toBe(-1);
+    expect(state.wheel.steps).toBe(-1);
     expect(effects).toContainEqual({ type: "cue", cue: "wheel" });
   });
 
@@ -324,7 +324,7 @@ describe("pocket player machine", () => {
 
   it("saves a name from Your Name and goes back to the list", () => {
     const pressed = run([{ type: "select" }], at("name"));
-    expect(pressed.state.chat.saves).toBe(1);
+    expect(pressed.state.wheel.presses).toBe(1);
     expect(pressed.state.screen).toBe("name");
     const { state, effects } = run(
       [{ type: "saveName", name: "kiana" }],

@@ -118,11 +118,11 @@ export function PocketPlayer({
     if (screen === "spinner") {
       return (
         <FingerSpinner
-          flicks={state.spin.flicks}
+          flicks={state.wheel.presses}
           looks={pod.looks}
           onFlick={controls.select}
           onStep={controls.step}
-          steps={state.spin.steps}
+          steps={state.wheel.steps}
         />
       );
     }
@@ -135,7 +135,7 @@ export function PocketPlayer({
           chat={pod.chat}
           onSay={controls.say}
           onShowOnline={controls.select}
-          steps={state.chat.steps}
+          steps={state.wheel.steps}
         />
       );
     }
@@ -144,7 +144,7 @@ export function PocketPlayer({
         <ChatName
           name={pod.chat.name}
           onSave={controls.saveName}
-          saves={state.chat.saves}
+          saves={state.wheel.presses}
         />
       );
     }

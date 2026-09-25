@@ -16,7 +16,6 @@ import {
   accountItems,
   accountLabels,
   appItems,
-  appLabels,
   appLangs,
   type ListScreen,
   menuItems,
@@ -104,7 +103,7 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
     })),
     apps: appItems.map((item) => ({
       key: item,
-      label: appLabels[item],
+      label: screenTitles[item],
       lang: appLangs[item],
       opens: true,
     })),
