@@ -21,8 +21,8 @@ import {
 } from "./chat";
 
 /**
- * The connection to the chat room, open only while `open` (the Chat Room's
- * screens are showing), so the Online list counts people who have it open.
+ * The connection to Chat's room, open only while `open` (its screens are
+ * showing), so the Online list counts people who have it open.
  * It reconnects on its own if the connection drops, and tells the room
  * when the viewer is typing (`typingSignal` says how often). The name is
  * kept between visits; the first time, it is made up (user_ and four

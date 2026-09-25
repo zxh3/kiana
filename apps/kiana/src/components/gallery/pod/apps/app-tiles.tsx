@@ -6,7 +6,7 @@ import { muyuArt } from "./muyu/art";
 import type { SpinnerLooks } from "./spinner/spinner";
 import { SpinnerIcon } from "./spinner/spinner-art";
 
-/** A speech bubble with three dots, for the Chat Room's tile. */
+/** A speech bubble with three dots, for Chat's tile. */
 function ChatBubble() {
   return (
     <svg aria-hidden="true" height="18" viewBox="0 0 20 20" width="18">
@@ -60,7 +60,7 @@ const tiles: Record<
 
 /**
  * The apps, as tiles on a home screen, two to a row, for the top menu's
- * preview of Apps: the finger spinner (turning slowly), the Chat Room, and
+ * preview of Apps: the finger spinner (turning slowly), Chat, and
  * the electronic wooden fish.
  */
 export function AppTiles({ looks }: { looks: SpinnerLooks }) {

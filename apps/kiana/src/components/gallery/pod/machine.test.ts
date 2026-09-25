@@ -296,7 +296,7 @@ describe("pocket player machine", () => {
     expect(quiet.state.wheel.steps).toBe(1);
   });
 
-  it("goes from Apps to the Chat Room, its Online list, and Your Name", () => {
+  it("goes from Apps to Chat, its Online list, and Your Name", () => {
     const { state } = run(
       [
         { type: "pick", screen: "apps", index: 1 },
@@ -313,7 +313,7 @@ describe("pocket player machine", () => {
     expect(back.state.screen).toBe("apps");
   });
 
-  it("scrolls the Chat Room with the wheel", () => {
+  it("scrolls Chat with the wheel", () => {
     const { state, effects } = run(
       [
         { type: "step", steps: 2 },

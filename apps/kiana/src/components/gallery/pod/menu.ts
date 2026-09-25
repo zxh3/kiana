@@ -47,7 +47,7 @@ type ScreenInfo = {
 /**
  * Every screen: its title, where Menu goes back to, and the rest. The top
  * menu is titled with the device's name, as a real one showed the name
- * its owner gave it. The Chat Room is joined while any of its screens
+ * its owner gave it. Chat's room is joined while any of its screens
  * shows (the messages, who is online, and the viewer's name), so the
  * Online list counts people who have it open.
  */
@@ -59,7 +59,7 @@ export const screens: Record<Screen, ScreenInfo> = {
   apps: { title: "Apps", parent: "menu" },
   spinner: { title: "Finger Spinner", parent: "apps" },
   muyu: { title: "电子木鱼", parent: "apps", lang: "zh", room: "muyu" },
-  chat: { title: "Chat Room", parent: "apps", room: "chat" },
+  chat: { title: "Chat", parent: "apps", room: "chat" },
   online: { title: "Online", parent: "chat", room: "chat" },
   name: { title: "Your Name", parent: "online", room: "chat" },
   settings: { title: "Settings", parent: "menu" },

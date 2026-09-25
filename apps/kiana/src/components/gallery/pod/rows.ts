@@ -57,7 +57,7 @@ export type PodView = {
   spinner: SpinnerStyle;
   face: KianaFace;
   account: PodAccount;
-  /** The Chat Room: the viewer's name, and everyone else who is here. */
+  /** Chat: the viewer's name, and everyone else who is here. */
   chat: {
     name: string;
     status: ChatStatus;

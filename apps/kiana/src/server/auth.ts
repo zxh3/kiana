@@ -50,7 +50,7 @@ const options = {
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       prompt: "select_account",
-      // Only the first name, since it is what the chat room shows.
+      // Only the first name, since it is what Chat shows.
       mapProfileToUser: (profile) => ({
         name: profile.given_name || profile.name,
       }),

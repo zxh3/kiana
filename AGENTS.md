@@ -40,7 +40,7 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
   YouTube embed. `gallery/pod` is the click-wheel player, which is more a
   controller than a music player now: its state machine, menus, and shared
   screens at the top, its hardware in `pod/device`, and each app (the
-  finger spinner, the Chat Room, 电子木鱼) in `pod/apps/<app>` with its
+  finger spinner, Chat, 电子木鱼) in `pod/apps/<app>` with its
   rules, hook, screen, and art together. `gallery/sound` is the sound mixer. `src/lib/sounds`
   generates the interface sounds, and `src/lib/motion.ts` holds the shared
   animation presets. `src/server.ts` is the Worker's entry: TanStack Start,
@@ -57,7 +57,7 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
   request (`src/lib/request-context.ts`), so app code never imports the
   Worker's; the
   live apps are each a Durable Object, told who is connecting by the
-  Worker (`src/server/account.ts`): the chat room in
+  Worker (`src/server/account.ts`): Chat's room in
   `src/server/chat-room.ts`, whose rules live in `src/lib/chat.ts`, and
   the wooden fish's merit in `src/server/wooden-fish.ts`, with
   `src/lib/muyu.ts`. The Worker's code has its own `tsconfig.worker.json`,

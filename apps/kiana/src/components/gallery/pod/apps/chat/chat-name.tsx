@@ -34,7 +34,7 @@ export function ChatName({
   return (
     <div className="flex h-full flex-col justify-center gap-1.5 px-3">
       <p className="text-[11px] font-semibold text-[#3d3d3d]">
-        Your name in the Chat Room
+        Your name in Chat
       </p>
       <div className="rounded-[3px] border border-[#a5a5a5] bg-white shadow-[inset_0_1px_2px_rgb(0_0_0/.12)]">
         <PodField

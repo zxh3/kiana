@@ -52,7 +52,7 @@ describe("pocket player screen", () => {
     ).toBe("Clicker, On");
     expect(rows.songs[1].current).toBe(true);
     expect(describePod({ ...state, screen: "chat" }, rows, view)).toBe(
-      "Chat Room, 2 online. amy: hi",
+      "Chat, 2 online. amy: hi",
     );
     expect(describePod({ ...state, screen: "online" }, rows, view)).toBe(
       "kiana, You",

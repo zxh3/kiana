@@ -1,5 +1,5 @@
 /**
- * The chat room's wire protocol and its rules, shared by the browser and
+ * Chat's wire protocol and its rules, shared by the browser and
  * the Durable Object that runs the room (`src/server/chat-room.ts`). Kept
  * free of both so the rules can be tested on their own.
  */
