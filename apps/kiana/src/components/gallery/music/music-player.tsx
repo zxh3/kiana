@@ -4,6 +4,20 @@ import { type CSSProperties, type ReactNode, useState } from "react";
 import { cx } from "../../../lib/class-names";
 import { easeSoft, springs } from "../../../lib/motion";
 import { MusicNoteIcon } from "../icons";
+import { DRAG_HANDLE } from "../pod/device/drag-handle";
+import { type Finish, finishStyles } from "../pod/device/finishes";
+import {
+  BODY_PADDING,
+  BODY_RADIUS,
+  BODY_WIDTH,
+  glassFrame,
+  videoBelowTitleFrame,
+  videoFrame,
+} from "../pod/device/geometry";
+import { NanoPlayer } from "../pod/nano-player";
+import { PocketPlayer } from "../pod/pocket-player";
+import { usePodSettings } from "../pod/settings";
+import { usePod } from "../pod/use-pod";
 import { useStoredState } from "../use-stored-state";
 import {
   type Corner,
@@ -12,20 +26,6 @@ import {
   parsePlayerSize,
 } from "./music-layout";
 import { MusicNotice } from "./music-notice";
-import { DRAG_HANDLE } from "./pod/drag-handle";
-import { type Finish, finishStyles } from "./pod/finishes";
-import {
-  BODY_PADDING,
-  BODY_RADIUS,
-  BODY_WIDTH,
-  glassFrame,
-  videoBelowTitleFrame,
-  videoFrame,
-} from "./pod/geometry";
-import { NanoPlayer } from "./pod/nano-player";
-import { PocketPlayer } from "./pod/pocket-player";
-import { usePodSettings } from "./pod/settings";
-import { usePod } from "./pod/use-pod";
 import { useCornerDrag } from "./use-corner-drag";
 import { useMediaQuery } from "./use-media-query";
 import type { Music } from "./use-music";
