@@ -27,6 +27,7 @@ ORIENTED_JPEG = (
     "aODTbONTJaQSuQsKgFndGdm9WYkk8kk11v2iH/oH2H/AIAWv/xquR8Gf8ifoX/Xha/+ilrpa/tD/iHuQ"
     "f8AQvo/+Cof/Inz/wBaq/zv7z//2Q=="
 ).replace(" ", "")
+UUID = "00000000-0000-4000-8000-000000000001"
 
 
 def make_asset(number: int) -> Asset:
@@ -355,3 +356,111 @@ def test_build_release_only_publishes_manifest_after_verification(
     assert (output / "manifest.partial.json").is_file()
     assert not (output / "manifest.json").exists()
     assert json.loads((output / "errors.json").read_text()) == failures
+
+
+def test_manifest_record_for_photo() -> None:
+    asset = Asset(UUID, (Path(f"{UUID}.HEIC"),), {"date_original": "2024-05-01T12:00:00"})
+
+    record = pipeline.manifest_record(asset, {"width": 2400, "height": "1600"}, None)
+
+    assert record == {
+        "id": UUID,
+        "type": "photo",
+        "date": "2024-05-01T12:00:00",
+        "image": {
+            "small": f"images/{UUID}-1280.webp",
+            "large": f"images/{UUID}-2400.webp",
+            "width": 2400,
+            "height": 1600,
+        },
+    }
+
+
+def test_manifest_record_for_live_photo_includes_video() -> None:
+    asset = Asset(UUID, (Path(f"{UUID}.HEIC"), Path(f"{UUID}.MOV")), {"live_photo": True})
+    video_info = {
+        "streams": [
+            {"index": 0, "codec_type": "audio", "codec_name": "aac"},
+            {
+                "index": 1,
+                "codec_type": "video",
+                "codec_name": "h264",
+                "width": 1440,
+                "height": 1920,
+            },
+        ],
+        "format": {"duration": "2.9335"},
+    }
+
+    record = pipeline.manifest_record(asset, {"width": 1800, "height": 2400}, video_info)
+
+    assert record["type"] == "live_photo"
+    assert record["date"] is None
+    assert record["video"] == {
+        "src": f"videos/{UUID}.mp4",
+        "width": 1440,
+        "height": 1920,
+        "durationMs": 2934,
+    }
+
+
+def test_mp4_codec_args_copies_browser_ready_video() -> None:
+    info = {
+        "streams": [
+            {"index": 0, "codec_type": "video", "codec_name": "h264"},
+            {"index": 1, "codec_type": "audio", "codec_name": "aac"},
+        ]
+    }
+
+    assert pipeline.mp4_codec_args(info) == (["-map", "0:0", "-map", "0:1"], ["-c", "copy"])
+
+
+def test_mp4_codec_args_copies_silent_h264_and_drops_unsupported_audio() -> None:
+    silent = {"streams": [{"index": 0, "codec_type": "video", "codec_name": "h264"}]}
+    pcm = {
+        "streams": [
+            {"index": 0, "codec_type": "video", "codec_name": "h264"},
+            {"index": 1, "codec_type": "audio", "codec_name": "pcm_s16le"},
+        ]
+    }
+
+    assert pipeline.mp4_codec_args(silent) == (["-map", "0:0"], ["-c", "copy"])
+    assert pipeline.mp4_codec_args(pcm) == (["-map", "0:0"], ["-c", "copy"])
+
+
+@pytest.mark.parametrize(
+    "streams",
+    [
+        [{"index": 0, "codec_type": "video", "codec_name": "hevc"}],
+        [{"index": 0, "codec_type": "video", "codec_name": "h264", "tags": {"rotate": "90"}}],
+        [
+            {"index": 0, "codec_type": "video", "codec_name": "h264"},
+            {"index": 1, "codec_type": "audio", "codec_name": "alac"},
+        ],
+    ],
+    ids=["hevc", "rotated", "alac-audio"],
+)
+def test_mp4_codec_args_transcodes_everything_else(streams: list[dict[str, object]]) -> None:
+    maps, codec_args = pipeline.mp4_codec_args({"streams": streams})
+
+    assert maps == [item for stream in streams for item in ("-map", f"0:{stream['index']}")]
+    assert codec_args[:2] == ["-c:v", "libx264"]
+    assert codec_args[codec_args.index("-c:a") + 1] == "aac"
+
+
+def test_orientation() -> None:
+    assert pipeline.orientation(2400, 1600) == 1
+    assert pipeline.orientation(1600, 2400) == -1
+    assert pipeline.orientation(2400, 2400) == 0
+
+
+def test_atomic_write_rejects_empty_output_and_cleans_up(tmp_path: Path) -> None:
+    destination = tmp_path / "output.webp"
+
+    with (
+        pytest.raises(pipeline.PipelineError, match="Processor produced an empty file"),
+        pipeline.atomic_write(destination),
+    ):
+        pass
+
+    assert list(tmp_path.iterdir()) == []

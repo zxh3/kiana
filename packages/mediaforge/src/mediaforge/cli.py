@@ -10,7 +10,14 @@ from typing import ParamSpec, TypeVar
 import click
 
 from .apple_photos import DEFAULT_METADATA_NAME, export_album
-from .pipeline import DEFAULT_JOBS, PipelineError, build_release, require_tools, verify_release
+from .pipeline import (
+    DEFAULT_JOBS,
+    PipelineError,
+    build_release,
+    check_inputs,
+    require_tools,
+    verify_release,
+)
 
 SOURCE = click.Path(path_type=Path, file_okay=False)
 OUTPUT = click.Path(path_type=Path, file_okay=False)
@@ -87,10 +94,7 @@ def doctor(source: Path, metadata: Path | None) -> None:
     source = resolved(source)
     metadata = resolved_metadata(source, metadata)
     require_tools()
-    if not source.is_dir():
-        raise PipelineError(f"Source directory not found: {source}")
-    if not metadata.is_file():
-        raise PipelineError(f"Metadata file not found: {metadata}")
+    check_inputs(source, metadata)
     click.echo(f"Ready: {source}")
 
 
@@ -123,7 +127,7 @@ def sample(
 ) -> None:
     """Build a representative sample."""
 
-    process_assets(
+    build_and_report(
         source,
         output,
         metadata,
@@ -160,10 +164,10 @@ def process(
 ) -> None:
     """Build or resume a full web release."""
 
-    process_assets(source, output, metadata, jobs=jobs, force_images=force_images)
+    build_and_report(source, output, metadata, jobs=jobs, force_images=force_images)
 
 
-def process_assets(
+def build_and_report(
     source: Path,
     output: Path,
     metadata: Path | None,
@@ -172,6 +176,8 @@ def process_assets(
     jobs: int = DEFAULT_JOBS,
     force_images: bool = False,
 ) -> None:
+    """Build a release, report the result, and exit non-zero if anything failed."""
+
     output = resolved(output)
     count, failures = build_release(
         resolved(source),
