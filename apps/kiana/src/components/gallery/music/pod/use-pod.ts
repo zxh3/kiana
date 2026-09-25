@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { tap } from "../../../../lib/haptics";
 import { cue } from "../../../../lib/sounds";
+import { useAccount } from "../../use-account";
 import type { Music } from "../use-music";
 import { otherPeople } from "./chat";
 import { nextFinish } from "./finishes";
@@ -26,7 +27,6 @@ import {
 import { describePod, type PodView, podRows } from "./rows";
 import { BACKLIGHT_TIMEOUT, type PodSettings } from "./settings";
 import { nextKianaFace, nextSpinnerStyle } from "./spinner";
-import { useAccount } from "./use-account";
 import { useBacklight } from "./use-backlight";
 import { useChat } from "./use-chat";
 import { useMuyu } from "./use-muyu";

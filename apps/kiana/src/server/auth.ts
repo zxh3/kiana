@@ -4,6 +4,7 @@ import { getMigrations } from "better-auth/db/migration";
 
 import { AUTH_PATH } from "../lib/auth";
 import type { Account } from "./account";
+import { FAVORITES_TABLE } from "./favorites";
 
 /**
  * Signing in with Google, by Better Auth. People and their sessions are
@@ -45,16 +46,18 @@ const auth =
     ? betterAuth(options)
     : null;
 
-let schema: Promise<void> | null = null;
+let schema: Promise<unknown> | null = null;
 
 /**
- * Creates or updates Better Auth's tables, once for each copy of the
- * Worker, so a new database or a newer Better Auth needs no step of its
- * own. A failure is tried again with the next request.
+ * Creates or updates the accounts database's tables, Better Auth's and the
+ * favorites, once for each copy of the Worker, so a new database or a
+ * newer Better Auth needs no step of its own. A failure is tried again
+ * with the next request.
  */
-function schemaReady() {
+function databaseReady() {
   schema ??= getMigrations(options)
     .then((migrations) => migrations.runMigrations())
+    .then(() => env.AUTH_DB.prepare(FAVORITES_TABLE).run())
     .catch((error: unknown) => {
       schema = null;
       throw error;
@@ -65,7 +68,7 @@ function schemaReady() {
 /** Answers Better Auth's own routes, under `AUTH_PATH`. */
 export async function handleAuth(request: Request) {
   if (!auth) return new Response("Signing in is not set up", { status: 503 });
-  await schemaReady();
+  await databaseReady();
   return auth.handler(request);
 }
 
@@ -81,7 +84,7 @@ export async function accountOf(request: Request): Promise<Account | null> {
     return null;
   }
   try {
-    await schemaReady();
+    await databaseReady();
     const session = await auth.api.getSession({ headers: request.headers });
     return session ? { id: session.user.id, name: session.user.name } : null;
   } catch (error) {

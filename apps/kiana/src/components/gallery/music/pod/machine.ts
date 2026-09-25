@@ -1,5 +1,5 @@
 import type { CueName } from "../../../../lib/sounds";
-import type { AccountStatus } from "./account";
+import type { AccountStatus } from "../../account";
 import {
   accountItems,
   appItems,

@@ -1,7 +1,7 @@
 import type { ChatMessage, Person } from "../../../../lib/chat";
+import type { AccountStatus, PodAccount } from "../../account";
 import type { Repeat } from "../music-queue";
 import type { Track } from "../music-track";
-import type { AccountStatus, PodAccount } from "./account";
 import type { ChatStatus } from "./chat";
 import { type Finish, finishLabels } from "./finishes";
 import { formatPodTime } from "./format";

@@ -4,6 +4,8 @@
  * free of both so the rules can be tested on their own.
  */
 
+import { readJsonObject } from "./json";
+
 /** Where the browser opens its WebSocket to the room. */
 export const CHAT_PATH = "/api/chat";
 
@@ -173,21 +175,9 @@ export function typingSignal(
   return { send: true, signal: { on: true, sent: now } };
 }
 
-function readFrame(raw: unknown): Record<string, unknown> | null {
-  if (typeof raw !== "string" || raw.length > FRAME_MAX) return null;
-  try {
-    const data: unknown = JSON.parse(raw);
-    return typeof data === "object" && data !== null && !Array.isArray(data)
-      ? (data as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 /** What a browser sent, cleaned, or null for anything else. */
 export function parseClientMessage(raw: unknown): ClientMessage | null {
-  const data = readFrame(raw);
+  const data = readJsonObject(raw, FRAME_MAX);
   if (!data) return null;
   if (data.type === "join" || data.type === "rename") {
     const name = cleanName(data.name);

@@ -5,6 +5,8 @@
  * tested on their own.
  */
 
+import { readJsonObject } from "./json";
+
 /** Where the browser opens its WebSocket to the wooden fish. */
 export const MUYU_PATH = "/api/muyu";
 
@@ -15,6 +17,8 @@ export const MUYU_PATH = "/api/muyu";
 export const KNOCKS_PER_SECOND = 20;
 /** The browser sends its knocks together, at most this often. */
 export const SEND_EVERY = 250;
+/** The longest frame either side reads; anything longer is ignored. */
+const FRAME_MAX = 200;
 /** The most knocks one frame may carry. */
 export const KNOCKS_PER_FRAME = KNOCKS_PER_SECOND;
 
@@ -53,18 +57,6 @@ export function takeKnocks(
   return { accepted, budget: { ...current, used: current.used + accepted } };
 }
 
-function readObject(raw: unknown): Record<string, unknown> | null {
-  if (typeof raw !== "string" || raw.length > 200) return null;
-  try {
-    const data: unknown = JSON.parse(raw);
-    return typeof data === "object" && data !== null && !Array.isArray(data)
-      ? (data as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 const isCount = (value: unknown, max = Number.MAX_SAFE_INTEGER) =>
   Number.isSafeInteger(value) &&
   (value as number) >= 0 &&
@@ -72,7 +64,7 @@ const isCount = (value: unknown, max = Number.MAX_SAFE_INTEGER) =>
 
 /** A frame of knocks from a browser, or null for anything else. */
 export function parseMuyuClientMessage(raw: unknown): MuyuClientMessage | null {
-  const data = readObject(raw);
+  const data = readJsonObject(raw, FRAME_MAX);
   if (
     data?.type !== "knock" ||
     !isCount(data.count, KNOCKS_PER_FRAME) ||
@@ -90,7 +82,7 @@ export function parseMuyuClientMessage(raw: unknown): MuyuClientMessage | null {
 
 /** What the room sent, or null for anything the browser does not know. */
 export function parseMuyuServerMessage(raw: unknown): MuyuServerMessage | null {
-  const data = readObject(raw);
+  const data = readJsonObject(raw, FRAME_MAX);
   if (data?.type !== "merit" || !isCount(data.total) || !isCount(data.here)) {
     return null;
   }

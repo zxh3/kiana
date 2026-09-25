@@ -7,7 +7,6 @@ import {
   ChevronRightIcon,
   CollapseIcon,
   ExpandIcon,
-  HeartIcon,
   PauseIcon,
   PlayIcon,
   ShareIcon,
@@ -26,13 +25,12 @@ function Divider() {
 
 export function Dock({
   canGoBack,
-  favorite,
+  favoriteButton,
   fullscreen,
   holdProps,
   onNext,
   onPrevious,
   onShare,
-  onToggleFavorite,
   onToggleFullscreen,
   onTogglePause,
   paused,
@@ -41,13 +39,13 @@ export function Dock({
   visible,
 }: {
   canGoBack: boolean;
-  favorite: boolean;
+  /** The heart, which asks a guest to sign in. */
+  favoriteButton: ReactNode;
   fullscreen: { active: boolean; supported: boolean };
   holdProps: ChromeHoldProps;
   onNext: () => void;
   onPrevious: () => void;
   onShare: () => void;
-  onToggleFavorite: () => void;
   onToggleFullscreen: () => void;
   onTogglePause: () => void;
   paused: boolean;
@@ -78,20 +76,7 @@ export function Dock({
           className="glass absolute inset-0 -z-10 rounded-full"
         />
 
-        <ControlButton
-          aria-pressed={favorite}
-          className={favorite ? "text-rose hover:text-rose" : undefined}
-          label={favorite ? "Remove from favorites" : "Add to favorites"}
-          onClick={onToggleFavorite}
-          shortcut="L"
-        >
-          <span
-            className={cx("grid", favorite && "animate-heart-pop")}
-            key={favorite ? "on" : "off"}
-          >
-            <HeartIcon filled={favorite} />
-          </span>
-        </ControlButton>
+        {favoriteButton}
         <ControlButton
           label="Share a link to this photo"
           onClick={onShare}

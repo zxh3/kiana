@@ -1,4 +1,4 @@
-import type { AccountStatus } from "./account";
+import type { AccountStatus } from "../../account";
 
 /**
  * The pocket player's screens, menus, and the arithmetic of its click wheel.

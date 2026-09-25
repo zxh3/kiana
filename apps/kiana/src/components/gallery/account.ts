@@ -1,10 +1,10 @@
-import { cleanName } from "../../../../lib/chat";
+import { cleanName } from "../../lib/chat";
 
 /**
- * The viewer's Google account, as the pod shows it under Settings:
- * whether they are signed in, and as whom. Kept free of React so the rules
- * can be tested on their own; `use-account.ts` feeds it Better Auth's
- * session.
+ * The viewer's Google account: whether they are signed in, and as whom,
+ * for favorites and the player's live apps. Kept free of React so the
+ * rules can be tested on their own; `use-account.ts` feeds it Better
+ * Auth's session.
  */
 
 export type AccountStatus =
