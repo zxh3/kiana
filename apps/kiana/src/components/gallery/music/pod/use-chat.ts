@@ -4,12 +4,14 @@ import {
   CHAT_PATH,
   type ClientMessage,
   cleanName,
+  nameFor,
   parseServerMessage,
   quietTyping,
   randomName,
   typingSignal,
 } from "../../../../lib/chat";
 import { useStoredState } from "../../use-stored-state";
+import type { Member } from "./account";
 import { chatReducer, initialChatState, parseChatName } from "./chat";
 import { useLiveSocket } from "./use-live-socket";
 
@@ -19,9 +21,11 @@ import { useLiveSocket } from "./use-live-socket";
  * It reconnects on its own if the connection drops, and tells the room
  * when the viewer is typing (`typingSignal` says how often). The name is
  * kept between visits; the first time, it is made up (user_ and four
- * digits).
+ * digits). Signed in with Google (`member`), the viewer goes by their
+ * account's name instead, which the room takes from the Worker, not from
+ * this browser.
  */
-export function useChat(open: boolean) {
+export function useChat(open: boolean, member: Member | null) {
   const [name, setName] = useStoredState("kiana.chat-name", parseChatName);
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
   const typed = useRef(quietTyping);
@@ -42,6 +46,7 @@ export function useChat(open: boolean) {
       post({ type: "join", name: nameRef.current });
     },
     onStatus: (status) => dispatch({ type: status }),
+    account: member?.id ?? null,
     open: open && Boolean(name),
     path: CHAT_PATH,
   });
@@ -67,12 +72,12 @@ export function useChat(open: boolean) {
 
   return {
     ...state,
-    name,
+    name: nameFor(member, name),
     say,
     typing,
     rename: (next: string) => {
       const clean = cleanName(next);
-      if (!clean || clean === name) return;
+      if (member || !clean || clean === name) return;
       setName(clean);
       post({ type: "rename", name: clean });
     },

@@ -32,7 +32,11 @@ export const PONG = "pong";
 /** The longest frame the room reads; anything longer is ignored. */
 const FRAME_MAX = 2_000;
 
-export type Person = { id: string; name: string };
+/**
+ * Someone here. `verified` is set for someone signed in with Google, whose
+ * name is their account's and cannot be picked by anyone else.
+ */
+export type Person = { id: string; name: string; verified?: boolean };
 export type ChatMessage = {
   id: string;
   /** The sender's person id, for the time they were connected. */
@@ -40,6 +44,8 @@ export type ChatMessage = {
   name: string;
   text: string;
   at: number;
+  /** Sent by someone signed in with Google. */
+  verified?: boolean;
 };
 
 /** From the browser to the room. */
@@ -82,6 +88,17 @@ export function cleanName(raw: unknown) {
 /** A message as the room shows it, or "" if there is nothing to send. */
 export function cleanText(raw: unknown) {
   return cleanLine(raw, TEXT_MAX);
+}
+
+/**
+ * The name someone goes by: their account's, if they signed in and it has
+ * one to show, or else the one they picked.
+ */
+export function nameFor(
+  account: { name: string } | null | undefined,
+  picked: string,
+) {
+  return cleanName(account?.name) || picked;
 }
 
 /** A name for someone who has not picked one: user_ and four digits. */
@@ -183,10 +200,9 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
 
 function parsePerson(raw: unknown): Person | null {
   if (typeof raw !== "object" || raw === null) return null;
-  const { id, name } = raw as Record<string, unknown>;
-  return typeof id === "string" && typeof name === "string"
-    ? { id, name }
-    : null;
+  const { id, name, verified } = raw as Record<string, unknown>;
+  if (typeof id !== "string" || typeof name !== "string") return null;
+  return verified === true ? { id, name, verified } : { id, name };
 }
 
 function parsePeople(raw: unknown) {
@@ -196,14 +212,19 @@ function parsePeople(raw: unknown) {
 
 function parseChatMessage(raw: unknown): ChatMessage | null {
   if (typeof raw !== "object" || raw === null) return null;
-  const { id, from, name, text, at } = raw as Record<string, unknown>;
-  return typeof id === "string" &&
-    typeof from === "string" &&
-    typeof name === "string" &&
-    typeof text === "string" &&
-    typeof at === "number"
-    ? { id, from, name, text, at }
-    : null;
+  const { id, from, name, text, at, verified } = raw as Record<string, unknown>;
+  if (
+    typeof id !== "string" ||
+    typeof from !== "string" ||
+    typeof name !== "string" ||
+    typeof text !== "string" ||
+    typeof at !== "number"
+  ) {
+    return null;
+  }
+  const message: ChatMessage = { id, from, name, text, at };
+  if (verified === true) message.verified = true;
+  return message;
 }
 
 /**

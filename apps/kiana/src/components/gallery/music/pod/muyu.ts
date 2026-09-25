@@ -23,6 +23,11 @@ export type MuyuState = {
   seq: number;
   /** Pats this visit, which the screen turns into its animation. */
   pats: number;
+  /**
+   * The viewer's own merit, as the room last said, when they are signed
+   * in; null for a guest, whose own merit this browser keeps.
+   */
+  mine: number | null;
 };
 
 export type MuyuEvent =
@@ -40,6 +45,7 @@ export const initialMuyuState: MuyuState = {
   sending: [],
   seq: 0,
   pats: 0,
+  mine: null,
 };
 
 export function muyuReducer(state: MuyuState, event: MuyuEvent): MuyuState {
@@ -60,22 +66,35 @@ export function muyuReducer(state: MuyuState, event: MuyuEvent): MuyuState {
         seq: Math.max(state.seq, event.seq + 1),
       };
     case "received": {
-      const { ack, here, total } = event.message;
+      const { ack, here, mine = null, total } = event.message;
       // The room answers in order, so an answer covers every frame before.
       const sending =
         ack === undefined
           ? state.sending
           : state.sending.filter((frame) => frame.seq > ack);
-      return { ...state, status: "open", total, here, sending };
+      return { ...state, status: "open", total, here, sending, mine };
     }
   }
 }
 
+/** Pats not yet in the room's counts: on their way, or waiting to be. */
+function pending(state: MuyuState) {
+  const sending = state.sending.reduce((sum, frame) => sum + frame.count, 0);
+  return sending + state.queued;
+}
+
 /** The number to show: everyone's merit, with this browser's pats on top. */
 export function shownMerit(state: MuyuState) {
-  if (state.total === null) return null;
-  const sending = state.sending.reduce((sum, frame) => sum + frame.count, 0);
-  return state.total + sending + state.queued;
+  return state.total === null ? null : state.total + pending(state);
+}
+
+/**
+ * The viewer's own merit to show when they are signed in, from every
+ * device, with this browser's pats on top; null for a guest, or until the
+ * room has said.
+ */
+export function shownMine(state: MuyuState) {
+  return state.mine === null ? null : state.mine + pending(state);
 }
 
 /** The next frame to send, if any pats are waiting. */

@@ -56,6 +56,15 @@ describe("parseMuyuServerMessage", () => {
     ).toEqual({ type: "merit", total: 12, here: 2 });
   });
 
+  it("reads a signed-in viewer's own merit, and drops a broken one", () => {
+    expect(
+      parseMuyuServerMessage('{"type":"merit","total":12,"here":2,"mine":5}'),
+    ).toEqual({ type: "merit", total: 12, here: 2, mine: 5 });
+    expect(
+      parseMuyuServerMessage('{"type":"merit","total":12,"here":2,"mine":-5}'),
+    ).toEqual({ type: "merit", total: 12, here: 2 });
+  });
+
   it("ignores what it does not know", () => {
     expect(parseMuyuServerMessage("pong")).toBeNull();
     expect(

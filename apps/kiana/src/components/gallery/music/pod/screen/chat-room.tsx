@@ -5,6 +5,7 @@ import { cx } from "../../../../../lib/class-names";
 import { HapticTap } from "../../../haptic-tap";
 import { typingChangesAt, typingLine, typingNow } from "../chat";
 import type { Chat } from "../use-chat";
+import { VerifiedGlyph } from "./glyphs";
 import { PodField } from "./pod-field";
 
 /** How far one click of the wheel scrolls the messages: a line. */
@@ -130,7 +131,13 @@ export function ChatRoom({
                 )}
               >
                 {message.name}
-              </span>{" "}
+              </span>
+              {message.verified ? (
+                <>
+                  {" "}
+                  <VerifiedGlyph />
+                </>
+              ) : null}{" "}
               {message.text}
             </p>
           ))

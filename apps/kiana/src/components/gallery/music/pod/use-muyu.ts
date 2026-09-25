@@ -13,16 +13,18 @@ import {
   nextFrame,
   parseMerit,
   shownMerit,
+  shownMine,
 } from "./muyu";
 import { useLiveSocket } from "./use-live-socket";
 
 /**
  * The connection to the electronic wooden fish, open only while `open`
  * (its screen is showing). Pats are sent together, at most every
- * `SEND_EVERY`, and show at once. The viewer's own merit is kept between
- * visits.
+ * `SEND_EVERY`, and show at once. A guest's own merit is kept in this
+ * browser between visits; signed in (`account`), the room keeps it for
+ * their account, the same on every device.
  */
-export function useMuyu(open: boolean) {
+export function useMuyu(open: boolean, account: string | null) {
   const [mine, setMine] = useStoredState("kiana.muyu-mine", parseMerit);
   const [state, dispatch] = useReducer(muyuReducer, initialMuyuState);
   const latest = useRef(state);
@@ -37,6 +39,7 @@ export function useMuyu(open: boolean) {
     },
     onOpen: () => undefined,
     onStatus: (status) => dispatch({ type: status }),
+    account,
     open,
     path: MUYU_PATH,
   });
@@ -56,18 +59,21 @@ export function useMuyu(open: boolean) {
     return () => window.clearTimeout(timer);
   }, [nextSeq, send]);
 
+  const signedIn = account !== null;
   const pat = useCallback(() => {
     dispatch({ type: "pat" });
+    if (signedIn) return;
     setMine(mineRef.current + 1);
     mineRef.current += 1;
-  }, [setMine]);
+  }, [setMine, signedIn]);
 
   return {
     status: state.status,
     here: state.here,
     pats: state.pats,
     merit: shownMerit(state),
-    mine,
+    /** Null while a signed-in viewer's merit is on its way from the room. */
+    mine: signedIn ? shownMine(state) : mine,
     pat,
   };
 }

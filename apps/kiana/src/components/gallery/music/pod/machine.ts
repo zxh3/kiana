@@ -1,5 +1,7 @@
 import type { CueName } from "../../../../lib/sounds";
+import type { AccountStatus } from "./account";
 import {
+  accountItems,
   appItems,
   type ChoiceScreen,
   clamp,
@@ -79,6 +81,8 @@ export type PodContext = {
   videoCovers: boolean;
   /** Rows in the Chat Room's Online list, the viewer's own first. */
   online: number;
+  /** Whether the viewer is signed in with Google. */
+  account: AccountStatus;
 };
 
 export type PodEffect =
@@ -96,7 +100,9 @@ export type PodEffect =
   | { type: "video"; on: boolean }
   | { type: "say"; text: string }
   | { type: "rename"; name: string }
-  | { type: "pat" };
+  | { type: "pat" }
+  | { type: "signIn" }
+  | { type: "signOut" };
 
 export type PodAction =
   // The click wheel.
@@ -173,6 +179,7 @@ export function initialPodState(index: number): PodState {
       apps: 0,
       online: 0,
       settings: 0,
+      account: 0,
     },
     overlay: null,
     overlayStamp: 0,
@@ -195,6 +202,7 @@ function choiceCount(screen: ChoiceScreen, context: PodContext) {
   if (screen === "settings") return settingsItems.length;
   if (screen === "apps") return appItems.length;
   if (screen === "online") return context.online;
+  if (screen === "account") return accountItems(context.account).length;
   return context.count;
 }
 
@@ -283,19 +291,38 @@ function activate(
     };
   }
   if (screen === "settings") {
-    return {
-      state: chosen,
-      effects: [select, { type: "setting", item: settingsItems[index] }],
-    };
+    const item = settingsItems[index];
+    if (item === "account") {
+      const next = go(chosen, "account", 1);
+      return { ...next, effects: [select, ...next.effects] };
+    }
+    return { state: chosen, effects: [select, { type: "setting", item }] };
+  }
+  // Signing in leaves for Google and comes back; signing out stays, with
+  // the highlight on the way back in.
+  if (screen === "account") {
+    const item = accountItems(context.account)[index];
+    if (item === "signIn") {
+      return { state: chosen, effects: [select, { type: "signIn" }] };
+    }
+    if (item === "signOut") {
+      return {
+        state: choose(chosen, "account", 0),
+        effects: [select, { type: "signOut" }],
+      };
+    }
+    return { state: chosen, effects: [] };
   }
   if (screen === "apps") {
     const next = go(chosen, appItems[index], 1);
     return { ...next, effects: [select, ...next.effects] };
   }
   // In the Online list only the viewer's own row, the first, opens: to
-  // change their name.
+  // change their name, unless they go by their Google account's.
   if (screen === "online") {
-    if (index !== 0) return { state: chosen, effects: [] };
+    if (index !== 0 || context.account === "member") {
+      return { state: chosen, effects: [] };
+    }
     const next = go(chosen, "name", 1);
     return { ...next, effects: [select, ...next.effects] };
   }

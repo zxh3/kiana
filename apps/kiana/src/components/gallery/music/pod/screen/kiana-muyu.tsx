@@ -86,7 +86,10 @@ export function KianaMuyu({ muyu, onPat }: { muyu: Muyu; onPat: () => void }) {
         lang="zh"
       >
         <p>
-          我的 <span className="font-semibold tabular-nums">{mine}</span>
+          我的{" "}
+          <span className="font-semibold tabular-nums">
+            {mine === null ? "…" : mine.toLocaleString()}
+          </span>
         </p>
         <p>{status === "open" ? `${here} 人在摸` : "连接中…"}</p>
       </div>

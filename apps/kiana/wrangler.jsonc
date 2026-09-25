@@ -16,5 +16,19 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["ChatRoom"] },
     { "tag": "v2", "new_sqlite_classes": ["WoodenFish"] }
-  ]
+  ],
+  // Signing in with Google (Better Auth, `src/server/auth.ts`): the people
+  // who have signed in and their sessions. It has no id because Cloudflare
+  // creates it on the first deploy that has it, and finds it by the Worker
+  // from then on.
+  "d1_databases": [{ "binding": "AUTH_DB", "database_name": "kiana-auth" }],
+  // Set on the Worker with `wrangler secret put`, and locally in `.env`.
+  // A deploy fails until all three are set.
+  "secrets": {
+    "required": [
+      "BETTER_AUTH_SECRET",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET"
+    ]
+  }
 }

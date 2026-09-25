@@ -1,11 +1,14 @@
 import type { ChatMessage, Person } from "../../../../lib/chat";
 import type { Repeat } from "../music-queue";
 import type { Track } from "../music-track";
+import type { AccountStatus, PodAccount } from "./account";
 import type { ChatStatus } from "./chat";
 import { type Finish, finishLabels } from "./finishes";
 import { formatPodTime } from "./format";
 import type { PodState } from "./machine";
 import {
+  accountItems,
+  accountLabels,
   appItems,
   appLabels,
   appLangs,
@@ -34,6 +37,8 @@ export type PodRow = {
   opens?: boolean;
   /** The song that is playing. */
   current?: boolean;
+  /** Someone signed in with Google, marked beside their name. */
+  verified?: boolean;
   lang?: string;
 };
 
@@ -48,6 +53,7 @@ export type PodView = {
   finish: Finish;
   spinner: SpinnerStyle;
   face: KianaFace;
+  account: PodAccount;
   /** The Chat Room: the viewer's name, and everyone else who is here. */
   chat: {
     name: string;
@@ -61,8 +67,16 @@ export type PodView = {
   duration: number;
 };
 
+/** How Settings sums up the account: who is signed in, if anyone. */
+const accountDetails: Record<Exclude<AccountStatus, "member">, string> = {
+  checking: "…",
+  unavailable: "Off",
+  guest: "Guest",
+};
+
 /** The rows of each list screen. */
 export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
+  const { member, status } = view.account;
   const details: Record<(typeof settingsItems)[number], string> = {
     shuffle: view.shuffle ? "On" : "Off",
     repeat: view.repeat === "one" ? "One" : "All",
@@ -71,6 +85,10 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
     finish: finishLabels[view.finish],
     spinner: spinnerStyleLabels[view.spinner],
     face: kianaFaceLabels[view.face],
+    account:
+      status === "member"
+        ? member?.name || "Signed In"
+        : accountDetails[status],
   };
   return {
     menu: menuItems.map((item) => ({
@@ -90,19 +108,38 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
       lang: appLangs[item],
       opens: true,
     })),
-    // The viewer first, whose row opens Your Name, then everyone else.
+    // The viewer first, whose row opens Your Name unless they go by their
+    // Google account's, then everyone else.
     online: [
-      { key: "you", label: view.chat.name, detail: "You", opens: true },
+      {
+        key: "you",
+        label: view.chat.name,
+        detail: "You",
+        opens: status !== "member",
+        verified: status === "member",
+      },
       ...view.chat.others.map((person) => ({
         key: person.id,
         label: person.name,
+        verified: person.verified,
       })),
     ],
     settings: settingsItems.map((item) => ({
       key: item,
       label: settingsLabels[item],
       detail: details[item],
+      opens: item === "account",
     })),
+    account: accountItems(status).map((item) =>
+      item === "member"
+        ? {
+            key: item,
+            label: member?.name || "Signed In",
+            detail: "Google",
+            verified: true,
+          }
+        : { key: item, label: accountLabels[item] },
+    ),
   };
 }
 
@@ -148,5 +185,8 @@ export function describePod(
     return `${track.title}, ${track.artist}`;
   }
   const row = rows[state.screen][state.selected[state.screen]];
-  return row.detail ? `${row.label}, ${row.detail}` : row.label;
+  if (!row) return screenTitles[state.screen];
+  return [row.label, row.verified && "verified", row.detail]
+    .filter(Boolean)
+    .join(", ");
 }

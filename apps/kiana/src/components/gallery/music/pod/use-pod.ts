@@ -26,6 +26,7 @@ import {
 import { describePod, type PodView, podRows } from "./rows";
 import { BACKLIGHT_TIMEOUT, type PodSettings } from "./settings";
 import { nextKianaFace, nextSpinnerStyle } from "./spinner";
+import { useAccount } from "./use-account";
 import { useBacklight } from "./use-backlight";
 import { useChat } from "./use-chat";
 import { useMuyu } from "./use-muyu";
@@ -59,8 +60,9 @@ export function usePod({
   const backlight = useBacklight(
     settings.backlight === "timed" && !videoCovers ? BACKLIGHT_TIMEOUT : null,
   );
-  const chat = useChat(chatScreens.has(state.screen));
-  const muyu = useMuyu(state.screen === "muyu");
+  const account = useAccount();
+  const chat = useChat(chatScreens.has(state.screen), account.member);
+  const muyu = useMuyu(state.screen === "muyu", account.member?.id ?? null);
   const others = otherPeople(chat);
 
   // The latest facts, read by actions between renders. The volume is also
@@ -76,6 +78,7 @@ export function usePod({
     videoOpen,
     videoCovers,
     online: others.length + 1,
+    account: account.status,
   };
 
   const applySetting = (item: SettingsItem) => {
@@ -148,6 +151,12 @@ export function usePod({
       case "pat":
         muyu.pat();
         break;
+      case "signIn":
+        account.signIn();
+        break;
+      case "signOut":
+        account.signOut();
+        break;
     }
   };
   const runRef = useRef(run);
@@ -215,6 +224,7 @@ export function usePod({
     finish: settings.finish,
     spinner: settings.spinner,
     face: settings.face,
+    account: { status: account.status, member: account.member },
     chat: {
       name: chat.name,
       status: chat.status,

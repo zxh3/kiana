@@ -9,18 +9,20 @@ import {
   nextFrame,
   parseMerit,
   shownMerit,
+  shownMine,
 } from "./muyu";
 
 const run = (events: MuyuEvent[], state: MuyuState = initialMuyuState) =>
   events.reduce(muyuReducer, state);
 
-const merit = (total: number, ack?: number): MuyuEvent => ({
+const merit = (total: number, ack?: number, mine?: number): MuyuEvent => ({
   type: "received",
   message: {
     type: "merit",
     total,
     here: 2,
     ...(ack === undefined ? {} : { ack }),
+    ...(mine === undefined ? {} : { mine }),
   },
 });
 
@@ -75,6 +77,19 @@ describe("muyuReducer", () => {
     expect(state.sending).toEqual([]);
     expect(state.queued).toBe(1);
     expect(state.pats).toBe(2);
+  });
+
+  it("shows a signed-in viewer's own merit from the room, with pats on top", () => {
+    expect(shownMine(run([merit(40)]))).toBeNull();
+    const signedIn = run([merit(40, undefined, 7), { type: "pat" }]);
+    expect(shownMine(signedIn)).toBe(8);
+    const sent = run([{ type: "sent", seq: 0, count: 1 }], signedIn);
+    expect(shownMine(sent)).toBe(8);
+    // Another of their devices patted too, then this one's frame is in.
+    const answered = run([merit(43, undefined, 9), merit(44, 0, 10)], sent);
+    expect(shownMine(answered)).toBe(10);
+    // Signed out, the room no longer says.
+    expect(shownMine(run([merit(44)], answered))).toBeNull();
   });
 });
 
