@@ -10,8 +10,9 @@ import shutil
 import subprocess
 import tempfile
 import threading
-from collections.abc import Callable
+from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.resources import as_file, files
@@ -23,6 +24,8 @@ IMAGE_EXTENSIONS = {".heic", ".jpg", ".jpeg", ".png"}
 VIDEO_EXTENSIONS = {".mov", ".mp4"}
 REQUIRED_TOOLS = ("cwebp", "ffmpeg", "ffprobe", "swiftc")
 DEFAULT_JOBS = min(4, os.cpu_count() or 1)
+# Every ffmpeg call overwrites its temporary output and reports only errors.
+FFMPEG = ("ffmpeg", "-y", "-loglevel", "error")
 _NORMALIZER_LOCK = threading.Lock()
 _NORMALIZER_BINARY: Path | None = None
 
@@ -82,13 +85,13 @@ def image_normalizer() -> Path:
 
     global _NORMALIZER_BINARY
     with _NORMALIZER_LOCK:
-        if _NORMALIZER_BINARY and existing(_NORMALIZER_BINARY):
+        if _NORMALIZER_BINARY and is_nonempty_file(_NORMALIZER_BINARY):
             return _NORMALIZER_BINARY
         resource = files("mediaforge").joinpath("image_normalizer.swift")
         source_bytes = resource.read_bytes()
         digest = hashlib.sha256(source_bytes).hexdigest()[:12]
         destination = Path(tempfile.gettempdir()) / f"mediaforge-image-normalizer-{digest}"
-        if not existing(destination):
+        if not is_nonempty_file(destination):
             descriptor, temporary_name = tempfile.mkstemp(
                 prefix=".mediaforge-image-normalizer-",
                 dir=destination.parent,
@@ -125,7 +128,23 @@ def probe(path: Path) -> dict[str, Any]:
     return json.loads(result.stdout)
 
 
-def atomic_destination(destination: Path) -> tuple[Path, Callable[[], None]]:
+def first_stream(info: dict[str, Any], codec_type: str) -> dict[str, Any] | None:
+    """Return the first stream of a type from ffprobe output, if there is one."""
+
+    return next(
+        (stream for stream in info["streams"] if stream.get("codec_type") == codec_type), None
+    )
+
+
+@contextmanager
+def atomic_write(destination: Path) -> Iterator[Path]:
+    """Yield a temporary path beside the destination and move it into place on success.
+
+    The temporary file shares the destination's directory so the final rename is atomic, and
+    an interrupted or failed write never leaves a truncated output that a resumed run would
+    mistake for a finished one.
+    """
+
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{destination.stem}-",
@@ -134,86 +153,80 @@ def atomic_destination(destination: Path) -> tuple[Path, Callable[[], None]]:
     )
     os.close(descriptor)
     temporary = Path(temporary_name)
-
-    def commit() -> None:
+    try:
+        yield temporary
         if not temporary.exists() or not temporary.stat().st_size:
             raise PipelineError(f"Processor produced an empty file: {destination}")
         os.replace(temporary, destination)
-
-    return temporary, commit
-
-
-def existing(destination: Path) -> bool:
-    return destination.is_file() and destination.stat().st_size > 0
-
-
-def make_webp(source: Path, destination: Path, max_edge: int, *, force: bool = False) -> None:
-    if existing(destination) and not force:
-        return
-    temporary, commit = atomic_destination(destination)
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            intermediate = Path(temp_dir) / "image.png"
-            try:
-                run(
-                    [
-                        str(image_normalizer()),
-                        str(source),
-                        str(intermediate),
-                        str(max_edge),
-                    ]
-                )
-            except subprocess.CalledProcessError:
-                if source.suffix.lower() == ".heic":
-                    raise
-                run(
-                    [
-                        "ffmpeg",
-                        "-y",
-                        "-loglevel",
-                        "error",
-                        "-i",
-                        str(source),
-                        "-frames:v",
-                        "1",
-                        "-vf",
-                        f"scale={max_edge}:{max_edge}:force_original_aspect_ratio=decrease:force_divisible_by=2",
-                        "-map_metadata",
-                        "-1",
-                        str(intermediate),
-                    ]
-                )
-            run(
-                [
-                    "cwebp",
-                    "-quiet",
-                    "-q",
-                    "84",
-                    "-metadata",
-                    "none",
-                    str(intermediate),
-                    "-o",
-                    str(temporary),
-                ]
-            )
-        commit()
     finally:
         temporary.unlink(missing_ok=True)
 
 
+def is_nonempty_file(destination: Path) -> bool:
+    return destination.is_file() and destination.stat().st_size > 0
+
+
+def scale_filter(max_edge: int) -> str:
+    """Fit a frame inside a square, keeping even dimensions for the encoders."""
+
+    return f"scale={max_edge}:{max_edge}:force_original_aspect_ratio=decrease:force_divisible_by=2"
+
+
+def make_webp(source: Path, destination: Path, max_edge: int, *, force: bool = False) -> None:
+    if is_nonempty_file(destination) and not force:
+        return
+    with atomic_write(destination) as temporary, tempfile.TemporaryDirectory() as temp_dir:
+        intermediate = Path(temp_dir) / "image.png"
+        try:
+            run(
+                [
+                    str(image_normalizer()),
+                    str(source),
+                    str(intermediate),
+                    str(max_edge),
+                ]
+            )
+        except subprocess.CalledProcessError:
+            if source.suffix.lower() == ".heic":
+                raise
+            run(
+                [
+                    *FFMPEG,
+                    "-i",
+                    str(source),
+                    "-frames:v",
+                    "1",
+                    "-vf",
+                    scale_filter(max_edge),
+                    "-map_metadata",
+                    "-1",
+                    str(intermediate),
+                ]
+            )
+        run(
+            [
+                "cwebp",
+                "-quiet",
+                "-q",
+                "84",
+                "-metadata",
+                "none",
+                str(intermediate),
+                "-o",
+                str(temporary),
+            ]
+        )
+
+
 def make_poster(source: Path, destination: Path, max_edge: int, *, force: bool = False) -> None:
-    if existing(destination) and not force:
+    if is_nonempty_file(destination) and not force:
         return
     duration = float(probe(source).get("format", {}).get("duration", 0))
     seek = 0.5 if duration >= 1 else 0
-    temporary, commit = atomic_destination(destination)
-    try:
+    with atomic_write(destination) as temporary:
         run(
             [
-                "ffmpeg",
-                "-y",
-                "-loglevel",
-                "error",
+                *FFMPEG,
                 "-ss",
                 str(seek),
                 "-i",
@@ -221,7 +234,7 @@ def make_poster(source: Path, destination: Path, max_edge: int, *, force: bool =
                 "-frames:v",
                 "1",
                 "-vf",
-                f"scale={max_edge}:{max_edge}:force_original_aspect_ratio=decrease:force_divisible_by=2",
+                scale_filter(max_edge),
                 "-c:v",
                 "libwebp",
                 "-quality",
@@ -231,20 +244,19 @@ def make_poster(source: Path, destination: Path, max_edge: int, *, force: bool =
                 str(temporary),
             ]
         )
-        commit()
-    finally:
-        temporary.unlink(missing_ok=True)
 
 
-def make_mp4(source: Path, destination: Path) -> None:
-    if existing(destination):
-        return
-    info = probe(source)
-    video = next(
-        (stream for stream in info["streams"] if stream.get("codec_type") == "video"), None
-    )
-    if not video:
-        raise PipelineError(f"No video stream found: {source}")
+def mp4_codec_args(info: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """Choose the streams to keep, and whether to copy or transcode them, from ffprobe output.
+
+    Browsers play H.264 with AAC everywhere, so such a file is copied as it is. Anything else,
+    or a clip that relies on a rotation tag, is transcoded so it displays upright without the
+    player having to honour the tag.
+    """
+
+    video = first_stream(info, "video")
+    if video is None:
+        raise ValueError("ffprobe output has no video stream")
     audio = next(
         (
             stream
@@ -255,63 +267,50 @@ def make_mp4(source: Path, destination: Path) -> None:
         None,
     )
     maps = ["-map", f"0:{video['index']}"] + (["-map", f"0:{audio['index']}"] if audio else [])
-    temporary, commit = atomic_destination(destination)
-    try:
-        if (
-            video.get("codec_name") == "h264"
-            and not stream_rotation(video)
-            and (audio is None or audio.get("codec_name") == "aac")
-        ):
-            run(
-                [
-                    "ffmpeg",
-                    "-y",
-                    "-loglevel",
-                    "error",
-                    "-i",
-                    str(source),
-                    *maps,
-                    "-c",
-                    "copy",
-                    "-movflags",
-                    "+faststart",
-                    "-map_metadata",
-                    "-1",
-                    str(temporary),
-                ]
-            )
-        else:
-            run(
-                [
-                    "ffmpeg",
-                    "-y",
-                    "-loglevel",
-                    "error",
-                    "-i",
-                    str(source),
-                    *maps,
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "medium",
-                    "-crf",
-                    "21",
-                    "-pix_fmt",
-                    "yuv420p",
-                    "-c:a",
-                    "aac",
-                    "-b:a",
-                    "128k",
-                    "-movflags",
-                    "+faststart",
-                    "-map_metadata",
-                    "-1",
-                    str(temporary),
-                ]
-            )
-        commit()
-    finally:
-        temporary.unlink(missing_ok=True)
+    if (
+        video.get("codec_name") == "h264"
+        and not stream_rotation(video)
+        and (audio is None or audio.get("codec_name") == "aac")
+    ):
+        return maps, ["-c", "copy"]
+    return maps, [
+        "-c:v",
+        "libx264",
+        "-preset",
+        "medium",
+        "-crf",
+        "21",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+    ]
+
+
+def make_mp4(source: Path, destination: Path) -> None:
+    if is_nonempty_file(destination):
+        return
+    info = probe(source)
+    if first_stream(info, "video") is None:
+        raise PipelineError(f"No video stream found: {source}")
+    maps, codec_args = mp4_codec_args(info)
+    with atomic_write(destination) as temporary:
+        run(
+            [
+                *FFMPEG,
+                "-i",
+                str(source),
+                *maps,
+                *codec_args,
+                "-movflags",
+                "+faststart",
+                "-map_metadata",
+                "-1",
+                str(temporary),
+            ]
+        )
 
 
 def stream_rotation(stream: dict[str, Any]) -> int:
@@ -325,11 +324,21 @@ def stream_rotation(stream: dict[str, Any]) -> int:
     return 0
 
 
-def load_assets(source: Path, metadata_path: Path) -> list[Asset]:
+def orientation(width: int, height: int) -> int:
+    """Return 1 for landscape, -1 for portrait, and 0 for square."""
+
+    return (width > height) - (width < height)
+
+
+def check_inputs(source: Path, metadata_path: Path) -> None:
     if not source.is_dir():
         raise PipelineError(f"Source directory not found: {source}")
     if not metadata_path.is_file():
         raise PipelineError(f"Metadata file not found: {metadata_path}")
+
+
+def load_assets(source: Path, metadata_path: Path) -> list[Asset]:
+    check_inputs(source, metadata_path)
     metadata = {item["uuid"].upper(): item for item in json.loads(metadata_path.read_text())}
     grouped: dict[str, list[Path]] = {}
     for file in source.iterdir():
@@ -362,14 +371,53 @@ def select_sample(assets: list[Asset], limit: int) -> list[Asset]:
     return selected[:limit]
 
 
+def image_path(uuid: str, max_edge: int) -> str:
+    return f"images/{uuid}-{max_edge}.webp"
+
+
+def video_path(uuid: str) -> str:
+    return f"videos/{uuid}.mp4"
+
+
+def manifest_record(
+    asset: Asset,
+    image_stream: dict[str, Any],
+    video_info: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Build an asset's manifest entry from its probed large image and, if any, its MP4."""
+
+    record: dict[str, Any] = {
+        "id": asset.uuid,
+        "type": asset.kind,
+        "date": asset.metadata.get("date_original"),
+        "image": {
+            "small": image_path(asset.uuid, 1280),
+            "large": image_path(asset.uuid, 2400),
+            "width": int(image_stream["width"]),
+            "height": int(image_stream["height"]),
+        },
+    }
+    if video_info is not None:
+        stream = first_stream(video_info, "video")
+        if stream is None:
+            raise PipelineError(f"No video stream found: {video_path(asset.uuid)}")
+        record["video"] = {
+            "src": video_path(asset.uuid),
+            "width": int(stream["width"]),
+            "height": int(stream["height"]),
+            "durationMs": round(float(video_info["format"].get("duration", 0)) * 1000),
+        }
+    return record
+
+
 def process_asset(
     asset: Asset,
     output: Path,
     *,
     force_images: bool = False,
 ) -> dict[str, Any]:
-    small = output / "images" / f"{asset.uuid}-1280.webp"
-    large = output / "images" / f"{asset.uuid}-2400.webp"
+    small = output / image_path(asset.uuid, 1280)
+    large = output / image_path(asset.uuid, 2400)
     if asset.image:
         make_webp(asset.image, small, 1280, force=force_images)
         make_webp(asset.image, large, 2400, force=force_images)
@@ -379,41 +427,107 @@ def process_asset(
     else:
         raise PipelineError(f"No usable media for {asset.uuid}")
     image_stream = next(stream for stream in probe(large)["streams"] if stream.get("width"))
-    record: dict[str, Any] = {
-        "id": asset.uuid,
-        "type": asset.kind,
-        "date": asset.metadata.get("date_original"),
-        "image": {
-            "small": f"images/{small.name}",
-            "large": f"images/{large.name}",
-            "width": int(image_stream["width"]),
-            "height": int(image_stream["height"]),
-        },
-    }
+    video_info = None
     if asset.video:
-        video_output = output / "videos" / f"{asset.uuid}.mp4"
+        video_output = output / video_path(asset.uuid)
         make_mp4(asset.video, video_output)
         video_info = probe(video_output)
-        stream = next(
-            stream for stream in video_info["streams"] if stream.get("codec_type") == "video"
-        )
-        record["video"] = {
-            "src": f"videos/{video_output.name}",
-            "width": int(stream["width"]),
-            "height": int(stream["height"]),
-            "durationMs": round(float(video_info["format"].get("duration", 0)) * 1000),
-        }
-    return record
+    return manifest_record(asset, image_stream, video_info)
 
 
 def write_json_atomic(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary, commit = atomic_destination(path)
-    try:
+    with atomic_write(path) as temporary:
         temporary.write_text(json.dumps(value, indent=2) + "\n")
-        commit()
-    finally:
-        temporary.unlink(missing_ok=True)
+
+
+def failure_message(error: Exception) -> str:
+    """Prefer a failed command's stderr, which says more than its exit status."""
+
+    if isinstance(error, subprocess.CalledProcessError) and error.stderr:
+        return error.stderr
+    return str(error)
+
+
+def process_assets(
+    assets: list[Asset],
+    output: Path,
+    *,
+    jobs: int,
+    force_images: bool,
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    """Process assets concurrently, returning records and failures in the assets' order."""
+
+    if not assets:
+        return [], []
+    records_by_index: list[dict[str, Any] | None] = [None] * len(assets)
+    failures_by_index: list[dict[str, str] | None] = [None] * len(assets)
+    with ThreadPoolExecutor(
+        max_workers=min(jobs, len(assets)),
+        thread_name_prefix="mediaforge",
+    ) as executor:
+        futures: dict[Future[dict[str, Any]], tuple[int, Asset]] = {
+            executor.submit(
+                process_asset,
+                asset,
+                output,
+                force_images=force_images,
+            ): (index, asset)
+            for index, asset in enumerate(assets)
+        }
+        for completed, future in enumerate(as_completed(futures), 1):
+            index, asset = futures[future]
+            try:
+                records_by_index[index] = future.result()
+                print(
+                    f"[{completed}/{len(assets)}] {asset.kind}: {asset.uuid}",
+                    flush=True,
+                )
+            except Exception as error:
+                # Continue so one unusual asset cannot waste a long run.
+                message = failure_message(error)
+                failures_by_index[index] = {"id": asset.uuid, "error": message}
+                print(
+                    f"[{completed}/{len(assets)}] ERROR {asset.uuid}: {message}",
+                    flush=True,
+                )
+    records = [record for record in records_by_index if record is not None]
+    failures = [failure for failure in failures_by_index if failure is not None]
+    return records, failures
+
+
+def publish_release(
+    source: Path,
+    output: Path,
+    records: list[dict[str, Any]],
+    failures: list[dict[str, str]],
+    *,
+    expected: set[str],
+) -> list[dict[str, str]]:
+    """Write the manifest, and publish it only when every asset processed and verified.
+
+    The partial manifest is always kept so a failed run can be inspected and resumed, while
+    manifest.json is removed so an incomplete release is never mistaken for a finished one.
+    """
+
+    manifest = {
+        "schemaVersion": 1,
+        "revision": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "source": source.as_posix(),
+        "assets": records,
+    }
+    partial_manifest = output / "manifest.partial.json"
+    final_manifest = output / "manifest.json"
+    write_json_atomic(partial_manifest, manifest)
+    if not failures:
+        verification_errors = verify_manifest(output, manifest, expected=expected, deep=True)
+        failures = [{"id": "verification", "error": error} for error in verification_errors]
+    if failures:
+        write_json_atomic(output / "errors.json", failures)
+        final_manifest.unlink(missing_ok=True)
+    else:
+        os.replace(partial_manifest, final_manifest)
+        (output / "errors.json").unlink(missing_ok=True)
+    return failures
 
 
 def build_release(
@@ -431,67 +545,14 @@ def build_release(
     assets = load_assets(source, metadata)
     if limit is not None:
         assets = select_sample(assets, limit)
-    records_by_index: list[dict[str, Any] | None] = [None] * len(assets)
-    failures_by_index: list[dict[str, str] | None] = [None] * len(assets)
-    if assets:
-        with ThreadPoolExecutor(
-            max_workers=min(jobs, len(assets)),
-            thread_name_prefix="mediaforge",
-        ) as executor:
-            futures: dict[Future[dict[str, Any]], tuple[int, Asset]] = {
-                executor.submit(
-                    process_asset,
-                    asset,
-                    output,
-                    force_images=force_images,
-                ): (index, asset)
-                for index, asset in enumerate(assets)
-            }
-            for completed, future in enumerate(as_completed(futures), 1):
-                index, asset = futures[future]
-                try:
-                    records_by_index[index] = future.result()
-                    print(
-                        f"[{completed}/{len(assets)}] {asset.kind}: {asset.uuid}",
-                        flush=True,
-                    )
-                except Exception as error:
-                    # Continue so one unusual asset cannot waste a long run.
-                    message = (
-                        error.stderr
-                        if isinstance(error, subprocess.CalledProcessError) and error.stderr
-                        else str(error)
-                    )
-                    failures_by_index[index] = {"id": asset.uuid, "error": message}
-                    print(
-                        f"[{completed}/{len(assets)}] ERROR {asset.uuid}: {message}",
-                        flush=True,
-                    )
-    records = [record for record in records_by_index if record is not None]
-    failures = [failure for failure in failures_by_index if failure is not None]
-    manifest = {
-        "schemaVersion": 1,
-        "revision": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "source": source.as_posix(),
-        "assets": records,
-    }
-    partial_manifest = output / "manifest.partial.json"
-    final_manifest = output / "manifest.json"
-    write_json_atomic(partial_manifest, manifest)
-    if not failures:
-        verification_errors = verify_manifest(
-            output,
-            manifest,
-            expected={asset.uuid for asset in assets},
-            deep=True,
-        )
-        failures.extend({"id": "verification", "error": error} for error in verification_errors)
-    if failures:
-        write_json_atomic(output / "errors.json", failures)
-        final_manifest.unlink(missing_ok=True)
-    else:
-        os.replace(partial_manifest, final_manifest)
-        (output / "errors.json").unlink(missing_ok=True)
+    records, failures = process_assets(assets, output, jobs=jobs, force_images=force_images)
+    failures = publish_release(
+        source,
+        output,
+        records,
+        failures,
+        expected={asset.uuid for asset in assets},
+    )
     return len(records), failures
 
 
@@ -514,29 +575,23 @@ def verify_manifest(
         if record.get("video"):
             paths.append(output / record["video"]["src"])
         for path in paths:
-            if not existing(path):
+            if not is_nonempty_file(path):
                 errors.append(f"Missing or empty: {path}")
         if max(record["image"]["width"], record["image"]["height"]) > 2400:
             errors.append(f"Image exceeds 2400px: {record['id']}")
         if record.get("video") and record.get("type") == "live_photo":
             image = record["image"]
             video = record["video"]
-            image_orientation = (image["width"] > image["height"]) - (
-                image["width"] < image["height"]
-            )
-            video_orientation = (video["width"] > video["height"]) - (
-                video["width"] < video["height"]
-            )
+            image_orientation = orientation(image["width"], image["height"])
+            video_orientation = orientation(video["width"], video["height"])
             if image_orientation and video_orientation and image_orientation != video_orientation:
                 errors.append(f"Live Photo orientation differs: {record['id']}")
-        if deep and all(existing(path) for path in paths):
+        if deep and all(is_nonempty_file(path) for path in paths):
             try:
                 if record.get("video"):
-                    stream = next(
-                        stream
-                        for stream in probe(output / record["video"]["src"])["streams"]
-                        if stream.get("codec_type") == "video"
-                    )
+                    stream = first_stream(probe(output / record["video"]["src"]), "video")
+                    if stream is None:
+                        raise PipelineError("no video stream")
                     if stream.get("codec_name") != "h264":
                         errors.append(f"Video is not H.264: {record['id']}")
             except Exception as error:
