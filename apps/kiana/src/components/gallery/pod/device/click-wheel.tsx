@@ -11,8 +11,13 @@ import { cx } from "../../../../lib/class-names";
 import { setTouchSwitch } from "../../../../lib/haptics";
 import { HapticTap, switchAttribute, useOnIos } from "../../haptic-tap";
 import { useClickSwallow } from "../../music/use-click-swallow";
-import type { HoldZone } from "../machine";
-import { angleDelta, DEGREES_PER_STEP, takeSteps, wheelZoneAt } from "../menu";
+import {
+  angleDelta,
+  DEGREES_PER_STEP,
+  type HoldZone,
+  takeSteps,
+  wheelZoneAt,
+} from "./wheel";
 
 type Zone = "menu" | "previous" | "next" | "play" | "center";
 

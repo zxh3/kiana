@@ -10,7 +10,7 @@ import { cx } from "../../../../lib/class-names";
 import { easeSoft, fades } from "../../../../lib/motion";
 import { useClickSwallow } from "../../music/use-click-swallow";
 import { DISPLAY_INSET, glassFrame } from "../device/geometry";
-import { type Screen, screenTitles } from "../menu";
+import { type Screen, screens } from "../menu";
 import type { BatteryState } from "../use-battery";
 import { LockGlyph, type PlayState } from "./glyphs";
 import { StatusBar } from "./status-bar";
@@ -112,7 +112,7 @@ export function PodScreen({
           held={held}
           onBack={onBack}
           state={state}
-          title={screenTitles[screen]}
+          title={screens[screen].title}
         />
         <div className="relative flex-1 overflow-hidden">
           <AnimatePresence custom={direction} initial={false}>

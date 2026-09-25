@@ -1,5 +1,6 @@
 import type { CueName } from "../../../lib/sounds";
 import type { AccountStatus } from "../account";
+import type { HoldZone } from "./device/wheel";
 import {
   accountItems,
   appItems,
@@ -7,8 +8,8 @@ import {
   clamp,
   menuItems,
   moveSelection,
-  parentScreen,
   type Screen,
+  screens,
   settingsItems,
   type ToggleSetting,
 } from "./menu";
@@ -23,9 +24,6 @@ import {
 
 /** What Now Playing shows in place of the progress bar. */
 export type Overlay = "volume" | "scrub";
-
-/** Wheel buttons that do something else when held, as on the original. */
-export type HoldZone = "menu" | "previous" | "next" | "play";
 
 export type PodState = {
   screen: Screen;
@@ -439,7 +437,7 @@ export function podReducer(
       if (context.videoOpen) {
         return { state, effects: [press, { type: "video", on: false }] };
       }
-      const parent = parentScreen[state.screen];
+      const parent = screens[state.screen].parent;
       if (!parent || context.videoCovers) return { state, effects: [press] };
       const next = go(state, parent, -1);
       return { ...next, effects: [press, ...next.effects] };

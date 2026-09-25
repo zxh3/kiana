@@ -1,7 +1,7 @@
 import { type PointerEvent, useRef } from "react";
 
 import { useClickSwallow } from "../music/use-click-swallow";
-import { takeSteps } from "./menu";
+import { takeSteps } from "./device/wheel";
 
 /** Movement before a press counts as a swipe rather than a tap. */
 const SWIPE_THRESHOLD = 6;

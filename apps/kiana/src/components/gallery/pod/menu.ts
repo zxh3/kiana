@@ -1,8 +1,8 @@
 import type { AccountStatus } from "../account";
 
 /**
- * The pocket player's screens, menus, and the arithmetic of its click wheel.
- * Kept free of React so the rules can be tested on their own.
+ * The pocket player's screens, menus, and lists. Kept free of React so the
+ * rules can be tested on their own.
  */
 
 export type Screen =
@@ -18,50 +18,50 @@ export type Screen =
   | "settings"
   | "account"
   | "now";
+/**
+ * Screens an app draws itself, where the wheel and the centre button
+ * belong to the app rather than to a list.
+ */
+export type AppScreen = "spinner" | "muyu" | "chat" | "name";
 /** Screens with a highlight that the wheel moves. */
-export type ChoiceScreen = Exclude<
-  Screen,
-  "now" | "spinner" | "muyu" | "chat" | "name"
->;
+export type ChoiceScreen = Exclude<Screen, "now" | AppScreen>;
 /** Screens drawn as a menu list. */
 export type ListScreen = Exclude<ChoiceScreen, "covers">;
 
-/**
- * The top menu is titled with the device's name, as a real one showed the
- * name its owner gave it.
- */
-export const screenTitles: Record<Screen, string> = {
-  menu: "Kiana",
-  covers: "Cover Flow",
-  songs: "Songs",
-  apps: "Apps",
-  spinner: "Finger Spinner",
-  muyu: "电子木鱼",
-  chat: "Chat Room",
-  online: "Online",
-  name: "Your Name",
-  settings: "Settings",
-  account: "Account",
-  now: "Now Playing",
+type ScreenInfo = {
+  title: string;
+  /**
+   * Where Menu goes back to. The top menu has nowhere left to go, so Menu
+   * does nothing there, as on the original: pressing it repeatedly is
+   * always safe.
+   */
+  parent: Screen | null;
+  /** The language of its title, where it is not English. */
+  lang?: string;
+  /** The live app whose connection stays open while it shows. */
+  room?: "chat" | "muyu";
 };
 
 /**
- * Where Menu goes back to. The top menu has nowhere left to go, so Menu does
- * nothing there, as on the original: pressing it repeatedly is always safe.
+ * Every screen: its title, where Menu goes back to, and the rest. The top
+ * menu is titled with the device's name, as a real one showed the name
+ * its owner gave it. The Chat Room is joined while any of its screens
+ * shows (the messages, who is online, and the viewer's name), so the
+ * Online list counts people who have it open.
  */
-export const parentScreen: Record<Screen, Screen | null> = {
-  menu: null,
-  covers: "menu",
-  songs: "menu",
-  apps: "menu",
-  spinner: "apps",
-  muyu: "apps",
-  chat: "apps",
-  online: "chat",
-  name: "online",
-  settings: "menu",
-  account: "settings",
-  now: "menu",
+export const screens: Record<Screen, ScreenInfo> = {
+  menu: { title: "Kiana", parent: null },
+  covers: { title: "Cover Flow", parent: "menu" },
+  songs: { title: "Songs", parent: "menu" },
+  apps: { title: "Apps", parent: "menu" },
+  spinner: { title: "Finger Spinner", parent: "apps" },
+  muyu: { title: "电子木鱼", parent: "apps", lang: "zh", room: "muyu" },
+  chat: { title: "Chat Room", parent: "apps", room: "chat" },
+  online: { title: "Online", parent: "chat", room: "chat" },
+  name: { title: "Your Name", parent: "online", room: "chat" },
+  settings: { title: "Settings", parent: "menu" },
+  account: { title: "Account", parent: "settings" },
+  now: { title: "Now Playing", parent: "menu" },
 };
 
 /**
@@ -107,19 +107,6 @@ export const menuOpens: Record<MenuItem, boolean> = {
  */
 export const appItems = ["spinner", "chat", "muyu"] as const;
 export type AppItem = (typeof appItems)[number];
-
-/** The language of each app's name, where it is not English. */
-export const appLangs: Partial<Record<AppItem, string>> = { muyu: "zh" };
-
-/**
- * The Chat Room's screens: the messages, who is online, and the viewer's
- * name. The room is joined while one of them shows.
- */
-export const chatScreens: ReadonlySet<Screen> = new Set([
-  "chat",
-  "online",
-  "name",
-]);
 
 /**
  * Settings, named as on the original where it had the same setting. Then
@@ -185,36 +172,6 @@ export const accountLabels: Record<Exclude<AccountItem, "member">, string> = {
 
 /** Rows that fit on the screen at once. */
 export const VISIBLE_ROWS = 7;
-
-/** Degrees of wheel travel per click: 24 clicks a turn, like the original. */
-export const DEGREES_PER_STEP = 15;
-
-/** The signed turn from one angle to another, in (-180, 180]. */
-export function angleDelta(from: number, to: number) {
-  let delta = (to - from) % 360;
-  if (delta > 180) delta -= 360;
-  if (delta <= -180) delta += 360;
-  return delta;
-}
-
-/**
- * Which of the wheel's four buttons lies at an angle, in degrees clockwise
- * from the right (as `Math.atan2` gives it on screen): each owns a quarter
- * of the ring around its compass point.
- */
-export function wheelZoneAt(angle: number) {
-  const a = angleDelta(0, angle);
-  if (a > -135 && a <= -45) return "menu";
-  if (a > -45 && a <= 45) return "next";
-  if (a > 45 && a <= 135) return "play";
-  return "previous";
-}
-
-/** Whole clicks in `travel`, and the travel left over toward the next one. */
-export function takeSteps(travel: number, size: number) {
-  const steps = Math.trunc(travel / size);
-  return { steps, rest: travel - steps * size };
-}
 
 /** Lists stop at their ends rather than wrapping, as the original did. */
 export function moveSelection(index: number, steps: number, length: number) {

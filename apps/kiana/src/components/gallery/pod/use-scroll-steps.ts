@@ -1,6 +1,6 @@
 import { type RefObject, useEffect, useRef } from "react";
 
-import { takeSteps } from "./menu";
+import { takeSteps } from "./device/wheel";
 
 /** Scroll distance that counts as one click of the wheel. */
 const PIXELS_PER_STEP = 40;

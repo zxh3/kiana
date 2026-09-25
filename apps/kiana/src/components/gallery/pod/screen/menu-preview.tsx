@@ -6,7 +6,7 @@ import { fades } from "../../../../lib/motion";
 import { type Track, trackArt } from "../../music/music-track";
 import { muyuArt } from "../apps/muyu/art";
 import { SpinnerIcon, type SpinnerLooks } from "../apps/spinner/finger-spinner";
-import { type AppItem, appItems, appLangs, type MenuItem } from "../menu";
+import { type AppItem, appItems, type MenuItem, screens } from "../menu";
 
 /** How long each cover shows while Shuffle Songs is highlighted. */
 const SHUFFLE_EVERY = 1_400;
@@ -131,7 +131,7 @@ function AppTile({ app, looks }: { app: AppItem; looks: SpinnerLooks }) {
       </div>
       <span
         className="text-[8.5px] leading-none font-semibold text-[#3d4652]"
-        lang={appLangs[app]}
+        lang={screens[app].lang}
       >
         {appTileLabels[app]}
       </span>

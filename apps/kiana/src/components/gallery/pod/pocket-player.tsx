@@ -9,7 +9,7 @@ import { ClickWheel } from "./device/click-wheel";
 import { DragHandle } from "./device/drag-handle";
 import { FaceButtons } from "./device/face-buttons";
 import { HoldSwitch } from "./device/hold-switch";
-import { menuItems, screenTitles } from "./menu";
+import { menuItems, screens } from "./menu";
 import { CoverFlow } from "./screen/cover-flow";
 import { MenuPreview } from "./screen/menu-preview";
 import { NowPlaying } from "./screen/now-playing";
@@ -161,7 +161,7 @@ export function PocketPlayer({
     }
     const list = (
       <PodList
-        label={screenTitles[screen]}
+        label={screens[screen].title}
         onHover={(index) => controls.hover(screen, index)}
         onPick={(index) => controls.pick(screen, index)}
         onStep={controls.step}

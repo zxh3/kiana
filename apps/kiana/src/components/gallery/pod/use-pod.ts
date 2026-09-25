@@ -9,8 +9,8 @@ import { useChat } from "./apps/chat/use-chat";
 import { useMuyu } from "./apps/muyu/use-muyu";
 import { nextKianaFace, nextSpinnerStyle } from "./apps/spinner/spinner";
 import { nextFinish } from "./device/finishes";
+import type { HoldZone } from "./device/wheel";
 import {
-  type HoldZone,
   initialPodState,
   LOCK_SHOWS_FOR,
   overlayDurations,
@@ -21,12 +21,7 @@ import {
   SEEK_SETTLE,
   SEEK_TICK,
 } from "./machine";
-import {
-  type ChoiceScreen,
-  chatScreens,
-  parentScreen,
-  type ToggleSetting,
-} from "./menu";
+import { type ChoiceScreen, screens, type ToggleSetting } from "./menu";
 import { describePod, type PodView, podRows } from "./rows";
 import { BACKLIGHT_TIMEOUT, type PodSettings } from "./settings";
 import { useBacklight } from "./use-backlight";
@@ -61,8 +56,10 @@ export function usePod({
     settings.backlight === "timed" && !videoCovers ? BACKLIGHT_TIMEOUT : null,
   );
   const account = useAccount();
-  const chat = useChat(chatScreens.has(state.screen), account.member);
-  const muyu = useMuyu(state.screen === "muyu", account.member?.id ?? null);
+  // A live app stays connected while one of its screens shows.
+  const { room } = screens[state.screen];
+  const chat = useChat(room === "chat", account.member);
+  const muyu = useMuyu(room === "muyu", account.member?.id ?? null);
   const others = otherPeople(chat);
 
   // The latest facts, read by actions between renders. The volume is also
@@ -259,7 +256,7 @@ export function usePod({
     /** Counts as a touch, for the backlight. */
     wake: backlight.wake,
     canGoBack:
-      videoOpen || (!videoCovers && parentScreen[state.screen] !== null),
+      videoOpen || (!videoCovers && screens[state.screen].parent !== null),
     controls: {
       step: touch((steps: number) => ({ type: "step", steps })),
       select: touch(() => ({ type: "select" })),

@@ -16,12 +16,11 @@ import {
   accountItems,
   accountLabels,
   appItems,
-  appLangs,
   type ListScreen,
   menuItems,
   menuLabels,
   menuOpens,
-  screenTitles,
+  screens,
   settingsItems,
   settingsLabels,
 } from "./menu";
@@ -103,8 +102,8 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
     })),
     apps: appItems.map((item) => ({
       key: item,
-      label: screenTitles[item],
-      lang: appLangs[item],
+      label: screens[item].title,
+      lang: screens[item].lang,
       opens: true,
     })),
     // The viewer first, whose row opens Your Name unless they go by their
@@ -162,29 +161,29 @@ export function describePod(
       return `Position ${formatPodTime(state.scrubAt ?? view.current)} of ${formatPodTime(view.duration)}`;
     }
     const track = view.playlist[view.index];
-    return `${screenTitles.now}: ${track.title}, ${track.artist}`;
+    return `${screens.now.title}: ${track.title}, ${track.artist}`;
   }
   if (state.screen === "muyu") {
-    return `${screenTitles.muyu}: press the centre button to pat Kiana's head`;
+    return `${screens.muyu.title}: press the centre button to pat Kiana's head`;
   }
   if (state.screen === "spinner") {
-    return `${screenTitles.spinner}: turn the wheel to spin it, or press the centre button to flick it`;
+    return `${screens.spinner.title}: turn the wheel to spin it, or press the centre button to flick it`;
   }
   if (state.screen === "chat") {
     const { status, others, last } = view.chat;
-    if (status !== "open") return `${screenTitles.chat}: connecting`;
-    const here = `${screenTitles.chat}, ${others.length + 1} online`;
+    if (status !== "open") return `${screens.chat.title}: connecting`;
+    const here = `${screens.chat.title}, ${others.length + 1} online`;
     return last ? `${here}. ${last.name}: ${last.text}` : here;
   }
   if (state.screen === "name") {
-    return `${screenTitles.name}: type a name, then press Enter to save it`;
+    return `${screens.name.title}: type a name, then press Enter to save it`;
   }
   if (state.screen === "covers") {
     const track = view.playlist[state.selected.covers];
     return `${track.title}, ${track.artist}`;
   }
   const row = rows[state.screen][state.selected[state.screen]];
-  if (!row) return screenTitles[state.screen];
+  if (!row) return screens[state.screen].title;
   return [row.label, row.verified && "verified", row.detail]
     .filter(Boolean)
     .join(", ");
