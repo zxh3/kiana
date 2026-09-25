@@ -94,8 +94,10 @@ Mediaforge release manifest and displays the responsive images described by it.
   on what they sent since connecting, and someone signed in's on everything
   their account sent, from any device or visit. The room is a Cloudflare Durable
   Object (`src/server/chat-room.ts`) that the page reaches by WebSocket at
-  `/api/chat`: it keeps the last 50 messages in its SQLite storage, deletes
-  each a day after it was sent (by an alarm, even while nobody is there), tells
+  `/api/chat`: it keeps every message in its SQLite storage and sends
+  whoever joins the latest 100; scrolling up to the top of the messages
+  brings in the 100 before (at most one request every 300 ms), keeping the
+  ones being read in place, until the first message ever. It tells
   everyone who is here as people come and go, and allows five messages
   every ten seconds each. Names are at most 16 characters and messages 200,
   both one line of plain text. It is joined only while one of its screens

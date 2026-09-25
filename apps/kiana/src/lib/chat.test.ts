@@ -1,15 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  allowHistory,
   allowSend,
   allowTyping,
   cleanName,
   cleanText,
-  expiryCutoff,
-  MESSAGE_LIFETIME,
+  HISTORY_EVERY,
   NAME_MAX,
   nameFor,
-  nextExpiry,
   parseClientMessage,
   parseServerMessage,
   quietTyping,
@@ -66,12 +65,11 @@ describe("randomName", () => {
   });
 });
 
-describe("message expiry", () => {
-  it("expires messages a day old, and schedules the next deletion", () => {
-    const day = 24 * 60 * 60 * 1_000;
-    expect(MESSAGE_LIFETIME).toBe(day);
-    expect(expiryCutoff(day + 5)).toBe(5);
-    expect(nextExpiry(5)).toBe(day + 5);
+describe("allowHistory", () => {
+  it("lets someone ask for earlier messages, but not in a flood", () => {
+    expect(allowHistory(undefined, 0)).toBe(true);
+    expect(allowHistory(1_000, 1_000 + HISTORY_EVERY - 1)).toBe(false);
+    expect(allowHistory(1_000, 1_000 + HISTORY_EVERY)).toBe(true);
   });
 });
 
@@ -147,6 +145,20 @@ describe("parseClientMessage", () => {
     });
   });
 
+  it("reads a request for the page before a message", () => {
+    expect(parseClientMessage('{"type":"history","before":"m1"}')).toEqual({
+      type: "history",
+      before: "m1",
+    });
+    expect(parseClientMessage('{"type":"history","before":""}')).toBeNull();
+    expect(parseClientMessage('{"type":"history","before":3}')).toBeNull();
+    expect(
+      parseClientMessage(
+        JSON.stringify({ type: "history", before: "x".repeat(65) }),
+      ),
+    ).toBeNull();
+  });
+
   it("reads typing signals", () => {
     expect(parseClientMessage('{"type":"typing"}')).toEqual({
       type: "typing",
@@ -185,7 +197,22 @@ describe("parseServerMessage", () => {
       you: "p",
       people: [{ id: "p", name: "kiana" }],
       messages: [message],
+      more: false,
     });
+  });
+
+  it("reads a page of earlier messages", () => {
+    const raw = JSON.stringify({
+      type: "history",
+      messages: [message, { id: "x" }],
+      more: true,
+    });
+    expect(parseServerMessage(raw)).toEqual({
+      type: "history",
+      messages: [message],
+      more: true,
+    });
+    expect(parseServerMessage('{"type":"history"}')).toBeNull();
   });
 
   it("reads people, messages, and notices", () => {
@@ -224,6 +251,7 @@ describe("parseServerMessage", () => {
         { ...message, verified: true, mine: true },
         { ...message, id: "n" },
       ],
+      more: false,
     });
   });
 

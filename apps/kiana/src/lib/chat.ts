@@ -12,10 +12,14 @@ export const CHAT_PATH = "/api/chat";
 /** The longest name, and the longest message, in characters. */
 export const NAME_MAX = 16;
 export const TEXT_MAX = 200;
-/** Messages the room keeps, and sends to whoever joins. */
-export const HISTORY_SIZE = 50;
-/** How long the room keeps a message before deleting it: a day. */
-export const MESSAGE_LIFETIME = 24 * 60 * 60 * 1_000;
+/**
+ * The room keeps every message. Whoever joins gets the latest this many,
+ * and each request for earlier ones, made by scrolling up to the top,
+ * brings this many more.
+ */
+export const PAGE_SIZE = 100;
+/** Each person may ask for earlier messages at most this often. */
+export const HISTORY_EVERY = 300;
 /** Each person may send this many messages in any window this long. */
 export const SEND_LIMIT = 5;
 export const SEND_WINDOW = 10_000;
@@ -58,7 +62,9 @@ export type ClientMessage =
   | { type: "rename"; name: string }
   | { type: "say"; text: string }
   /** Started or went on typing (`active`), or cleared what they typed. */
-  | { type: "typing"; active: boolean };
+  | { type: "typing"; active: boolean }
+  /** The page of messages before the one with this id. */
+  | { type: "history"; before: string };
 
 /** From the room to the browser. */
 export type ServerMessage =
@@ -66,8 +72,12 @@ export type ServerMessage =
       type: "welcome";
       you: string;
       people: Person[];
+      /** The latest page, and whether there are earlier messages. */
       messages: ChatMessage[];
+      more: boolean;
     }
+  /** A page of earlier messages, oldest first, for the one who asked. */
+  | { type: "history"; messages: ChatMessage[]; more: boolean }
   | { type: "people"; people: Person[] }
   | { type: "message"; message: ChatMessage }
   | { type: "typing"; id: string; name: string; active: boolean }
@@ -110,14 +120,9 @@ export function randomName(random = Math.random) {
   return `user_${1000 + Math.floor(random() * 9000)}`;
 }
 
-/** Messages sent at or before this time, a day before `now`, have expired. */
-export function expiryCutoff(now: number) {
-  return now - MESSAGE_LIFETIME;
-}
-
-/** When the room next has a message to delete, given its oldest one's time. */
-export function nextExpiry(oldest: number) {
-  return oldest + MESSAGE_LIFETIME;
+/** Whether a request for earlier messages at `now` is not too soon. */
+export function allowHistory(last: number | undefined, now: number) {
+  return last === undefined || now - last >= HISTORY_EVERY;
 }
 
 /**
@@ -187,6 +192,14 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
   if (data.type === "typing") {
     return { type: "typing", active: data.active !== false };
   }
+  if (
+    data.type === "history" &&
+    typeof data.before === "string" &&
+    data.before.length > 0 &&
+    data.before.length <= 64
+  ) {
+    return { type: "history", before: data.before };
+  }
   return null;
 }
 
@@ -195,6 +208,10 @@ function parsePerson(raw: unknown): Person | null {
   const { id, name, verified } = raw as Record<string, unknown>;
   if (typeof id !== "string" || typeof name !== "string") return null;
   return verified === true ? { id, name, verified } : { id, name };
+}
+
+function parseChatMessages(raw: unknown[]) {
+  return raw.map(parseChatMessage).filter((message) => message !== null);
 }
 
 function parsePeople(raw: unknown) {
@@ -245,10 +262,20 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
       !Array.isArray(data.messages)
     )
       return null;
-    const messages = data.messages
-      .map(parseChatMessage)
-      .filter((message) => message !== null);
-    return { type: "welcome", you: data.you, people, messages };
+    return {
+      type: "welcome",
+      you: data.you,
+      people,
+      messages: parseChatMessages(data.messages),
+      more: data.more === true,
+    };
+  }
+  if (data.type === "history" && Array.isArray(data.messages)) {
+    return {
+      type: "history",
+      messages: parseChatMessages(data.messages),
+      more: data.more === true,
+    };
   }
   if (data.type === "people") {
     const people = parsePeople(data.people);

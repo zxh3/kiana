@@ -1,14 +1,13 @@
 import { DurableObject } from "cloudflare:workers";
 
 import {
+  allowHistory,
   allowSend,
   allowTyping,
   type ChatMessage,
-  expiryCutoff,
-  HISTORY_SIZE,
   type LastTyping,
   nameFor,
-  nextExpiry,
+  PAGE_SIZE,
   type Person,
   parseClientMessage,
   type ServerMessage,
@@ -28,6 +27,8 @@ type Guest = {
   sent: number[];
   /** The last typing signal passed on for it, for that signal's limit. */
   typed?: LastTyping;
+  /** When it last asked for earlier messages, for that request's limit. */
+  paged?: number;
   /**
    * Who it signed in as, if it did: then it goes by its Google name, and
    * cannot pick another.
@@ -35,14 +36,27 @@ type Guest = {
   account?: Account | null;
 };
 
+/** Someone connected who has joined, with their socket. */
+type Joined = { socket: WebSocket; guest: Guest & { name: string } };
+
+type MessageRow = {
+  id: string;
+  sender: string;
+  name: string;
+  text: string;
+  at: number;
+  verified: number;
+  account: string | null;
+};
+
 /**
  * The click-wheel player's chat room: one Durable Object that every
- * browser with the Chat Room open connects to by WebSocket. It keeps the
- * last messages in its SQLite storage, sends them to whoever joins, and
+ * browser with the Chat Room open connects to by WebSocket. It keeps every
+ * message in its SQLite storage and sends whoever joins the latest page of
+ * them; scrolling up to the top asks for the page before, and so on. It
  * tells everyone who is here whenever someone joins, leaves, or changes
- * their name. It passes on who is typing without keeping it: that is only
- * ever live. Messages are deleted a day after they are sent, by an alarm
- * set for the oldest one, so they go even while nobody is here.
+ * their name, and passes on who is typing without keeping it: that is only
+ * ever live.
  *
  * Someone signed in with Google goes by their first name, marked as
  * verified, in place of a name they picked: the Worker checks their
@@ -56,7 +70,8 @@ type Guest = {
 export class ChatRoom extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    ctx.storage.sql.exec(`
+    const sql = ctx.storage.sql;
+    sql.exec(`
       CREATE TABLE IF NOT EXISTS messages (
         seq INTEGER PRIMARY KEY AUTOINCREMENT,
         id TEXT NOT NULL,
@@ -69,19 +84,21 @@ export class ChatRoom extends DurableObject<Env> {
     // account, added once signing in came, to a table that may already
     // hold messages.
     const columns = new Set(
-      ctx.storage.sql
+      sql
         .exec<{ name: string }>("PRAGMA table_info(messages)")
         .toArray()
         .map((column) => column.name),
     );
     if (!columns.has("verified")) {
-      ctx.storage.sql.exec(
+      sql.exec(
         "ALTER TABLE messages ADD COLUMN verified INTEGER NOT NULL DEFAULT 0",
       );
     }
     if (!columns.has("account")) {
-      ctx.storage.sql.exec("ALTER TABLE messages ADD COLUMN account TEXT");
+      sql.exec("ALTER TABLE messages ADD COLUMN account TEXT");
     }
+    // Earlier pages start from a message's id, found by this.
+    sql.exec("CREATE INDEX IF NOT EXISTS messages_id ON messages (id)");
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
   }
 
@@ -103,51 +120,72 @@ export class ChatRoom extends DurableObject<Env> {
 
   async webSocketMessage(socket: WebSocket, data: string | ArrayBuffer) {
     const message = parseClientMessage(data);
-    const guest = socket.deserializeAttachment() as Guest;
-    if (!message) return;
-
+    const guest = guestOf(socket);
+    if (!message || !guest) return;
     if (message.type === "join" || message.type === "rename") {
-      // Someone signed in goes by their account's name, whatever they send.
-      if (message.type === "rename" && guest.account) return;
-      const joining = guest.name === null;
-      const name = nameFor(guest.account, message.name);
-      socket.serializeAttachment({ ...guest, name });
-      if (joining) {
-        // In case the alarm has not run yet, nothing expired is sent.
-        this.expire(Date.now());
-        send(socket, {
-          type: "welcome",
-          you: guest.id,
-          people: this.people(),
-          messages: this.history(guest.account?.id),
-        });
-      }
-      this.broadcast({ type: "people", people: this.people() });
+      this.join(socket, guest, message.type, message.name);
       return;
     }
-
     // Only someone who has joined can talk, and not too fast.
     if (guest.name === null) return;
-    const now = Date.now();
+    const joined = { socket, guest: { ...guest, name: guest.name } };
+    if (message.type === "typing") this.typing(joined, message.active);
+    else if (message.type === "history") this.page(joined, message.before);
+    else this.say(joined, message.text);
+  }
 
-    if (message.type === "typing") {
-      if (!allowTyping(guest.typed, message.active, now)) return;
-      socket.serializeAttachment({
-        ...guest,
-        typed: { at: now, active: message.active },
+  /**
+   * Joins the room, with the latest page of messages, or changes name.
+   * Someone signed in goes by their account's name, whatever they send.
+   */
+  private join(
+    socket: WebSocket,
+    guest: Guest,
+    type: "join" | "rename",
+    picked: string,
+  ) {
+    if (type === "rename" && guest.account) return;
+    const joining = guest.name === null;
+    socket.serializeAttachment({
+      ...guest,
+      name: nameFor(guest.account, picked),
+    });
+    if (joining) {
+      send(socket, {
+        type: "welcome",
+        you: guest.id,
+        people: this.people(),
+        ...this.messages(guest.account?.id),
       });
-      this.broadcast(
-        {
-          type: "typing",
-          id: guest.id,
-          name: guest.name,
-          active: message.active,
-        },
-        socket,
-      );
-      return;
     }
+    this.broadcast({ type: "people", people: this.people() });
+  }
 
+  /** Passes on that someone is typing, or stopped, without keeping it. */
+  private typing({ socket, guest }: Joined, active: boolean) {
+    const now = Date.now();
+    if (!allowTyping(guest.typed, active, now)) return;
+    socket.serializeAttachment({ ...guest, typed: { at: now, active } });
+    this.broadcast(
+      { type: "typing", id: guest.id, name: guest.name, active },
+      socket,
+    );
+  }
+
+  /** Sends the one who asked the page of messages before `before`. */
+  private page({ socket, guest }: Joined, before: string) {
+    const now = Date.now();
+    if (!allowHistory(guest.paged, now)) return;
+    socket.serializeAttachment({ ...guest, paged: now });
+    send(socket, {
+      type: "history",
+      ...this.messages(guest.account?.id, before),
+    });
+  }
+
+  /** Keeps a message, and tells everyone, unless it comes too fast. */
+  private say({ socket, guest }: Joined, text: string) {
+    const now = Date.now();
     const limit = allowSend(guest.sent, now);
     socket.serializeAttachment({ ...guest, sent: limit.recent });
     if (!limit.allowed) {
@@ -158,12 +196,11 @@ export class ChatRoom extends DurableObject<Env> {
       id: crypto.randomUUID(),
       from: guest.id,
       name: guest.name,
-      text: message.text,
+      text,
       at: now,
     };
     if (guest.account) said.verified = true;
-    const sql = this.ctx.storage.sql;
-    sql.exec(
+    this.ctx.storage.sql.exec(
       "INSERT INTO messages (id, sender, name, text, at, verified, account) VALUES (?, ?, ?, ?, ?, ?, ?)",
       said.id,
       said.from,
@@ -173,45 +210,24 @@ export class ChatRoom extends DurableObject<Env> {
       said.verified ? 1 : 0,
       guest.account?.id ?? null,
     );
-    sql.exec(
-      "DELETE FROM messages WHERE seq <= (SELECT MAX(seq) FROM messages) - ?",
-      HISTORY_SIZE,
-    );
-    this.expire(now);
     // Each of the sender's own connections, on any device, hears it as
     // theirs; the account itself is never sent.
-    for (const other of this.ctx.getWebSockets()) {
-      const listener = other.deserializeAttachment() as Guest | null;
-      if (listener?.name == null) continue;
+    for (const listener of this.joined()) {
       const mine =
-        guest.account != null && listener.account?.id === guest.account.id;
-      send(other, {
+        guest.account != null &&
+        listener.guest.account?.id === guest.account.id;
+      send(listener.socket, {
         type: "message",
         message: mine ? { ...said, mine } : said,
       });
     }
   }
 
-  async alarm() {
-    this.expire(Date.now());
-  }
-
   /**
-   * Deletes the messages a day old, and sets the alarm for when the oldest
-   * one left will be, or clears it once none are left.
+   * A room made before messages were kept for good may still have an alarm
+   * set to delete the oldest; there is nothing left for it to do.
    */
-  private expire(now: number) {
-    const sql = this.ctx.storage.sql;
-    sql.exec("DELETE FROM messages WHERE at <= ?", expiryCutoff(now));
-    const [oldest] = sql
-      .exec<{ at: number }>("SELECT MIN(at) AS at FROM messages")
-      .toArray();
-    if (oldest?.at != null) {
-      this.ctx.storage.setAlarm(nextExpiry(oldest.at));
-    } else {
-      this.ctx.storage.deleteAlarm();
-    }
-  }
+  async alarm() {}
 
   async webSocketClose(socket: WebSocket) {
     this.leave(socket);
@@ -227,34 +243,43 @@ export class ChatRoom extends DurableObject<Env> {
   }
 
   /** Everyone connected who has joined, apart from one on its way out. */
-  private people(leaving?: WebSocket): Person[] {
-    return this.ctx
-      .getWebSockets()
-      .filter((socket) => socket !== leaving)
-      .flatMap((socket) => {
-        const guest = socket.deserializeAttachment() as Guest | null;
-        if (!guest?.name) return [];
-        const person: Person = { id: guest.id, name: guest.name };
-        if (guest.account) person.verified = true;
-        return [person];
-      });
+  private joined(except?: WebSocket): Joined[] {
+    return this.ctx.getWebSockets().flatMap((socket) => {
+      if (socket === except) return [];
+      const guest = guestOf(socket);
+      return guest?.name
+        ? [{ socket, guest: { ...guest, name: guest.name } }]
+        : [];
+    });
   }
 
-  /** The messages kept, those sent by `account` marked as its own. */
-  private history(account?: string): ChatMessage[] {
-    return this.ctx.storage.sql
-      .exec<{
-        id: string;
-        sender: string;
-        name: string;
-        text: string;
-        at: number;
-        verified: number;
-        account: string | null;
-      }>(
-        "SELECT id, sender, name, text, at, verified, account FROM messages ORDER BY seq",
+  /** Who is here, apart from one on their way out. */
+  private people(leaving?: WebSocket): Person[] {
+    return this.joined(leaving).map(({ guest }) => {
+      const person: Person = { id: guest.id, name: guest.name };
+      if (guest.account) person.verified = true;
+      return person;
+    });
+  }
+
+  /**
+   * A page of messages, oldest first: the latest, or those just before
+   * the one with the id `before`, and whether there are earlier ones.
+   * Those sent by `account` are marked as its own.
+   */
+  private messages(account?: string, before?: string) {
+    const rows = this.ctx.storage.sql
+      .exec<MessageRow>(
+        `SELECT id, sender, name, text, at, verified, account FROM messages
+         WHERE seq < COALESCE((SELECT seq FROM messages WHERE id = ?), 9e18)
+         ORDER BY seq DESC LIMIT ?`,
+        before ?? null,
+        PAGE_SIZE + 1,
       )
-      .toArray()
+      .toArray();
+    const messages = rows
+      .slice(0, PAGE_SIZE)
+      .reverse()
       .map((row) => {
         const message: ChatMessage = {
           id: row.id,
@@ -267,15 +292,16 @@ export class ChatRoom extends DurableObject<Env> {
         if (account && row.account === account) message.mine = true;
         return message;
       });
+    return { messages, more: rows.length > PAGE_SIZE };
   }
 
   private broadcast(message: ServerMessage, except?: WebSocket) {
-    for (const socket of this.ctx.getWebSockets()) {
-      if (socket === except) continue;
-      const guest = socket.deserializeAttachment() as Guest | null;
-      if (guest?.name != null) send(socket, message);
-    }
+    for (const { socket } of this.joined(except)) send(socket, message);
   }
+}
+
+function guestOf(socket: WebSocket) {
+  return socket.deserializeAttachment() as Guest | null;
 }
 
 /** Sends to one socket, which may already be closing. */

@@ -1,7 +1,6 @@
 import {
   type ChatMessage,
   cleanName,
-  HISTORY_SIZE,
   type Person,
   type ServerMessage,
   TYPING_SHOWS_FOR,
@@ -10,8 +9,9 @@ import {
 /**
  * The Chat Room's side of the conversation, as a pure reducer: what the
  * connection is doing, who is here and who is typing, and the messages so
- * far. `use-chat.ts`
- * feeds it the socket's events.
+ * far: the latest page from joining, earlier pages added in front as the
+ * viewer scrolls up for them, and every new one. `use-chat.ts` feeds it
+ * the socket's events.
  */
 
 export type ChatStatus = "connecting" | "open" | "offline";
@@ -22,6 +22,10 @@ export type ChatState = {
   you: string | null;
   people: Person[];
   messages: ChatMessage[];
+  /** Whether the room has messages from before the first one here. */
+  more: boolean;
+  /** Earlier messages asked for and not here yet. */
+  loadingOlder: boolean;
   /** A word from the room, such as asking to slow down. */
   notice: string | null;
   /** Who else is typing, and when this browser last heard so. */
@@ -33,6 +37,8 @@ export type Typist = { id: string; name: string; at: number };
 export type ChatEvent =
   | { type: "connecting" }
   | { type: "offline" }
+  /** Asked the room for the page before the first message here. */
+  | { type: "loadingOlder" }
   /** `at` is when it arrived, by this browser's clock. */
   | { type: "received"; message: ServerMessage; at: number };
 
@@ -41,6 +47,8 @@ export const initialChatState: ChatState = {
   you: null,
   people: [],
   messages: [],
+  more: false,
+  loadingOlder: false,
   notice: null,
   typists: [],
 };
@@ -49,8 +57,16 @@ export function chatReducer(state: ChatState, event: ChatEvent): ChatState {
   if (event.type === "connecting") return { ...state, status: "connecting" };
   // Who was here is no longer known; the messages stay to read.
   if (event.type === "offline") {
-    return { ...state, status: "offline", you: null, people: [], typists: [] };
+    return {
+      ...state,
+      status: "offline",
+      you: null,
+      people: [],
+      typists: [],
+      loadingOlder: false,
+    };
   }
+  if (event.type === "loadingOlder") return { ...state, loadingOlder: true };
   const message = event.message;
   switch (message.type) {
     case "welcome":
@@ -58,7 +74,9 @@ export function chatReducer(state: ChatState, event: ChatEvent): ChatState {
         status: "open",
         you: message.you,
         people: message.people,
-        messages: message.messages.slice(-HISTORY_SIZE),
+        messages: message.messages,
+        more: message.more,
+        loadingOlder: false,
         notice: null,
         typists: [],
       };
@@ -75,7 +93,7 @@ export function chatReducer(state: ChatState, event: ChatEvent): ChatState {
     case "message":
       return {
         ...state,
-        messages: [...state.messages, message.message].slice(-HISTORY_SIZE),
+        messages: [...state.messages, message.message],
         notice: null,
         typists: state.typists.filter(
           (typist) => typist.id !== message.message.from,
@@ -96,9 +114,30 @@ export function chatReducer(state: ChatState, event: ChatEvent): ChatState {
           : [...state.typists, typist],
       };
     }
+    // Earlier messages go in front, leaving out any already here.
+    case "history": {
+      const here = new Set(state.messages.map((each) => each.id));
+      const earlier = message.messages.filter((each) => !here.has(each.id));
+      return {
+        ...state,
+        messages: [...earlier, ...state.messages],
+        more: message.more,
+        loadingOlder: false,
+      };
+    }
     case "notice":
       return { ...state, notice: message.text };
   }
+}
+
+/**
+ * The message to ask for the page before, when the viewer has scrolled up
+ * to the top: the first one here, if the room has earlier ones and none
+ * are on their way already; otherwise null.
+ */
+export function olderPageBefore(state: ChatState) {
+  if (state.status !== "open" || !state.more || state.loadingOlder) return null;
+  return state.messages[0]?.id ?? null;
 }
 
 /** Who is typing at `now`: those heard from recently enough. */
