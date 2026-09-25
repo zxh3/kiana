@@ -10,7 +10,7 @@ import {
 import { cx } from "../../../../lib/class-names";
 import { setTouchSwitch } from "../../../../lib/haptics";
 import { HapticTap, switchAttribute, useOnIos } from "../../haptic-tap";
-import { useClickSwallow } from "../../music/use-click-swallow";
+import { useClickSwallow } from "../../use-click-swallow";
 import {
   angleDelta,
   DEGREES_PER_STEP,

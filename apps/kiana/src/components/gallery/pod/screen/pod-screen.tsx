@@ -8,7 +8,7 @@ import type { PointerEvent, ReactNode } from "react";
 
 import { cx } from "../../../../lib/class-names";
 import { easeSoft, fades } from "../../../../lib/motion";
-import { useClickSwallow } from "../../music/use-click-swallow";
+import { useClickSwallow } from "../../use-click-swallow";
 import { DISPLAY_INSET, glassFrame } from "../device/geometry";
 import { type Screen, screens } from "../menu";
 import type { BatteryState } from "../use-battery";

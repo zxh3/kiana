@@ -8,11 +8,11 @@ import {
   SoundOffIcon,
   SoundOnIcon,
 } from "../../icons";
-import { Marquee } from "../../music/marquee";
 import type { Repeat } from "../../music/music-queue";
 import { type Track, trackArt } from "../../music/music-track";
-import { formatPodTime } from "../format";
+import { formatPodTime, progressPercent } from "../format";
 import type { Overlay } from "../machine";
+import { Marquee } from "./marquee";
 
 /**
  * A bar the touch screen can set: press or drag along it, and `onChange`
@@ -121,7 +121,7 @@ export function NowPlaying({
   track: Track;
   volume: number;
 }) {
-  const percent = duration > 0 ? Math.min(100, (current / duration) * 100) : 0;
+  const percent = progressPercent(current, duration);
   return (
     <div className="absolute inset-0 px-2.5 pt-1.5 text-[#141414]">
       <div className="flex h-3 items-center justify-between text-[10px] text-[#666]">

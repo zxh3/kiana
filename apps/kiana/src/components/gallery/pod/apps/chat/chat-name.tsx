@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 
 import { NAME_MAX } from "../../../../../lib/chat";
 import { PodField } from "../../screen/pod-field";
+import { useCountChange } from "../../use-count-change";
 
 /**
  * Your Name, opened from the viewer's own row in the Online list: a field
@@ -19,7 +20,6 @@ export function ChatName({
   saves: number;
 }) {
   const field = useRef<HTMLInputElement>(null);
-  const seenSaves = useRef(saves);
 
   // With a mouse or trackpad, the field is ready to type into. A phone's
   // keyboard waits for a tap on it rather than covering the player.
@@ -29,13 +29,7 @@ export function ChatName({
     field.current?.select();
   }, []);
 
-  const save = useRef(onSave);
-  save.current = onSave;
-  useEffect(() => {
-    if (saves === seenSaves.current) return;
-    seenSaves.current = saves;
-    save.current(field.current?.value ?? "");
-  }, [saves]);
+  useCountChange(saves, () => onSave(field.current?.value ?? ""));
 
   return (
     <div className="flex h-full flex-col justify-center gap-1.5 px-3">

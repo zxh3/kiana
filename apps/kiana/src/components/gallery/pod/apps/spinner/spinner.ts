@@ -90,6 +90,9 @@ export function nextSpinnerStyle(style: SpinnerStyle): SpinnerStyle {
 export const kianaFaces = ["curious", "calm", "shades"] as const;
 export type KianaFace = (typeof kianaFaces)[number];
 
+/** How the finger spinner looks: which spinner, and which Kiana on its cap. */
+export type SpinnerLooks = { spinner: SpinnerStyle; face: KianaFace };
+
 export const kianaFaceLabels: Record<KianaFace, string> = {
   curious: "Curious",
   calm: "Calm",

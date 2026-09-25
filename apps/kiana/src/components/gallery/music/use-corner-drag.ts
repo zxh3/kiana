@@ -1,7 +1,6 @@
 import { type PointerEvent, useLayoutEffect, useRef, useState } from "react";
-
+import { useClickSwallow } from "../use-click-swallow";
 import { type Corner, nearestCorner } from "./music-layout";
-import { useClickSwallow } from "./use-click-swallow";
 
 const DRAG_THRESHOLD = 6;
 const SNAP_TRANSITION = "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)";

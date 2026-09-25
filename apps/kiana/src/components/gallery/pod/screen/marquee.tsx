@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 
-import { cx } from "../../../lib/class-names";
+import { cx } from "../../../../lib/class-names";
 
 const SPEED = 28; // pixels per second
 const GAP = 48;

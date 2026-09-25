@@ -1,16 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { formatPodTime } from "./format";
 import { initialPodState } from "./machine";
 import { describePod, type PodView, podRows } from "./rows";
 
 describe("pocket player screen", () => {
-  it("writes times the way the player does", () => {
-    expect(formatPodTime(0)).toBe("0:00");
-    expect(formatPodTime(187.9)).toBe("3:07");
-    expect(formatPodTime(Number.NaN)).toBe("0:00");
-  });
-
   it("describes the screen for a screen reader", () => {
     const view: PodView = {
       playlist: [

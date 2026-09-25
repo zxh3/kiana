@@ -5,6 +5,7 @@ import { cx } from "../../../../../lib/class-names";
 import { HapticTap } from "../../../haptic-tap";
 import { VerifiedGlyph } from "../../screen/glyphs";
 import { PodField } from "../../screen/pod-field";
+import { useCountChange } from "../../use-count-change";
 import { typingChangesAt, typingLine, typingNow } from "./chat";
 import type { Chat } from "./use-chat";
 
@@ -36,7 +37,6 @@ export function ChatRoom({
   const [draft, setDraft] = useState("");
   const list = useRef<HTMLDivElement>(null);
   const atEnd = useRef(true);
-  const seenSteps = useRef(steps);
   const open = chat.status === "open";
 
   // Who is typing changes with the clock as well as the room: each typist
@@ -66,11 +66,9 @@ export function ChatRoom({
     if (element && atEnd.current) element.scrollTop = element.scrollHeight;
   }, [count, chat.notice, typing]);
 
-  useEffect(() => {
-    const moved = steps - seenSteps.current;
-    seenSteps.current = steps;
-    if (moved) list.current?.scrollBy({ top: moved * LINE });
-  }, [steps]);
+  useCountChange(steps, (moved) =>
+    list.current?.scrollBy({ top: moved * LINE }),
+  );
 
   const handleEnter = (value: string) => {
     const text = cleanText(value);

@@ -9,6 +9,7 @@ import { EqualizerIcon, PauseIcon, PlayIcon } from "../icons";
 import { trackArt } from "../music/music-track";
 import type { Music } from "../music/use-music";
 import { Swap } from "../swap";
+import { progressPercent } from "./format";
 
 /**
  * The small player, after the square clip-on players: just the cover, a
@@ -26,10 +27,7 @@ export function NanoPlayer({
 }) {
   const playing = music.status === "playing";
   const { track } = music;
-  const percent =
-    progress.duration > 0
-      ? Math.min(100, (progress.current / progress.duration) * 100)
-      : 0;
+  const percent = progressPercent(progress.current, progress.duration);
 
   return (
     <div className="relative p-[5px]">
