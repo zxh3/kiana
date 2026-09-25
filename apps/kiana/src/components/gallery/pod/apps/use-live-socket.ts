@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 
-import { PING, PONG } from "../../../../lib/chat";
+import { PING, PONG } from "../../../../lib/live-socket";
 import { retryDelay } from "./live-socket";
 
 /** How often a quiet connection pings, so nothing between drops it. */
@@ -28,8 +28,8 @@ export function useLiveSocket({
    */
   account: string | null;
   onMessage: (data: string) => void;
-  /** Connected, or connected again: the moment to say hello. */
-  onOpen: () => void;
+  /** Connected, or connected again: the moment to say hello, if any. */
+  onOpen?: () => void;
   onStatus: (status: "connecting" | "offline") => void;
   open: boolean;
   path: string;
@@ -55,7 +55,7 @@ export function useLiveSocket({
       ws.addEventListener("open", () => {
         attempt = 0;
         socket.current = ws;
-        handlers.current.onOpen();
+        handlers.current.onOpen?.();
         ping = window.setInterval(() => ws.send(PING), PING_EVERY);
       });
       ws.addEventListener("message", (event) => {

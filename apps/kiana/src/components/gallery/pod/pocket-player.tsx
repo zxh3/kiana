@@ -20,8 +20,8 @@ import type { Pod } from "./use-pod";
 import { useScrollSteps } from "./use-scroll-steps";
 
 /**
- * The full music player, after the classic pocket players: a colour touch
- * screen with menus, a click wheel that drives them too, a hold switch and
+ * The full player, after the classic pocket players: a colour touch screen
+ * with menus, the music, and little apps, a click wheel that drives them, a hold switch and
  * the widget's minimize and close in the top margin, and a grip at the
  * bottom for moving it. It only draws; what every
  * control does lives in `usePod`, which the widget owns.

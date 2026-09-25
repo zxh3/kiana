@@ -20,6 +20,7 @@ import {
   menuItems,
   menuLabels,
   menuOpens,
+  type SettingsItem,
   screens,
   settingsItems,
   settingsLabels,
@@ -75,7 +76,8 @@ const accountDetails: Record<Exclude<AccountStatus, "member">, string> = {
 /** The rows of each list screen. */
 export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
   const { member, status } = view.account;
-  const details: Record<(typeof settingsItems)[number], string> = {
+  const memberName = member?.name || "Signed In";
+  const details: Record<SettingsItem, string> = {
     shuffle: view.shuffle ? "On" : "Off",
     repeat: view.repeat === "one" ? "One" : "All",
     backlight: backlightLabels[view.backlight],
@@ -83,10 +85,7 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
     finish: finishLabels[view.finish],
     spinner: spinnerStyleLabels[view.spinner],
     face: kianaFaceLabels[view.face],
-    account:
-      status === "member"
-        ? member?.name || "Signed In"
-        : accountDetails[status],
+    account: status === "member" ? memberName : accountDetails[status],
   };
   return {
     menu: menuItems.map((item) => ({
@@ -132,7 +131,7 @@ export function podRows(view: PodView): Record<ListScreen, PodRow[]> {
       item === "member"
         ? {
             key: item,
-            label: member?.name || "Signed In",
+            label: memberName,
             detail: "Google",
             verified: true,
           }

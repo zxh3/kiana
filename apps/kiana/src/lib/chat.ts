@@ -28,9 +28,6 @@ export const TYPING_EVERY = 2_000;
 export const TYPING_SHOWS_FOR = 3_500;
 /** The room passes on at most one typing signal this often per person. */
 export const TYPING_MIN_GAP = 500;
-/** What the browser sends to keep a quiet connection open, and the reply. */
-export const PING = "ping";
-export const PONG = "pong";
 /** The longest frame the room reads; anything longer is ignored. */
 const FRAME_MAX = 2_000;
 

@@ -54,9 +54,9 @@ Python changes, run the `uv` checks listed in `docs/development.md`.
   the wooden fish's merit in `src/server/wooden-fish.ts`, with
   `src/lib/muyu.ts`. The Worker's code has its own `tsconfig.worker.json`,
   since Cloudflare's runtime types clash with the browser's.
-- **Logic stays pure and tested.** The music player's behaviour is a pure
-  state machine in `pod/machine.ts` with unit tests; its components only
-  draw. Follow that shape: put rules in plain functions or reducers with
+- **Logic stays pure and tested.** The player's behaviour is a pure state
+  machine in `pod/machine.ts` with unit tests, each app's rules are a pure
+  reducer or module beside its hook, and the components only draw. Follow that shape: put rules in plain functions or reducers with
   tests next to them, and keep components thin.
 - **Stored preferences** live in localStorage under `kiana.*` keys through
   `useStoredState`. Their `parse*` functions must tolerate missing or junk

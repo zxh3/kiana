@@ -64,7 +64,7 @@ export function parseBestRpm(raw: string | null) {
   return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
 }
 
-/** The spinners to choose from in Settings, drawn in `screen/spinner-art`. */
+/** The spinners to choose from in Settings, drawn in `art/`. */
 export const spinnerStyles = ["stealth", "claw", "machined"] as const;
 export type SpinnerStyle = (typeof spinnerStyles)[number];
 

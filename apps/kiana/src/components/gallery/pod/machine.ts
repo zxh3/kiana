@@ -236,9 +236,36 @@ function clearScrub(state: PodState): Result {
   };
 }
 
-function go(state: PodState, screen: Screen, direction: 1 | -1): Result {
+/** The sounds of choosing something, and of pressing a button. */
+const SELECT: PodEffect = { type: "cue", cue: "select" };
+const PRESS: PodEffect = { type: "cue", cue: "press" };
+
+/**
+ * Goes to another screen: its sound first, then any seek the scrubber
+ * still owes, then whatever else the move sets off.
+ */
+function go(
+  state: PodState,
+  screen: Screen,
+  direction: 1 | -1,
+  sound: PodEffect,
+  ...after: PodEffect[]
+): Result {
   const cleared = clearScrub(state);
-  return { ...cleared, state: { ...cleared.state, screen, direction } };
+  return {
+    state: { ...cleared.state, screen, direction },
+    effects: [sound, ...cleared.effects, ...after],
+  };
+}
+
+/** A new song starts clean: no scrubber aiming at the old one's time. */
+function forgetScrub(state: PodState): PodState {
+  return {
+    ...state,
+    overlay: state.overlay === "scrub" ? null : state.overlay,
+    scrubAt: null,
+    seekPending: false,
+  };
 }
 
 function choose(state: PodState, screen: ChoiceScreen, index: number) {
@@ -284,64 +311,50 @@ function activate(
   context: PodContext,
 ): Result {
   const chosen = choose(state, screen, index);
-  const select: PodEffect = { type: "cue", cue: "select" };
 
   if (screen === "songs" || screen === "covers") {
-    const next = go(chosen, "now", 1);
-    return {
-      ...next,
-      effects: [select, ...next.effects, { type: "play", index }],
-    };
+    return go(chosen, "now", 1, SELECT, { type: "play", index });
   }
   if (screen === "settings") {
     const item = settingsItems[index];
-    if (item === "account") {
-      const next = go(chosen, "account", 1);
-      return { ...next, effects: [select, ...next.effects] };
-    }
-    return { state: chosen, effects: [select, { type: "setting", item }] };
+    if (item === "account") return go(chosen, "account", 1, SELECT);
+    return { state: chosen, effects: [SELECT, { type: "setting", item }] };
   }
   // Signing in leaves for Google and comes back; signing out stays, with
   // the highlight on the way back in.
   if (screen === "account") {
     const item = accountItems(context.account)[index];
     if (item === "signIn") {
-      return { state: chosen, effects: [select, { type: "signIn" }] };
+      return { state: chosen, effects: [SELECT, { type: "signIn" }] };
     }
     if (item === "signOut") {
       return {
         state: choose(chosen, "account", 0),
-        effects: [select, { type: "signOut" }],
+        effects: [SELECT, { type: "signOut" }],
       };
     }
     return { state: chosen, effects: [] };
   }
-  if (screen === "apps") {
-    const next = go(chosen, appItems[index], 1);
-    return { ...next, effects: [select, ...next.effects] };
-  }
+  if (screen === "apps") return go(chosen, appItems[index], 1, SELECT);
   // In the Online list only the viewer's own row, the first, opens: to
   // change their name, unless they go by their Google account's.
   if (screen === "online") {
     if (index !== 0 || context.account === "member") {
       return { state: chosen, effects: [] };
     }
-    const next = go(chosen, "name", 1);
-    return { ...next, effects: [select, ...next.effects] };
+    return go(chosen, "name", 1, SELECT);
   }
 
   const item = menuItems[index];
   if (item === "shuffle") {
-    const next = go(chosen, "now", 1);
-    return { ...next, effects: [select, ...next.effects, { type: "shuffle" }] };
+    return go(chosen, "now", 1, SELECT, { type: "shuffle" });
   }
   // Song lists open on the song that is playing.
   const opened =
     item === "covers" || item === "songs"
       ? choose(chosen, item, context.index)
       : chosen;
-  const next = go(opened, item, 1);
-  return { ...next, effects: [select, ...next.effects] };
+  return go(opened, item, 1, SELECT);
 }
 
 export function podReducer(
@@ -394,23 +407,19 @@ export function podReducer(
     }
 
     case "select": {
-      const press: PodEffect = { type: "cue", cue: "press" };
-      if (context.videoCovers) return { state, effects: [press] };
+      if (context.videoCovers) return { state, effects: [PRESS] };
       // The centre button flicks the finger spinner.
       if (state.screen === "spinner") {
-        return { state: countWheel(state, 0, 1), effects: [press] };
+        return { state: countWheel(state, 0, 1), effects: [PRESS] };
       }
       // The electronic wooden fish: each press pats Kiana's head, for merit.
       if (state.screen === "muyu") {
-        return { state, effects: [press, { type: "pat" }] };
+        return { state, effects: [PRESS, { type: "pat" }] };
       }
       // In the Chat Room the centre button opens the Online list, and on
       // Your Name it saves the name, which the screen answers with
       // `saveName`.
-      if (state.screen === "chat") {
-        const next = go(state, "online", 1);
-        return { ...next, effects: [{ type: "cue", cue: "select" }] };
-      }
+      if (state.screen === "chat") return go(state, "online", 1, SELECT);
       if (state.screen === "name") {
         return { state: countWheel(state, 0, 1), effects: [] };
       }
@@ -424,36 +433,27 @@ export function podReducer(
       }
       if (state.overlay === "scrub") {
         const cleared = clearScrub(state);
-        return { ...cleared, effects: [press, ...cleared.effects] };
+        return { ...cleared, effects: [PRESS, ...cleared.effects] };
       }
       return {
         state: { ...show(state, "scrub"), scrubAt: null, seekPending: false },
-        effects: [press],
+        effects: [PRESS],
       };
     }
 
     case "back": {
-      const press: PodEffect = { type: "cue", cue: "press" };
       if (context.videoOpen) {
-        return { state, effects: [press, { type: "video", on: false }] };
+        return { state, effects: [PRESS, { type: "video", on: false }] };
       }
       const parent = screens[state.screen].parent;
-      if (!parent || context.videoCovers) return { state, effects: [press] };
-      const next = go(state, parent, -1);
-      return { ...next, effects: [press, ...next.effects] };
+      if (!parent || context.videoCovers) return { state, effects: [PRESS] };
+      return go(state, parent, -1, PRESS);
     }
 
     case "next":
     case "previous": {
-      // A new song starts clean: no scrubber aiming at the old one's time.
-      const cleared = {
-        ...state,
-        overlay: state.overlay === "scrub" ? null : state.overlay,
-        scrubAt: null,
-        seekPending: false,
-      };
       return {
-        state: cleared,
+        state: forgetScrub(state),
         effects: [
           {
             type: "cue",
@@ -467,7 +467,7 @@ export function podReducer(
     case "playPause":
       return {
         state,
-        effects: [{ type: "cue", cue: "press" }, { type: "toggle" }],
+        effects: [PRESS, { type: "toggle" }],
       };
 
     case "toggleVideo":
@@ -475,10 +475,7 @@ export function podReducer(
       // or with Menu.
       return {
         state,
-        effects: [
-          { type: "cue", cue: "select" },
-          { type: "video", on: !context.videoOpen },
-        ],
+        effects: [SELECT, { type: "video", on: !context.videoOpen }],
       };
 
     case "holdStart": {
@@ -486,7 +483,7 @@ export function podReducer(
         // Holding Menu turns the backlight off, or back on.
         return {
           state,
-          effects: [{ type: "cue", cue: "press" }, { type: "backlight" }],
+          effects: [PRESS, { type: "backlight" }],
         };
       }
       if (action.zone === "play") {
@@ -512,7 +509,7 @@ export function podReducer(
           scrubAt: state.scrubAt ?? context.current,
           seekPending: false,
         },
-        effects: [{ type: "cue", cue: "press" }],
+        effects: [PRESS],
       };
     }
 
@@ -593,23 +590,15 @@ export function podReducer(
     case "say":
       return {
         state,
-        effects: [
-          { type: "cue", cue: "select" },
-          { type: "say", text: action.text },
-        ],
+        effects: [SELECT, { type: "say", text: action.text }],
       };
 
-    case "saveName": {
+    case "saveName":
       if (state.screen !== "name") return unchanged;
-      const next = go(state, "online", -1);
-      return {
-        ...next,
-        effects: [
-          { type: "cue", cue: "select" },
-          { type: "rename", name: action.name },
-        ],
-      };
-    }
+      return go(state, "online", -1, SELECT, {
+        type: "rename",
+        name: action.name,
+      });
 
     case "toggleHold":
       return {
@@ -618,20 +607,15 @@ export function podReducer(
       };
 
     case "trackChanged": {
-      const cleared = {
-        ...state,
-        selected: {
-          ...state.selected,
-          covers: action.index,
-          songs: action.index,
-        },
-        overlay: state.overlay === "scrub" ? null : state.overlay,
-        scrubAt: null,
-        seekPending: false,
-        seeking: 0 as const,
-        touching: false,
+      const selected = {
+        ...state.selected,
+        covers: action.index,
+        songs: action.index,
       };
-      return { state: cleared, effects: [] };
+      return {
+        state: { ...forgetScrub(state), selected, seeking: 0, touching: false },
+        effects: [],
+      };
     }
 
     case "overlayExpired":

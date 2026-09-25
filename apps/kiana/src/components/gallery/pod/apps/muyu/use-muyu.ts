@@ -37,7 +37,6 @@ export function useMuyu(open: boolean, account: string | null) {
       const message = parseMuyuServerMessage(data);
       if (message) dispatch({ type: "received", message });
     },
-    onOpen: () => undefined,
     onStatus: (status) => dispatch({ type: status }),
     account,
     open,
