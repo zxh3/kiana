@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { GalleryAsset } from "../../data/photos";
 import { cx } from "../../lib/class-names";
+import { frameStyles } from "./frame-styles";
 import { PlayIcon } from "./icons";
 import { type LayerDirection, mediaTransition } from "./media-transition";
 import type { Frame, Transition } from "./model";
@@ -163,7 +164,7 @@ export function VideoLayer({
   return (
     <div
       aria-hidden={!current}
-      className={cx(presentation.className, mat && "bg-[#e9e2d6]")}
+      className={cx(presentation.className, mat && frameStyles.wall)}
       style={presentation.style}
     >
       {asset ? (
@@ -173,8 +174,7 @@ export function VideoLayer({
         <div
           className={cx(
             "relative grid place-items-center",
-            mat &&
-              "flex max-h-[78dvh] max-w-[84vw] bg-[#f6f0e6] p-[clamp(12px,1.8vw,26px)] shadow-[0_1px_2px_rgba(23,18,15,.18),0_26px_60px_-26px_rgba(23,18,15,.5)] max-sm:max-h-[72dvh] max-sm:max-w-[90vw] max-sm:p-3",
+            mat && frameStyles.card,
           )}
         >
           <video
@@ -182,11 +182,7 @@ export function VideoLayer({
             autoPlay={current && !paused}
             className={cx(
               "block h-auto w-auto object-contain",
-              mat
-                ? "max-h-[calc(78dvh-clamp(24px,3.6vw,52px))] max-w-[calc(84vw-clamp(24px,3.6vw,52px))] max-sm:max-h-[calc(72dvh-24px)] max-sm:max-w-[calc(90vw-24px)]"
-                : frame === "fill"
-                  ? "max-h-[100dvh] max-w-[100vw]"
-                  : "max-h-[76dvh] max-w-[min(82vw,1060px)] shadow-[0_46px_100px_-40px_rgba(0,0,0,.95)] max-sm:max-h-[70dvh] max-sm:max-w-[90vw]",
+              frameStyles.media[frame],
             )}
             disablePictureInPicture
             height={video?.height}
