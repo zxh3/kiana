@@ -25,6 +25,7 @@ export const playlist: ReadonlyArray<Track> = [
   { videoId: "qt2tqHXCwjY", title: "贝加尔湖畔", artist: "李健" },
   { videoId: "mjuS9shGYhE", title: "流年", artist: "王菲" },
   { videoId: "mdZ9CHBIhLE", title: "乌兰巴托的夜", artist: "洋澜一" },
+  { videoId: "TY3nj5ANRrk", title: "會呼吸的痛", artist: "梁靜茹" },
 ];
 
 export function trackUrl(track: Track) {
