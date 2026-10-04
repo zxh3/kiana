@@ -26,6 +26,12 @@ export const playlist: ReadonlyArray<Track> = [
   { videoId: "mjuS9shGYhE", title: "流年", artist: "王菲" },
   { videoId: "mdZ9CHBIhLE", title: "乌兰巴托的夜", artist: "洋澜一" },
   { videoId: "TY3nj5ANRrk", title: "會呼吸的痛", artist: "梁靜茹" },
+  {
+    videoId: "5ICrBDzb9r0",
+    title: "明明白白我的心",
+    artist: "李宗盛 / 梁靜茹",
+  },
+  { videoId: "yT7ejQlnWUg", title: "夢醒時分", artist: "梁靜茹" },
 ];
 
 export function trackUrl(track: Track) {
