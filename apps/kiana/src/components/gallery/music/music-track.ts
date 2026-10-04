@@ -21,6 +21,9 @@ export const playlist: ReadonlyArray<Track> = [
     artist: "Joseph Hsieh",
   },
   { videoId: "tpEBdPGKVYA", title: "送你一朵小紅花", artist: "趙英俊" },
+  { videoId: "mxLAlGWQ4pM", title: "假如爱有天意", artist: "李健" },
+  { videoId: "qt2tqHXCwjY", title: "贝加尔湖畔", artist: "李健" },
+  { videoId: "mjuS9shGYhE", title: "流年", artist: "王菲" },
 ];
 
 export function trackUrl(track: Track) {

@@ -50,7 +50,7 @@ Mediaforge release manifest and displays the responsive images described by it.
   that photo as the link preview image.
 - **Music.** The player button in the top bar, only an icon of the pocket
   player with bars dancing on its screen while music plays (its label and
-  tooltip say what a press does), plays a five-song YouTube playlist as
+  tooltip say what a press does), plays an eight-song YouTube playlist as
   background music. The player is made like the pocket music players of the
   2000s, in silver, graphite, or rose aluminium. Its colour screen has a top
   menu titled with the device's name, laid out as on the original: Music
