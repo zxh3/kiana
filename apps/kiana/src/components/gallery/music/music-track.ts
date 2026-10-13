@@ -32,6 +32,7 @@ export const playlist: ReadonlyArray<Track> = [
     artist: "李宗盛 / 梁靜茹",
   },
   { videoId: "yT7ejQlnWUg", title: "夢醒時分", artist: "梁靜茹" },
+  { videoId: "9y9-ilO1JwU", title: "下完这场雨", artist: "后弦" },
 ];
 
 export function trackUrl(track: Track) {
